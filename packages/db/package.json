@@ -17,9 +17,11 @@
   },
   "dependencies": {
     "@polyladder/core": "workspace:*",
+    "bcrypt": "^6.0.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/pg": "^8.16.0",
     "node-pg-migrate": "^8.0.4",
     "tsx": "^4.21.0",
