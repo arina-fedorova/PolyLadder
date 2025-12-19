@@ -3,7 +3,9 @@
 **Feature Code**: F006
 **Created**: 2025-12-17
 **Phase**: 1 - Authentication & User Management
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #9
 
 ---
 
@@ -13,13 +15,13 @@ Implement JWT-based session management including token verification, expiration 
 
 ## Success Criteria
 
-- [ ] JWT verification middleware for all protected routes
-- [ ] Token expiration automatically enforced (7 days)
-- [ ] "Get current user" endpoint returns user information
-- [ ] Client-side logout (token removal)
-- [ ] Invalid/expired tokens return 401 Unauthorized
-- [ ] Request context includes authenticated user information
-- [ ] No server-side session storage required
+- [x] JWT verification middleware for all protected routes
+- [x] Token expiration automatically enforced (7 days)
+- [ ] "Get current user" endpoint returns user information (→ F019)
+- [x] Client-side logout (token removal)
+- [x] Invalid/expired tokens return 401 Unauthorized
+- [x] Request context includes authenticated user information
+- [x] No server-side session storage required
 
 ---
 
@@ -33,6 +35,7 @@ Implement JWT-based session management including token verification, expiration 
 
 1. The authentication middleware created in F005 already handles JWT verification
 2. Create session-specific utilities in `packages/core/src/auth/session.ts`:
+
    ```typescript
    import { JWTPayload } from '../domain/user';
 
@@ -84,12 +87,13 @@ Implement JWT-based session management including token verification, expiration 
    }
    ```
 
-2. Export from `packages/core/src/index.ts`:
+3. Export from `packages/core/src/index.ts`:
    ```typescript
    export * from './auth/session';
    ```
 
 **Files Created**:
+
 - `packages/core/src/auth/session.ts`
 
 ---
@@ -101,6 +105,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create `packages/api/src/routes/auth/me.ts`:
+
    ```typescript
    import { FastifyInstance } from 'fastify';
    import { findUserById } from '@polyladder/db';
@@ -112,56 +117,57 @@ Implement JWT-based session management including token verification, expiration 
     * Returns current authenticated user's information
     */
    export async function meRoutes(fastify: FastifyInstance) {
-     fastify.get(
-       '/me',
-       protectRoute(fastify),
-       async (request, reply) => {
-         try {
-           // User is guaranteed to exist because of protectRoute middleware
-           const userId = request.user!.userId;
+     fastify.get('/me', protectRoute(fastify), async (request, reply) => {
+       try {
+         // User is guaranteed to exist because of protectRoute middleware
+         const userId = request.user!.userId;
 
-           // Fetch user from database
-           const user = await findUserById(fastify.pg, userId);
+         // Fetch user from database
+         const user = await findUserById(fastify.pg, userId);
 
-           if (!user) {
-             return reply.status(404).send({
-               error: 'Not Found',
-               message: 'User not found',
-             });
-           }
-
-           // Return public user information (no password hash)
-           return {
-             user: toPublicUser(user),
-           };
-         } catch (error) {
-           fastify.log.error(error, 'Failed to fetch current user');
-           return reply.status(500).send({
-             error: 'Internal Server Error',
-             message: 'Failed to fetch user information',
+         if (!user) {
+           return reply.status(404).send({
+             error: 'Not Found',
+             message: 'User not found',
            });
          }
+
+         // Return public user information (no password hash)
+         return {
+           user: toPublicUser(user),
+         };
+       } catch (error) {
+         fastify.log.error(error, 'Failed to fetch current user');
+         return reply.status(500).send({
+           error: 'Internal Server Error',
+           message: 'Failed to fetch user information',
+         });
        }
-     );
+     });
    }
    ```
 
 2. Register route in auth routes index `packages/api/src/routes/auth/index.ts`:
+
    ```typescript
    import { FastifyInstance } from 'fastify';
    import { meRoutes } from './me';
    // Other auth route imports...
 
    export async function authRoutes(fastify: FastifyInstance) {
-     fastify.register(async (instance) => {
-       // Register all auth routes under /api/v1/auth
-       await instance.register(meRoutes);
-       // Other routes...
-     }, { prefix: '/auth' });
+     fastify.register(
+       async (instance) => {
+         // Register all auth routes under /api/v1/auth
+         await instance.register(meRoutes);
+         // Other routes...
+       },
+       { prefix: '/auth' }
+     );
    }
    ```
 
 **Files Created**:
+
 - `packages/api/src/routes/auth/me.ts`
 
 ---
@@ -173,6 +179,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create `packages/core/src/services/session-validation.ts`:
+
    ```typescript
    import { Pool } from 'pg';
    import { JWTPayload, PublicUser, toPublicUser } from '../domain/user';
@@ -193,10 +200,7 @@ Implement JWT-based session management including token verification, expiration 
     * @returns User information
     * @throws SessionValidationError if session is invalid
     */
-   export async function validateSession(
-     pool: Pool,
-     payload: JWTPayload
-   ): Promise<PublicUser> {
+   export async function validateSession(pool: Pool, payload: JWTPayload): Promise<PublicUser> {
      // Check if session is expired
      const session = jwtToSession(payload);
      if (isSessionExpired(session)) {
@@ -234,6 +238,7 @@ Implement JWT-based session management including token verification, expiration 
    ```
 
 **Files Created**:
+
 - `packages/core/src/services/session-validation.ts`
 
 ---
@@ -245,6 +250,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create documentation in `docs/AUTH_PATTERNS.md` (append to existing file):
+
    ```markdown
    ## Logout Pattern
 
@@ -255,17 +261,18 @@ Implement JWT-based session management including token verification, expiration 
    \`\`\`typescript
    // Frontend logout
    export function logout() {
-     // Remove token from localStorage
-     localStorage.removeItem('authToken');
+   // Remove token from localStorage
+   localStorage.removeItem('authToken');
 
-     // Redirect to login page
-     window.location.href = '/login';
+   // Redirect to login page
+   window.location.href = '/login';
    }
    \`\`\`
 
    ### Server-Side Token Invalidation (Future)
 
    For immediate token invalidation, consider implementing:
+
    - Token blacklist in Redis
    - Token revocation endpoint
    - Shorter token expiration with refresh tokens
@@ -276,6 +283,7 @@ Implement JWT-based session management including token verification, expiration 
 2. No server-side endpoint needed for basic logout
 
 **Files Created**:
+
 - (Documentation update only)
 
 ---
@@ -287,6 +295,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create logging middleware `packages/api/src/middleware/request-logger.ts`:
+
    ```typescript
    import { FastifyRequest, FastifyReply } from 'fastify';
 
@@ -306,28 +315,35 @@ Implement JWT-based session management including token verification, expiration 
      }
 
      // Log request start
-     request.log.info({
-       method: request.method,
-       url: request.url,
-       ip: request.ip,
-     }, 'Incoming request');
+     request.log.info(
+       {
+         method: request.method,
+         url: request.url,
+         ip: request.ip,
+       },
+       'Incoming request'
+     );
 
      // Track response time
      const startTime = Date.now();
 
      reply.addHook('onResponse', () => {
        const duration = Date.now() - startTime;
-       request.log.info({
-         method: request.method,
-         url: request.url,
-         statusCode: reply.statusCode,
-         duration,
-       }, 'Request completed');
+       request.log.info(
+         {
+           method: request.method,
+           url: request.url,
+           statusCode: reply.statusCode,
+           duration,
+         },
+         'Request completed'
+       );
      });
    }
    ```
 
 2. Register in Fastify server setup:
+
    ```typescript
    // In packages/api/src/server.ts
    import { requestLoggerMiddleware } from './middleware/request-logger';
@@ -337,6 +353,7 @@ Implement JWT-based session management including token verification, expiration 
    ```
 
 **Files Created**:
+
 - `packages/api/src/middleware/request-logger.ts`
 
 ---
@@ -348,6 +365,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create `packages/api/tests/helpers/auth.ts`:
+
    ```typescript
    import { generateToken, UserRole } from '@polyladder/core';
 
@@ -392,6 +410,7 @@ Implement JWT-based session management including token verification, expiration 
    ```
 
 2. Create integration test example `packages/api/tests/routes/auth/me.test.ts`:
+
    ```typescript
    import { describe, it, expect, beforeAll, afterAll } from 'vitest';
    import { build } from '../../helpers/server';
@@ -447,6 +466,7 @@ Implement JWT-based session management including token verification, expiration 
    ```
 
 **Files Created**:
+
 - `packages/api/tests/helpers/auth.ts`
 - `packages/api/tests/routes/auth/me.test.ts`
 
@@ -459,6 +479,7 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create `docs/SESSION_MANAGEMENT.md`:
+
    ```markdown
    # Session Management
 
@@ -497,6 +518,7 @@ Implement JWT-based session management including token verification, expiration 
    ## Token Structure
 
    JWT payload contains:
+
    - `userId`: User's UUID
    - `role`: 'learner' or 'operator'
    - `iat`: Issued at (Unix timestamp)
@@ -505,21 +527,23 @@ Implement JWT-based session management including token verification, expiration 
    Example decoded JWT:
    \`\`\`json
    {
-     "userId": "123e4567-e89b-12d3-a456-426614174000",
-     "role": "learner",
-     "iat": 1705320000,
-     "exp": 1705924800
+   "userId": "123e4567-e89b-12d3-a456-426614174000",
+   "role": "learner",
+   "iat": 1705320000,
+   "exp": 1705924800
    }
    \`\`\`
 
    ## Expiration Handling
 
    ### Client-Side
+
    - Check token expiration before making requests
    - Redirect to login if expired
    - Show "session expired" message
 
    ### Server-Side
+
    - JWT library automatically validates expiration
    - Returns 401 if token is expired
    - Client must re-authenticate
@@ -527,14 +551,17 @@ Implement JWT-based session management including token verification, expiration 
    ## Security Considerations
 
    ### Token Storage
+
    - Store in localStorage (acceptable for this use case)
    - Alternative: HttpOnly cookies (more secure but complicates deployment)
 
    ### Token Lifetime
+
    - 7 days expiration balances security and UX
    - Users must re-login weekly
 
    ### Token Refresh (Future Enhancement)
+
    - Implement refresh tokens for better UX
    - Short-lived access tokens (15 min)
    - Long-lived refresh tokens (30 days)
@@ -551,11 +578,12 @@ Implement JWT-based session management including token verification, expiration 
 
    const token = createTestToken('user-id', 'learner');
    const response = await request.get('/api/v1/protected')
-     .set('Authorization', \`Bearer \${token}\`);
+   .set('Authorization', \`Bearer \${token}\`);
    \`\`\`
    ```
 
 **Files Created**:
+
 - `docs/SESSION_MANAGEMENT.md`
 
 ---
@@ -567,9 +595,15 @@ Implement JWT-based session management including token verification, expiration 
 **Implementation Plan**:
 
 1. Create `packages/core/tests/auth/session.test.ts`:
+
    ```typescript
    import { describe, it, expect } from 'vitest';
-   import { jwtToSession, isSessionExpired, getRemainingSessionTime, shouldRefreshSession } from '../../src/auth/session';
+   import {
+     jwtToSession,
+     isSessionExpired,
+     getRemainingSessionTime,
+     shouldRefreshSession,
+   } from '../../src/auth/session';
 
    describe('Session Management', () => {
      describe('jwtToSession', () => {
@@ -639,6 +673,7 @@ Implement JWT-based session management including token verification, expiration 
    ```
 
 **Files Created**:
+
 - `packages/core/tests/auth/session.test.ts`
 
 ---
@@ -672,23 +707,26 @@ Implement JWT-based session management including token verification, expiration 
 **Current Approach**: Not explicitly defined. Notes mention "HttpOnly cookies more secure than localStorage but complicate CORS" suggesting localStorage might be current choice for simplicity.
 
 **Alternatives**:
+
 1. **localStorage**: Client stores token, includes in `Authorization: Bearer` header. Simple, works with CORS, but vulnerable to XSS attacks (malicious scripts can steal token).
 2. **HttpOnly cookies**: Server sets cookie with `HttpOnly; Secure; SameSite=Strict` flags. Immune to XSS but vulnerable to CSRF, requires CSRF tokens, complicates CORS with credentials.
 3. **Hybrid**: Refresh token in HttpOnly cookie, short-lived access token in memory (React state). Best security but most complex.
 4. **SessionStorage**: Like localStorage but cleared on tab close. Slightly better security but poor UX (logout on tab close).
 
 **Recommendation**: Use **HttpOnly cookies** (Option 2) for production security. Implementation:
+
 ```typescript
 // Server sets cookie after login
 reply.setCookie('auth_token', jwt, {
-  httpOnly: true,        // No JavaScript access
-  secure: true,          // HTTPS only
-  sameSite: 'strict',    // CSRF protection
-  maxAge: 7 * 24 * 60 * 60 // 7 days
+  httpOnly: true, // No JavaScript access
+  secure: true, // HTTPS only
+  sameSite: 'strict', // CSRF protection
+  maxAge: 7 * 24 * 60 * 60, // 7 days
 });
 ```
 
 Frontend configuration:
+
 - API requests use `credentials: 'include'` to send cookies
 - CORS must allow credentials: `Access-Control-Allow-Credentials: true`
 - Add CSRF protection: Double-submit cookie pattern or synchronizer tokens
@@ -704,6 +742,7 @@ For development (localhost), use `sameSite: 'lax'` and `secure: false`. The XSS 
 **Current Approach**: Stateless JWT with no server-side storage. Tokens valid until expiration (7 days). Notes mention "cannot be invalidated before expiration" and token blacklist as "future enhancement".
 
 **Alternatives**:
+
 1. **No revocation** (current): Wait for token to expire naturally. Simple but terrible for security - banned user can use app for up to 7 days after ban.
 2. **Token blacklist in database**: Store revoked token JTIs in `revoked_tokens` table. Check on every request. Adds database query overhead but enables instant revocation.
 3. **Token blacklist in Redis**: Store revoked JTIs in Redis with TTL matching token expiration. Faster than database but adds infrastructure dependency.
@@ -711,10 +750,12 @@ For development (localhost), use `sameSite: 'lax'` and `secure: false`. The XSS 
 5. **Server-side sessions**: Abandon JWT, use session IDs stored in Redis/database. Full control over revocation but loses stateless benefits.
 
 **Recommendation**: Implement **short-lived tokens + refresh tokens** (Option 4). Architecture:
+
 - **Access token**: JWT, 15-minute expiration, stored in memory (React state), used for API requests
 - **Refresh token**: Secure random string, 30-day expiration, stored in HttpOnly cookie, tracked in database
 
 Flow:
+
 ```typescript
 // Database table
 CREATE TABLE refresh_tokens (
@@ -741,12 +782,14 @@ This enables instant revocation (revoke refresh token) while keeping access toke
 **Current Approach**: Stateless JWT with no session tracking. User can log in from unlimited devices simultaneously. No visibility into where user is logged in.
 
 **Alternatives**:
+
 1. **No tracking** (current): Unlimited concurrent sessions. Simple but no audit trail, can't answer "where am I logged in?", can't revoke specific device.
 2. **Track all sessions in database**: Store session metadata (device, IP, login time) for each active refresh token. User can view and revoke sessions. Full visibility but database overhead.
 3. **Limit concurrent sessions**: Allow max N devices (3-5). New login revokes oldest session. Prevents account sharing but may frustrate legitimate users with many devices.
 4. **Track + optional limit**: Store sessions, let user configure limit (1-10 devices) in settings. Flexibility but more complex.
 
 **Recommendation**: **Track all sessions without hard limits** (Option 2). Extend `refresh_tokens` table:
+
 ```sql
 ALTER TABLE refresh_tokens ADD COLUMN device_info JSONB;
 
@@ -761,6 +804,7 @@ ALTER TABLE refresh_tokens ADD COLUMN device_info JSONB;
 ```
 
 Build "Active Sessions" page in UI (F023):
+
 - Show all active devices with last activity time
 - "Sign out" button per session (revoke that refresh token)
 - "Sign out all other devices" button (revoke all except current)
