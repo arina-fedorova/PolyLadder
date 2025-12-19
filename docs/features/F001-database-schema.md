@@ -3,7 +3,9 @@
 **Feature Code**: F001
 **Created**: 2025-12-17
 **Phase**: 0 - Foundation & Infrastructure
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #4
 
 ---
 
@@ -13,12 +15,12 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 
 ## Success Criteria
 
-- [ ] PostgreSQL schema fully designed and documented
-- [ ] Migration framework (node-pg-migrate) configured
-- [ ] All tables created with proper indexes and constraints
-- [ ] Development seed data available
-- [ ] Connection pooling configured
-- [ ] Schema validates against domain model
+- [x] PostgreSQL schema fully designed and documented
+- [x] Migration framework (node-pg-migrate) configured
+- [x] All tables created with proper indexes and constraints
+- [x] Development seed data available
+- [x] Connection pooling configured
+- [x] Schema validates against domain model
 
 ---
 
@@ -31,6 +33,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Install dependencies in `@polyladder/db`:
+
    ```bash
    cd packages/db
    pnpm add pg
@@ -38,6 +41,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 2. Update `packages/db/package.json` scripts:
+
    ```json
    {
      "scripts": {
@@ -61,6 +65,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/.node-pg-migraterc`
 
 ---
@@ -72,6 +77,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create migration `001_create_users_table.ts`:
+
    ```typescript
    import { MigrationBuilder, ColumnDefinitions } from 'node-pg-migrate';
 
@@ -82,37 +88,37 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        email: {
          type: 'varchar(255)',
          notNull: true,
-         unique: true
+         unique: true,
        },
        password_hash: {
          type: 'varchar(255)',
-         notNull: true
+         notNull: true,
        },
        role: {
          type: 'varchar(20)',
          notNull: true,
-         check: "role IN ('learner', 'operator')"
+         check: "role IN ('learner', 'operator')",
        },
        base_language: {
          type: 'varchar(2)',
          notNull: true,
-         check: "base_language IN ('EN', 'IT', 'PT', 'SL', 'ES')"
+         check: "base_language IN ('EN', 'IT', 'PT', 'SL', 'ES')",
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
+         default: pgm.func('current_timestamp'),
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Create indexes
@@ -126,6 +132,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/migrations/001_create_users_table.ts`
 
 ---
@@ -137,33 +144,30 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create migration `002_create_approved_tables.ts`:
+
    ```typescript
    export async function up(pgm: MigrationBuilder): Promise<void> {
      // Approved Meanings (language-independent semantic units)
      pgm.createTable('approved_meanings', {
        id: {
          type: 'varchar(100)',
-         primaryKey: true
+         primaryKey: true,
        },
        level: {
          type: 'varchar(2)',
          notNull: true,
-         check: "level IN ('A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2')"
+         check: "level IN ('A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2')",
        },
        tags: {
          type: 'jsonb',
          notNull: true,
-         default: '[]'
-       },
-       russian_gloss: {
-         type: 'text',
-         notNull: false
+         default: '[]',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Approved Utterances (language-specific realizations)
@@ -171,78 +175,78 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        meaning_id: {
          type: 'varchar(100)',
          notNull: true,
-         references: 'approved_meanings(id)'
+         references: 'approved_meanings(id)',
        },
        language: {
          type: 'varchar(2)',
          notNull: true,
-         check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')"
+         check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')",
        },
        text: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        register: {
          type: 'varchar(20)',
-         notNull: false
+         notNull: false,
        },
        usage_notes: {
          type: 'text',
-         notNull: false
+         notNull: false,
        },
        audio_url: {
          type: 'varchar(500)',
-         notNull: false
+         notNull: false,
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Approved Grammar Rules
      pgm.createTable('approved_rules', {
        id: {
          type: 'varchar(100)',
-         primaryKey: true
+         primaryKey: true,
        },
        language: {
          type: 'varchar(2)',
          notNull: true,
-         check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')"
+         check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')",
        },
        level: {
          type: 'varchar(2)',
-         notNull: true
+         notNull: true,
        },
        category: {
          type: 'varchar(50)',
-         notNull: true
+         notNull: true,
        },
        title: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        explanation: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        examples: {
          type: 'jsonb',
          notNull: true,
-         default: '[]'
+         default: '[]',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Approved Exercises
@@ -250,45 +254,45 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        type: {
          type: 'varchar(20)',
          notNull: true,
-         check: "type IN ('flashcard', 'multiple_choice', 'cloze', 'translation', 'dictation')"
+         check: "type IN ('flashcard', 'multiple_choice', 'cloze', 'translation', 'dictation')",
        },
        level: {
          type: 'varchar(2)',
-         notNull: true
+         notNull: true,
        },
        languages: {
          type: 'jsonb',
          notNull: true,
-         comment: 'Array of language codes involved'
+         comment: 'Array of language codes involved',
        },
        prompt: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        correct_answer: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        options: {
          type: 'jsonb',
          notNull: false,
-         comment: 'For multiple choice exercises'
+         comment: 'For multiple choice exercises',
        },
        metadata: {
          type: 'jsonb',
          notNull: true,
-         default: '{}'
+         default: '{}',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Curriculum Graph
@@ -296,38 +300,38 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        concept_id: {
          type: 'varchar(100)',
          notNull: true,
-         unique: true
+         unique: true,
        },
        concept_type: {
          type: 'varchar(20)',
          notNull: true,
-         check: "concept_type IN ('orthography', 'grammar', 'meaning', 'exercise_bundle')"
+         check: "concept_type IN ('orthography', 'grammar', 'meaning', 'exercise_bundle')",
        },
        language: {
          type: 'varchar(2)',
-         notNull: false
+         notNull: false,
        },
        prerequisites: {
          type: 'jsonb',
          notNull: true,
          default: '[]',
-         comment: 'Array of prerequisite concept_ids'
+         comment: 'Array of prerequisite concept_ids',
        },
        metadata: {
          type: 'jsonb',
          notNull: true,
-         default: '{}'
+         default: '{}',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Create indexes
@@ -348,6 +352,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/migrations/002_create_approved_tables.ts`
 
 ---
@@ -359,6 +364,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create migration `003_create_pipeline_tables.ts`:
+
    ```typescript
    export async function up(pgm: MigrationBuilder): Promise<void> {
      // Drafts (raw data from any source)
@@ -366,27 +372,27 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        data_type: {
          type: 'varchar(20)',
          notNull: true,
-         check: "data_type IN ('meaning', 'utterance', 'rule', 'exercise')"
+         check: "data_type IN ('meaning', 'utterance', 'rule', 'exercise')",
        },
        raw_data: {
          type: 'jsonb',
-         notNull: true
+         notNull: true,
        },
        source: {
          type: 'varchar(100)',
          notNull: true,
-         comment: 'Origin of data: llm, parser, manual, etc.'
+         comment: 'Origin of data: llm, parser, manual, etc.',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Candidates (normalized data)
@@ -394,26 +400,26 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        data_type: {
          type: 'varchar(20)',
-         notNull: true
+         notNull: true,
        },
        normalized_data: {
          type: 'jsonb',
-         notNull: true
+         notNull: true,
        },
        draft_id: {
          type: 'uuid',
          notNull: true,
-         references: 'drafts(id)'
+         references: 'drafts(id)',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Validated (passed quality gates)
@@ -421,31 +427,31 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        data_type: {
          type: 'varchar(20)',
-         notNull: true
+         notNull: true,
        },
        validated_data: {
          type: 'jsonb',
-         notNull: true
+         notNull: true,
        },
        candidate_id: {
          type: 'uuid',
          notNull: true,
-         references: 'candidates(id)'
+         references: 'candidates(id)',
        },
        validation_results: {
          type: 'jsonb',
          notNull: true,
-         comment: 'Results from each quality gate'
+         comment: 'Results from each quality gate',
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Validation Failures
@@ -453,36 +459,36 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        candidate_id: {
          type: 'uuid',
          notNull: true,
-         references: 'candidates(id)'
+         references: 'candidates(id)',
        },
        gate_name: {
          type: 'varchar(100)',
-         notNull: true
+         notNull: true,
        },
        failure_reason: {
          type: 'text',
-         notNull: true
+         notNull: true,
        },
        failure_details: {
          type: 'jsonb',
          notNull: true,
-         default: '{}'
+         default: '{}',
        },
        retry_count: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Approval Events (traceability)
@@ -490,43 +496,43 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        validated_id: {
          type: 'uuid',
          notNull: true,
-         references: 'validated(id)'
+         references: 'validated(id)',
        },
        approved_table: {
          type: 'varchar(50)',
          notNull: true,
-         comment: 'Target table: approved_meanings, approved_utterances, etc.'
+         comment: 'Target table: approved_meanings, approved_utterances, etc.',
        },
        approved_id: {
          type: 'varchar(100)',
          notNull: true,
-         comment: 'ID in the approved table'
+         comment: 'ID in the approved table',
        },
        operator_id: {
          type: 'uuid',
          notNull: false,
          references: 'users(id)',
-         comment: 'NULL if auto-approved'
+         comment: 'NULL if auto-approved',
        },
        approval_type: {
          type: 'varchar(20)',
          notNull: true,
-         check: "approval_type IN ('automatic', 'manual')"
+         check: "approval_type IN ('automatic', 'manual')",
        },
        notes: {
          type: 'text',
-         notNull: false
+         notNull: false,
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Service State (for resumability)
@@ -534,23 +540,23 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'varchar(50)',
          primaryKey: true,
-         comment: 'Service identifier'
+         comment: 'Service identifier',
        },
        state_data: {
          type: 'jsonb',
          notNull: true,
-         default: '{}'
+         default: '{}',
        },
        last_checkpoint: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
+         default: pgm.func('current_timestamp'),
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Create indexes
@@ -572,6 +578,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/migrations/003_create_pipeline_tables.ts`
 
 ---
@@ -583,6 +590,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create migration `004_create_user_progress_tables.ts`:
+
    ```typescript
    export async function up(pgm: MigrationBuilder): Promise<void> {
      // User Preferences
@@ -591,38 +599,38 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
          type: 'uuid',
          primaryKey: true,
          references: 'users(id)',
-         onDelete: 'CASCADE'
+         onDelete: 'CASCADE',
        },
        studied_languages: {
          type: 'jsonb',
          notNull: true,
          default: '[]',
-         comment: 'Array of language codes'
+         comment: 'Array of language codes',
        },
        focus_mode_enabled: {
          type: 'boolean',
          notNull: true,
-         default: false
+         default: false,
        },
        focus_language: {
          type: 'varchar(2)',
-         notNull: false
+         notNull: false,
        },
        onboarding_completed: {
          type: 'boolean',
          notNull: true,
-         default: false
+         default: false,
        },
        settings: {
          type: 'jsonb',
          notNull: true,
-         default: '{}'
+         default: '{}',
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // User Progress (curriculum tracking)
@@ -630,38 +638,38 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        user_id: {
          type: 'uuid',
          notNull: true,
          references: 'users(id)',
-         onDelete: 'CASCADE'
+         onDelete: 'CASCADE',
        },
        concept_id: {
          type: 'varchar(100)',
          notNull: true,
-         comment: 'References curriculum_graph.concept_id'
+         comment: 'References curriculum_graph.concept_id',
        },
        status: {
          type: 'varchar(20)',
          notNull: true,
-         check: "status IN ('not_started', 'in_progress', 'completed')"
+         check: "status IN ('not_started', 'in_progress', 'completed')",
        },
        completion_date: {
          type: 'timestamp',
-         notNull: false
+         notNull: false,
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
+         default: pgm.func('current_timestamp'),
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // User Vocabulary (word-level tracking)
@@ -669,46 +677,46 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        user_id: {
          type: 'uuid',
          notNull: true,
          references: 'users(id)',
-         onDelete: 'CASCADE'
+         onDelete: 'CASCADE',
        },
        word: {
          type: 'varchar(100)',
-         notNull: true
+         notNull: true,
        },
        language: {
          type: 'varchar(2)',
-         notNull: true
+         notNull: true,
        },
        state: {
          type: 'varchar(20)',
          notNull: true,
-         check: "state IN ('unknown', 'learning', 'known')"
+         check: "state IN ('unknown', 'learning', 'known')",
        },
        first_seen: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
+         default: pgm.func('current_timestamp'),
        },
        last_reviewed: {
          type: 'timestamp',
-         notNull: false
+         notNull: false,
        },
        review_count: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // SRS Schedule (spaced repetition)
@@ -716,52 +724,52 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
        id: {
          type: 'uuid',
          primaryKey: true,
-         default: pgm.func('gen_random_uuid()')
+         default: pgm.func('gen_random_uuid()'),
        },
        user_id: {
          type: 'uuid',
          notNull: true,
          references: 'users(id)',
-         onDelete: 'CASCADE'
+         onDelete: 'CASCADE',
        },
        item_type: {
          type: 'varchar(20)',
          notNull: true,
-         check: "item_type IN ('vocabulary', 'grammar', 'sentence', 'exercise')"
+         check: "item_type IN ('vocabulary', 'grammar', 'sentence', 'exercise')",
        },
        item_id: {
          type: 'varchar(100)',
-         notNull: true
+         notNull: true,
        },
        due_date: {
          type: 'timestamp',
-         notNull: true
+         notNull: true,
        },
        interval_days: {
          type: 'integer',
          notNull: true,
-         default: 1
+         default: 1,
        },
        ease_factor: {
          type: 'decimal(3,2)',
          notNull: true,
-         default: 2.5
+         default: 2.5,
        },
        repetitions: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        created_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
+         default: pgm.func('current_timestamp'),
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // User Statistics
@@ -770,42 +778,42 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
          type: 'uuid',
          primaryKey: true,
          references: 'users(id)',
-         onDelete: 'CASCADE'
+         onDelete: 'CASCADE',
        },
        total_study_time_minutes: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        exercises_completed: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        current_streak_days: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        longest_streak_days: {
          type: 'integer',
          notNull: true,
-         default: 0
+         default: 0,
        },
        last_study_date: {
          type: 'date',
-         notNull: false
+         notNull: false,
        },
        achievements: {
          type: 'jsonb',
          notNull: true,
-         default: '[]'
+         default: '[]',
        },
        updated_at: {
          type: 'timestamp',
          notNull: true,
-         default: pgm.func('current_timestamp')
-       }
+         default: pgm.func('current_timestamp'),
+       },
      });
 
      // Create indexes
@@ -826,6 +834,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/migrations/004_create_user_progress_tables.ts`
 
 ---
@@ -837,6 +846,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create `packages/db/src/connection.ts`:
+
    ```typescript
    import { Pool, PoolConfig } from 'pg';
 
@@ -881,6 +891,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/connection.ts`
 
 ---
@@ -892,6 +903,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Create `packages/db/src/seeds/dev-seed.ts`:
+
    ```typescript
    import { query } from '../connection';
    import bcrypt from 'bcrypt';
@@ -902,18 +914,21 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
      // Create test users
      const passwordHash = await bcrypt.hash('password123', 10);
 
-     await query(`
+     await query(
+       `
        INSERT INTO users (email, password_hash, role, base_language)
        VALUES
          ('learner@test.com', $1, 'learner', 'EN'),
          ('operator@test.com', $1, 'operator', 'EN')
        ON CONFLICT (email) DO NOTHING
-     `, [passwordHash]);
+     `,
+       [passwordHash]
+     );
 
      // Create sample approved meaning
      await query(`
-       INSERT INTO approved_meanings (id, level, tags, russian_gloss)
-       VALUES ('greeting-hello', 'A0', '["greetings"]', 'Привет')
+       INSERT INTO approved_meanings (id, level, tags)
+       VALUES ('greeting-hello', 'A0', '["greetings"]')
        ON CONFLICT (id) DO NOTHING
      `);
 
@@ -934,6 +949,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 2. Create `packages/db/src/seeds/index.ts`:
+
    ```typescript
    import { seedDevelopmentData } from './dev-seed';
    import { close } from '../connection';
@@ -953,6 +969,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Files Created**:
+
 - `packages/db/src/seeds/dev-seed.ts`
 - `packages/db/src/seeds/index.ts`
 
@@ -965,11 +982,13 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Implementation Plan**:
 
 1. Set up test database in docker-compose:
+
    ```yaml
    # Already configured in docker-compose.yml from F003
    ```
 
 2. Run migrations:
+
    ```bash
    docker-compose up -d db
    export DATABASE_URL=postgres://dev:dev@localhost:5432/polyladder
@@ -977,17 +996,21 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 3. Verify tables created:
+
    ```bash
    psql $DATABASE_URL -c "\dt"
    ```
+
    Expected: All 15+ tables listed
 
 4. Run seed:
+
    ```bash
    pnpm --filter @polyladder/db seed
    ```
 
 5. Verify data:
+
    ```bash
    psql $DATABASE_URL -c "SELECT * FROM users;"
    psql $DATABASE_URL -c "SELECT * FROM approved_meanings;"
@@ -1000,6 +1023,7 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
    ```
 
 **Validation**:
+
 - ✅ All migrations run without errors
 - ✅ All tables created with correct schema
 - ✅ Indexes created
@@ -1028,6 +1052,124 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 
 ---
 
+## Decisions Made
+
+### 1. Primary Key Strategy
+
+**Decision**: Hybrid approach with semantic IDs for knowledge base, UUIDs for user data.
+
+**Implementation**:
+
+- `approved_meanings.id`, `approved_rules.id` — `varchar(100)` semantic IDs (e.g., `greeting-hello`, `IT-grammar-articles`)
+- `users.id`, `user_*` tables, pipeline tables — `uuid` with `gen_random_uuid()`
+- `approved_utterances.id`, `approved_exercises.id` — `uuid` (high volume, no need for readable IDs)
+
+**Rationale**:
+
+- Semantic IDs for meanings/rules improve debugging and API readability
+- UUIDs for user data prevent enumeration attacks and support distributed generation
+- UUIDs for utterances/exercises because they're referenced by internal ID, not exposed in URLs
+- PostgreSQL's `gen_random_uuid()` is efficient and requires no extensions
+
+---
+
+### 2. Table Partitioning
+
+**Decision**: No partitioning in MVP. Schema designed to support future partitioning.
+
+**Implementation**:
+
+- All tables use standard single-partition design
+- Primary keys and indexes chosen to not conflict with future partitioning
+- `created_at` timestamp on all tables enables future time-based partitioning
+
+**Rationale**:
+
+- MVP will have <100K rows in largest tables
+- Premature partitioning adds complexity without benefit
+- Schema structure allows adding partitioning via migration when needed
+- Will monitor table sizes and add partitioning when approaching 10M rows
+
+---
+
+### 3. JSONB Usage and Indexing
+
+**Decision**: JSONB for flexible data, no JSONB indexes in MVP.
+
+**Implementation**:
+
+- `tags` — JSONB array for flexible categorization
+- `metadata` — JSONB object for extensible properties
+- `settings`, `achievements` — JSONB for user preferences
+- No GIN or expression indexes created yet
+
+**Rationale**:
+
+- JSONB provides schema flexibility without migrations for new fields
+- Index cost outweighs benefit at MVP scale
+- Will add GIN indexes on `tags` when filtering becomes slow
+- Query patterns not yet established — indexes should follow usage
+
+---
+
+### 4. Foreign Key Cascade Strategy
+
+**Decision**: `ON DELETE CASCADE` for user-owned data, no cascade for shared knowledge base.
+
+**Implementation**:
+
+- `user_preferences`, `user_progress`, `user_vocabulary`, `user_srs_schedule`, `user_statistics` — CASCADE from `users`
+- `approved_utterances` → `approved_meanings` — no cascade (preserve referential integrity)
+- `candidates` → `drafts`, `validated` → `candidates` — no cascade (audit trail)
+
+**Rationale**:
+
+- User deletion should clean up all user data automatically
+- Knowledge base data is immutable — deleting meaning should not cascade to utterances
+- Pipeline data needs full traceability — no silent deletions
+
+---
+
+### 5. Timestamp Handling
+
+**Decision**: Use `timestamp` (without time zone), store UTC.
+
+**Implementation**:
+
+- All `created_at`, `updated_at` columns use `timestamp` type
+- Application responsible for converting to/from UTC
+- `last_study_date` uses `date` type (no time component needed)
+
+**Rationale**:
+
+- `timestamp` is simpler and sufficient for single-timezone storage
+- UTC normalization happens in application layer
+- Avoids PostgreSQL timezone conversion overhead
+- Consistent with Node.js Date handling
+
+---
+
+### 6. Connection Pooling
+
+**Decision**: pg Pool with conservative defaults.
+
+**Implementation**:
+
+- Max connections: 10 (dev), 20 (prod)
+- Idle timeout: 30 seconds
+- Connection timeout: 2 seconds
+- Slow query warning: >100ms
+
+**Rationale**:
+
+- 10 connections sufficient for development, prevents resource exhaustion
+- 20 connections for prod balances concurrency with DB limits
+- Short idle timeout releases unused connections quickly
+- 2 second connection timeout fails fast on DB issues
+- 100ms threshold catches queries that need optimization
+
+---
+
 ## Open Questions
 
 ### 1. Primary Key Strategy: UUID vs Sequential IDs
@@ -1037,16 +1179,19 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 **Current Approach**: UUIDs (`gen_random_uuid()`) for most tables, with exceptions for semantic IDs like `approved_meanings.id` which uses sequences for readability in URLs/debugging.
 
 **Alternatives**:
+
 1. **UUIDs everywhere** (current default): Globally unique, enables distributed generation, prevents enumeration attacks, but larger index size (16 bytes vs 4/8 bytes) and random insertion can cause index fragmentation.
 2. **Sequential integers everywhere**: Smallest storage, best index performance, predictable ordering, but requires centralized sequence generation, enables enumeration, reveals creation order/volume.
 3. **Hybrid approach** (current): UUIDs for user-generated content (`user_srs_items`, `practice_attempts`), sequences for shared knowledge base (`approved_meanings`, `approved_utterances`). Balances security with performance.
 4. **ULID (Universally Unique Lexicographically Sortable ID)**: UUID-sized but lexicographically sortable by creation time. Best of both worlds but requires extension/library.
 
 **Recommendation**: Continue with **hybrid approach** (Option 3) but add UUIDv7 consideration. Use UUIDs for:
+
 - User data (privacy, distributed generation)
 - Audit/event tables (high volume, need uniqueness)
 
 Use sequences for:
+
 - Shared knowledge base (readability in debugging, API responses)
 - Small lookup tables (languages, roles)
 
@@ -1061,6 +1206,7 @@ For high-volume tables, consider **UUIDv7** (time-ordered UUIDs) which provide U
 **Current Approach**: No partitioning implemented. All tables use standard single-partition design. This works for MVP but may not scale to millions of users or billions of practice attempts.
 
 **Alternatives**:
+
 1. **No partitioning** (current): Simplest approach, relies on indexes for performance. Works until tables exceed ~10M rows or queries become too slow.
 2. **Time-based partitioning**: Partition by created_at (monthly/quarterly). Best for time-series data like `practice_attempts`, `srs_reviews`. Enables efficient archival and old data deletion.
 3. **Hash partitioning by user_id**: Distribute user data across N partitions. Good for `user_srs_items`, `user_language_progress`. Balances load but makes user-specific queries complex.
@@ -1068,6 +1214,7 @@ For high-volume tables, consider **UUIDv7** (time-ordered UUIDs) which provide U
 5. **Composite partitioning**: Combine strategies (e.g., partition by language, then sub-partition by time).
 
 **Recommendation**: Implement **lazy partitioning** - design schema to support partitioning but don't implement until needed. Specific strategy per table:
+
 - **`practice_attempts`, `srs_reviews`**: Time-based (monthly), after 10M rows
 - **`user_srs_items`**: Hash by `user_id`, after 50M rows
 - **`approved_utterances`**: List by language, if any single language exceeds 1M utterances
@@ -1083,6 +1230,7 @@ Add partitioning in migration files when thresholds approached. Monitor table si
 **Current Approach**: JSONB columns used for flexible schema (`metadata` in many tables, `tags` arrays, `acceptable_translations` in translation exercises). No specific indexing strategy documented beyond standard B-tree indexes on scalar columns.
 
 **Alternatives**:
+
 1. **No JSONB indexes** (current): Rely on full table scans for JSONB queries. Simple but degrades performance as tables grow.
 2. **GIN indexes on entire JSONB column**: `CREATE INDEX idx_metadata ON table USING GIN (metadata)`. Supports all JSONB operators but large index size.
 3. **Partial indexes on specific JSON paths**: `CREATE INDEX idx_metadata_source ON table ((metadata->>'source'))` for frequently queried fields. Targeted and efficient but requires knowing query patterns upfront.
@@ -1090,6 +1238,7 @@ Add partitioning in migration files when thresholds approached. Monitor table si
 5. **Hybrid**: GIN index for existence checks (`metadata ? 'key'`), expression indexes for specific filters.
 
 **Recommendation**: Implement **query-driven indexing** (Option 5 hybrid). Start with:
+
 - **GIN indexes** on `tags` arrays (used for filtering): `CREATE INDEX idx_utterances_tags ON approved_utterances USING GIN (tags)`
 - **Expression indexes** on commonly filtered metadata fields:
   - `(metadata->>'source')` for content source filtering
