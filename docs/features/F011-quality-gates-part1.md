@@ -3,7 +3,9 @@
 **Feature Code**: F011
 **Created**: 2025-12-17
 **Phase**: 3 - Quality Assurance System
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #14
 
 ---
 
@@ -13,11 +15,11 @@ Implement first set of quality gates: duplication detection, language standard e
 
 ## Success Criteria
 
-- [ ] Duplication gate detects identical/similar content
-- [ ] Language standard gate enforces US English, PT-PT, etc.
-- [ ] Orthography consistency gate checks correct alphabet usage
-- [ ] Gates return pass/fail with detailed reasons
-- [ ] Gates integrated into validation pipeline
+- [x] Duplication gate detects identical/similar content
+- [x] Language standard gate enforces US English, PT-PT, etc.
+- [x] Orthography consistency gate checks correct alphabet usage
+- [x] Gates return pass/fail with detailed reasons
+- [ ] Gates integrated into validation pipeline (→ F017)
 
 ---
 
@@ -30,6 +32,7 @@ Implement first set of quality gates: duplication detection, language standard e
 **Implementation Plan**:
 
 Create `packages/core/src/quality-gates/gate-interface.ts`:
+
 ```typescript
 export interface QualityGateResult {
   passed: boolean;
@@ -45,6 +48,7 @@ export interface QualityGate {
 ```
 
 **Files Created**:
+
 - `packages/core/src/quality-gates/gate-interface.ts`
 
 ---
@@ -56,6 +60,7 @@ export interface QualityGate {
 **Implementation Plan**:
 
 Create `packages/core/src/quality-gates/duplication-gate.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { QualityGate, QualityGateResult } from './gate-interface';
@@ -93,6 +98,7 @@ export class DuplicationGate implements QualityGate {
 ```
 
 **Files Created**:
+
 - `packages/core/src/quality-gates/duplication-gate.ts`
 
 ---
@@ -104,6 +110,7 @@ export class DuplicationGate implements QualityGate {
 **Implementation Plan**:
 
 Create `packages/core/src/quality-gates/language-standard-gate.ts`:
+
 ```typescript
 import { QualityGate, QualityGateResult } from './gate-interface';
 
@@ -170,6 +177,7 @@ export class LanguageStandardGate implements QualityGate {
 ```
 
 **Files Created**:
+
 - `packages/core/src/quality-gates/language-standard-gate.ts`
 
 ---
@@ -181,6 +189,7 @@ export class LanguageStandardGate implements QualityGate {
 **Implementation Plan**:
 
 Create `packages/core/src/quality-gates/orthography-gate.ts`:
+
 ```typescript
 import { QualityGate, QualityGateResult } from './gate-interface';
 
@@ -223,6 +232,7 @@ export class OrthographyGate implements QualityGate {
 ```
 
 **Files Created**:
+
 - `packages/core/src/quality-gates/orthography-gate.ts`
 
 ---
@@ -234,6 +244,7 @@ export class OrthographyGate implements QualityGate {
 **Implementation Plan**:
 
 Create `packages/core/src/quality-gates/gate-runner.ts`:
+
 ```typescript
 import { QualityGate, QualityGateResult } from './gate-interface';
 
@@ -263,6 +274,7 @@ export async function runGates(
 ```
 
 **Files Created**:
+
 - `packages/core/src/quality-gates/gate-runner.ts`
 
 ---
@@ -289,13 +301,15 @@ export async function runGates(
 **Question**: When multiple quality gates run on content, should we stop at first failure (fail-fast) or run all gates and collect all failures (fail-all)?
 
 **Current Approach**: Fail-fast implementation in `runGates()` - stops checking after first gate fails:
+
 ```typescript
 if (!result.passed) {
-  break;  // Stop on first failure
+  break; // Stop on first failure
 }
 ```
 
 **Alternatives**:
+
 1. **Fail-fast** (current): Stop at first failure, return immediately. Faster execution, less processing, but operator only sees one error at a time (must fix → resubmit → see next error).
 2. **Fail-all**: Run every gate regardless of failures, return complete error list. Slower but shows all problems in one pass. Better developer experience - fix all issues at once.
 3. **Configurable**: Add `mode: 'fast' | 'thorough'` parameter. Fast for automated pipeline, thorough for manual operator review.
@@ -304,19 +318,23 @@ if (!result.passed) {
 **Recommendation**: Use **tiered approach** (Option 4) with fail-all within each tier. Structure:
 
 **Tier 1 (Fast - in-memory)**: Run all and collect failures
+
 - Orthography consistency (regex check)
 - Language standard enforcement (pattern matching)
 - Text length validation (character count)
 
 **Tier 2 (Medium - database queries)**: Only if Tier 1 passes
+
 - Duplication detection (SELECT query)
 - Reference validation (foreign key checks)
 
 **Tier 3 (Expensive - external services)**: Only if Tier 1-2 pass
+
 - Grammar validation (external API)
 - Semantic coherence (LLM call)
 
 Implementation:
+
 ```typescript
 export async function runGatesByTier(
   gates: Array<QualityGate & { tier: number }>,
@@ -327,14 +345,14 @@ export async function runGatesByTier(
 
   for (const [tier, tierGates] of tiers) {
     // Run all gates in tier concurrently
-    const results = await Promise.all(tierGates.map(g => g.check(data)));
+    const results = await Promise.all(tierGates.map((g) => g.check(data)));
     allResults.push(...results);
 
     // Stop if any gate in tier failed
-    if (results.some(r => !r.passed)) break;
+    if (results.some((r) => !r.passed)) break;
   }
 
-  return { allPassed: allResults.every(r => r.passed), results: allResults };
+  return { allPassed: allResults.every((r) => r.passed), results: allResults };
 }
 ```
 
@@ -349,6 +367,7 @@ This provides complete feedback within each tier while avoiding expensive operat
 **Current Approach**: Only exact duplicate detection (`text = $1`). Comment notes "Could add fuzzy matching here (future enhancement)" but no threshold defined.
 
 **Alternatives**:
+
 1. **No fuzzy matching** (current): Only block exact duplicates. Simple but misses near-duplicates (typos, reformatting, minor word changes).
 2. **High threshold (95%+ similarity)**: Very similar content rejected. Catches typo variants but may miss paraphrases.
 3. **Medium threshold (85-95%)**: Moderately similar content rejected. Catches paraphrases but may have false positives (legitimately different content).
@@ -393,6 +412,7 @@ async check(data: { text: string; language: string }): Promise<QualityGateResult
 ```
 
 Enable PostgreSQL trigram extension in migration:
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX idx_approved_utterances_text_trgm ON approved_utterances USING gin (text gin_trgm_ops);
