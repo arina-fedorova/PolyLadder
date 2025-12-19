@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "docker-compose up",
+    "dev": "docker-compose -f docker/docker-compose.yml up",
+    "dev:build": "docker-compose -f docker/docker-compose.yml up --build",
+    "dev:down": "docker-compose -f docker/docker-compose.yml down",
+    "dev:clean": "docker-compose -f docker/docker-compose.yml down -v",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
