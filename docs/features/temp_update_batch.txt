@@ -1,0 +1,13 @@
+Batch update needed for F035-F056:
+- F035-F038: Vocabulary & Grammar (similar structure)
+- F039-F045: Practice Modes (exercise components)
+- F046-F047: SRS System
+- F048-F051: Parallel Learning Features
+- F052-F056: Dashboard & Analytics
+
+Each needs expanded Tasks section with:
+1. API endpoints (detailed TypeScript code)
+2. React components (detailed implementation)
+3. Service logic
+4. Integration points
+5. Open questions where applicable

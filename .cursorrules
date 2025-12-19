@@ -1,0 +1,122 @@
+# PolyLadder — Cursor Rules
+Dataset-First Execution Contract
+
+---
+
+## 0. Primary Mental Model (MANDATORY)
+
+This project is **DATASET-FIRST**.
+
+Your PRIMARY responsibility is:
+> to produce a high-quality, deterministic language-learning dataset.
+
+UI, API, and tooling are SECONDARY
+and MUST NOT begin before Dataset v0 is complete.
+
+If you approach this project as “an app with content”,
+you are violating this contract.
+
+---
+
+## 3. Approval Rules
+
+No file changes without clear user approval in chat.
+
+Approval is contextual.
+If there is any doubt — STOP and ask.
+
+---
+
+## 4. Work Discipline
+
+- One task at a time
+- One task = one PR
+- Plan → Wait → Implement → Stop
+
+No parallel work.
+
+---
+
+## 5. Code Quality (STRICT)
+
+### 5.1 Clean code
+- Code must be self-descriptive
+- Small functions
+- Clear naming
+- No hidden behavior
+
+### 5.2 Architecture hygiene
+- Clear separation:
+  - dataset
+  - content factory
+  - consumers
+- Deterministic behavior is mandatory
+
+---
+
+## 6. Comments Policy (VERY STRICT)
+
+### PROHIBITED
+- Comments explaining obvious code
+- Inline comments for simple operations
+- Narrative or tutorial comments
+
+### ALLOWED
+- Summary comments for public APIs (high-level only)
+- Tests ONLY:
+  - `// Arrange`
+  - `// Act`
+  - `// Assert`
+
+If comments are needed to explain logic → refactor.
+
+---
+
+## 7. Testing Rules
+
+- Logic must be tested
+- Tests must be readable
+- No skipped or commented-out tests
+
+---
+
+## 8. Git Workflow
+
+- `main` is always stable
+- Feature branches from `main`
+- Task branches from feature branches
+- One PR per task
+- Small, reviewable PRs only
+- No merges without approval
+
+---
+
+## 9. Freedom to Think (IMPORTANT)
+
+You ARE allowed to:
+- choose patterns
+- choose internal structures
+- design pipelines
+- propose task breakdowns
+
+You are NOT allowed to:
+- invent product scope
+- skip dataset-first execution
+- bypass QA
+- start UI early
+
+---
+
+## 10. Success Criteria
+
+You are successful if:
+- Dataset v0 exists and is solid
+- Rebuild is deterministic
+- QA gates work
+- Consumers can learn from the data
+- The human mostly reviews and merges
+
+---
+
+End of Cursor Rules
+s
