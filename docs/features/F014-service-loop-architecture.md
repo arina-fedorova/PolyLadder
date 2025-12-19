@@ -3,7 +3,9 @@
 **Feature Code**: F014
 **Created**: 2025-12-17
 **Phase**: 4 - Content Refinement Service
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #17
 
 ---
 
@@ -13,11 +15,11 @@ Background service that continuously processes content through the refinement pi
 
 ## Success Criteria
 
-- [ ] Service process runs independently
-- [ ] Main loop: check work → process → checkpoint → repeat
-- [ ] Graceful startup and shutdown
-- [ ] State persisted to database
-- [ ] Resumable after crash/restart
+- [x] Service process runs independently
+- [x] Main loop: check work → process → checkpoint → repeat
+- [x] Graceful startup and shutdown
+- [x] State persisted to database
+- [x] Resumable after crash/restart
 
 ---
 
@@ -30,6 +32,7 @@ Background service that continuously processes content through the refinement pi
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/main.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { WorkPlanner } from './services/work-planner.service';
@@ -112,11 +115,11 @@ process.on('SIGINT', async () => {
 });
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Start the service
-mainLoop().catch(error => {
+mainLoop().catch((error) => {
   logger.fatal({ error }, 'Fatal error in main loop');
   process.exit(1);
 });
@@ -133,6 +136,7 @@ mainLoop().catch(error => {
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/services/checkpoint.service.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 
@@ -172,11 +176,13 @@ export class CheckpointService {
     await this.pool.query(
       `INSERT INTO service_state (service_name, state, last_checkpoint)
        VALUES ('refinement_service_errors', $1, CURRENT_TIMESTAMP)`,
-      [JSON.stringify({
-        error: error.message,
-        stack: error.stack,
-        timestamp: new Date(),
-      })]
+      [
+        JSON.stringify({
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date(),
+        }),
+      ]
     );
   }
 
@@ -218,6 +224,7 @@ export class CheckpointService {
 **Implementation Plan**:
 
 This table was already defined in F001, but verify it exists:
+
 ```sql
 CREATE TABLE IF NOT EXISTS service_state (
   service_name VARCHAR(100) PRIMARY KEY,
@@ -241,6 +248,7 @@ If not exists, create migration `packages/db/migrations/008-service-state.sql`.
 **Implementation Plan**:
 
 Create `scripts/check-refinement-service.sh`:
+
 ```bash
 #!/bin/bash
 
@@ -271,6 +279,7 @@ fi
 ```
 
 Make executable:
+
 ```bash
 chmod +x scripts/check-refinement-service.sh
 ```
@@ -286,6 +295,7 @@ chmod +x scripts/check-refinement-service.sh
 **Implementation Plan**:
 
 Already configured in F003 docker-compose.yml:
+
 ```yaml
 refinement:
   build:
@@ -319,6 +329,7 @@ Verify this exists in docker-compose.yml.
 **Implementation Plan**:
 
 Update `packages/refinement-service/package.json`:
+
 ```json
 {
   "name": "@polyladder/refinement-service",
@@ -372,6 +383,7 @@ Update `packages/refinement-service/package.json`:
 **Current Approach**: The service waits 5 seconds (`LOOP_INTERVAL_MS = 5000`) between checks when no work is available. This balances responsiveness with CPU usage.
 
 **Alternatives**:
+
 1. **Shorter interval (1-2 seconds)**: More responsive to new work, but higher CPU usage and database query load
 2. **Longer interval (10-30 seconds)**: Lower overhead, but delays processing of newly arriving content
 3. **Adaptive interval**: Start with short interval (5s), exponentially back off to longer interval (60s) when queue remains empty, reset to short on work found
@@ -388,6 +400,7 @@ Update `packages/refinement-service/package.json`:
 **Current Approach**: On error, the service saves error state, waits 5 seconds, then continues to the next iteration. The failed item is not explicitly marked, so it may be retried on the next loop.
 
 **Alternatives**:
+
 1. **Immediate retry with limit**: Retry failed item 3 times with exponential backoff (5s, 15s, 45s), then skip
 2. **Skip and log**: Mark item as failed, move to next item immediately, require manual intervention to retry
 3. **Dead letter queue**: Move persistently failing items to separate table for later investigation, continue processing
@@ -404,6 +417,7 @@ Update `packages/refinement-service/package.json`:
 **Current Approach**: On SIGTERM, service sets `isShuttingDown = true`, waits 10 seconds for current work to finish, then exits. On SIGINT, exits immediately without waiting.
 
 **Alternatives**:
+
 1. **Complete current item**: Wait indefinitely for current work item to complete, with configurable maximum timeout (60s)
 2. **Immediate abort**: Cancel current work immediately, rely on checkpoint system to resume on restart
 3. **Graceful drain**: Stop accepting new work, complete current item, then exit (no timeout)
