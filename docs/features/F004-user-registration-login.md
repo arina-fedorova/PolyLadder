@@ -3,7 +3,9 @@
 **Feature Code**: F004
 **Created**: 2025-12-17
 **Phase**: 1 - Authentication & User Management
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #7
 
 ---
 
@@ -13,14 +15,14 @@ Implement user account creation and authentication system with password hashing,
 
 ## Success Criteria
 
-- [ ] User model in database with proper constraints
-- [ ] Password hashing with bcrypt (salt rounds: 10)
-- [ ] Registration endpoint validates email uniqueness
-- [ ] Login endpoint verifies credentials and returns JWT
-- [ ] JWT includes user_id, role, and expiration (7 days)
-- [ ] Input validation for email format and password strength
-- [ ] Proper error handling for auth failures
-- [ ] All passwords stored as bcrypt hashes, never plaintext
+- [x] User model in database with proper constraints
+- [x] Password hashing with bcrypt (salt rounds: 10)
+- [x] Registration endpoint validates email uniqueness
+- [x] Login endpoint verifies credentials and returns JWT
+- [x] JWT includes user_id, role, and expiration (7 days)
+- [x] Input validation for email format and password strength
+- [x] Proper error handling for auth failures
+- [x] All passwords stored as bcrypt hashes, never plaintext
 
 ---
 
@@ -33,6 +35,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create migration `packages/db/migrations/002-create-users-table.sql`:
+
    ```sql
    -- Create users table
    CREATE TABLE IF NOT EXISTS users (
@@ -74,6 +77,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/db/migrations/002-create-users-table.sql`
 - `packages/db/migrations/002-create-users-table-down.sql`
 
@@ -86,6 +90,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create `packages/core/src/domain/user.ts`:
+
    ```typescript
    import { z } from 'zod';
 
@@ -97,7 +102,7 @@ Implement user account creation and authentication system with password hashing,
      OPERATOR: 'operator',
    } as const;
 
-   export type UserRole = typeof UserRole[keyof typeof UserRole];
+   export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
    /**
     * User entity
@@ -129,8 +134,8 @@ Implement user account creation and authentication system with password hashing,
    export interface JWTPayload {
      userId: string;
      role: UserRole;
-     iat?: number;  // Issued at
-     exp?: number;  // Expiration
+     iat?: number; // Issued at
+     exp?: number; // Expiration
    }
 
    /**
@@ -138,7 +143,8 @@ Implement user account creation and authentication system with password hashing,
     */
    export const RegistrationSchema = z.object({
      email: z.string().email('Invalid email format'),
-     password: z.string()
+     password: z
+       .string()
        .min(8, 'Password must be at least 8 characters')
        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
        .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
@@ -178,6 +184,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/src/domain/user.ts`
 
 ---
@@ -189,12 +196,14 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Install bcrypt:
+
    ```bash
    pnpm --filter @polyladder/core add bcrypt
    pnpm --filter @polyladder/core add -D @types/bcrypt
    ```
 
 2. Create `packages/core/src/auth/password.ts`:
+
    ```typescript
    import bcrypt from 'bcrypt';
 
@@ -240,6 +249,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/src/auth/password.ts`
 
 ---
@@ -251,12 +261,14 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Install jsonwebtoken:
+
    ```bash
    pnpm --filter @polyladder/core add jsonwebtoken
    pnpm --filter @polyladder/core add -D @types/jsonwebtoken
    ```
 
 2. Create `packages/core/src/auth/jwt.ts`:
+
    ```typescript
    import jwt from 'jsonwebtoken';
    import { JWTPayload } from '../domain/user';
@@ -317,6 +329,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/src/auth/jwt.ts`
 
 ---
@@ -328,6 +341,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create `packages/db/src/repositories/users.ts`:
+
    ```typescript
    import { Pool } from 'pg';
    import { User, UserRole } from '@polyladder/core';
@@ -342,10 +356,7 @@ Implement user account creation and authentication system with password hashing,
    /**
     * Create a new user
     */
-   export async function createUser(
-     pool: Pool,
-     params: CreateUserParams
-   ): Promise<User> {
+   export async function createUser(pool: Pool, params: CreateUserParams): Promise<User> {
      const { email, passwordHash, baseLanguage, role = 'learner' } = params;
 
      const result = await pool.query<User>(
@@ -363,10 +374,7 @@ Implement user account creation and authentication system with password hashing,
    /**
     * Find user by email
     */
-   export async function findUserByEmail(
-     pool: Pool,
-     email: string
-   ): Promise<User | null> {
+   export async function findUserByEmail(pool: Pool, email: string): Promise<User | null> {
      const result = await pool.query<User>(
        `SELECT id, email, password_hash as "passwordHash", role,
                base_language as "baseLanguage", created_at as "createdAt",
@@ -382,10 +390,7 @@ Implement user account creation and authentication system with password hashing,
    /**
     * Find user by ID
     */
-   export async function findUserById(
-     pool: Pool,
-     userId: string
-   ): Promise<User | null> {
+   export async function findUserById(pool: Pool, userId: string): Promise<User | null> {
      const result = await pool.query<User>(
        `SELECT id, email, password_hash as "passwordHash", role,
                base_language as "baseLanguage", created_at as "createdAt",
@@ -431,6 +436,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/db/src/repositories/users.ts`
 
 ---
@@ -442,6 +448,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create `packages/core/src/services/registration.ts`:
+
    ```typescript
    import { Pool } from 'pg';
    import { RegistrationInput, RegistrationSchema, PublicUser, toPublicUser } from '../domain/user';
@@ -509,6 +516,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/src/services/registration.ts`
 
 ---
@@ -520,6 +528,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create `packages/core/src/services/login.ts`:
+
    ```typescript
    import { Pool } from 'pg';
    import { LoginInput, LoginSchema, PublicUser, toPublicUser } from '../domain/user';
@@ -588,6 +597,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/src/services/login.ts`
 
 ---
@@ -599,6 +609,7 @@ Implement user account creation and authentication system with password hashing,
 **Implementation Plan**:
 
 1. Create `packages/core/tests/auth/password.test.ts`:
+
    ```typescript
    import { describe, it, expect } from 'vitest';
    import { hashPassword, verifyPassword, needsRehash } from '../../src/auth/password';
@@ -640,6 +651,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 2. Create `packages/core/tests/auth/jwt.test.ts`:
+
    ```typescript
    import { describe, it, expect } from 'vitest';
    import { generateToken, verifyToken, decodeToken } from '../../src/auth/jwt';
@@ -687,6 +699,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 3. Install vitest if not already:
+
    ```bash
    pnpm --filter @polyladder/core add -D vitest
    ```
@@ -702,6 +715,7 @@ Implement user account creation and authentication system with password hashing,
    ```
 
 **Files Created**:
+
 - `packages/core/tests/auth/password.test.ts`
 - `packages/core/tests/auth/jwt.test.ts`
 
@@ -736,25 +750,28 @@ Implement user account creation and authentication system with password hashing,
 **Current Approach**: bcrypt with 10 salt rounds (~100ms per hash). Industry standard, widely deployed, but designed in 1999 and increasingly vulnerable to specialized hardware (ASICs).
 
 **Alternatives**:
+
 1. **bcrypt (current)**: Proven track record, widely supported libraries, but vulnerable to GPU/ASIC attacks. 10 rounds = ~100ms on modern CPU.
 2. **Argon2id**: Winner of Password Hashing Competition (2015), resistant to GPU/ASIC/side-channel attacks. Configurable memory hardness. Slower to crack but requires more tuning.
 3. **scrypt**: Memory-hard like Argon2 but older (2009). Good but Argon2 considered superior.
 4. **PBKDF2**: Standard but weakest against GPU attacks. Only use if compatibility required.
 
 **Recommendation**: **Migrate to Argon2id** (Option 2) for new accounts, maintain bcrypt compatibility for existing users. Use `@node-rs/argon2` (Rust bindings, fastest):
+
 ```typescript
 import { hash, verify } from '@node-rs/argon2';
 
 // Argon2id with recommended params (OWASP 2023)
 const argon2Hash = await hash(password, {
-  memoryCost: 19456,  // 19 MB
-  timeCost: 2,        // iterations
-  parallelism: 1,     // threads
-  algorithm: Algorithm.Argon2id
+  memoryCost: 19456, // 19 MB
+  timeCost: 2, // iterations
+  parallelism: 1, // threads
+  algorithm: Algorithm.Argon2id,
 });
 ```
 
 Migration strategy:
+
 - New registrations use Argon2id
 - Add `users.password_algorithm` enum column ('bcrypt' | 'argon2id')
 - On login, if user has bcrypt hash, verify, then rehash with Argon2id and update
@@ -769,12 +786,14 @@ Migration strategy:
 **Current Approach**: No email verification mentioned. Users can register and immediately start using the app. Email might not even be real.
 
 **Alternatives**:
+
 1. **No verification** (current): Instant access, smooth UX, but allows fake emails, spam accounts, can't do password reset via email.
 2. **Required before access**: Send verification email, block app usage until clicked. Highest security but friction in onboarding - users may abandon if email delayed.
 3. **Required before certain features**: Allow basic learning immediately, require verification for social features, data export, or after 7 days trial period.
 4. **Optional with incentives**: Email verification unlocks badge/reward. Gamified nudge without blocking access.
 
 **Recommendation**: **Required before certain features** (Option 3) with grace period. Flow:
+
 - Registration → immediate access to learning features (practice, SRS, progress tracking)
 - After 3 days OR when trying to export data/contact support, show: "Please verify email to continue"
 - Resend verification email with exponential cooldown (1min, 5min, 15min) to prevent spam
@@ -791,6 +810,7 @@ This balances onboarding friction (users can try app immediately) with security 
 **Current Approach**: No account lockout mentioned. Unlimited login attempts possible. Vulnerable to brute force attacks even with rate limiting.
 
 **Alternatives**:
+
 1. **No lockout** (current): Rely only on rate limiting (F006). Simple but allows persistent attacks across IP addresses/sessions.
 2. **Hard lockout**: Lock account after N failures (5-10) until admin manually unlocks. Most secure but terrible UX - user locked out by attacker.
 3. **Time-based lockout**: Lock for T minutes (15-60) after N failures (5-10), then auto-unlock. Balances security and UX.
@@ -798,6 +818,7 @@ This balances onboarding friction (users can try app immediately) with security 
 5. **CAPTCHA after failures**: Require CAPTCHA after 3 failures instead of locking. Stops bots while allowing humans.
 
 **Recommendation**: **Time-based lockout + CAPTCHA** (Option 3 + 5 hybrid). Implementation:
+
 - Track failed attempts in `failed_login_attempts` table per email
 - After 5 failed attempts within 15 minutes → lock account for 15 minutes
 - After 3 failed attempts → require CAPTCHA (hCaptcha/Cloudflare Turnstile) for next login

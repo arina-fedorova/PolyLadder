@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { query } from '../connection';
 
 export async function seedDevelopmentData(): Promise<void> {
-  console.log('Seeding development data...');
+  process.stdout.write('Seeding development data...\n');
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
@@ -34,5 +34,5 @@ export async function seedDevelopmentData(): Promise<void> {
     ON CONFLICT DO NOTHING
   `);
 
-  console.log('✅ Development data seeded');
+  process.stdout.write('✅ Development data seeded\n');
 }
