@@ -1,0 +1,9 @@
+{
+  "watch": ["src", "../core/src", "../db/src"],
+  "ext": "ts,json",
+  "ignore": ["src/**/*.test.ts"],
+  "exec": "node --inspect=0.0.0.0:9229 --import tsx src/server.ts",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

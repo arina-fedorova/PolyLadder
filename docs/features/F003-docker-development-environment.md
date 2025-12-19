@@ -3,7 +3,9 @@
 **Feature Code**: F003
 **Created**: 2025-12-17
 **Phase**: 0 - Foundation & Infrastructure
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #6
 
 ---
 
@@ -13,14 +15,14 @@ Set up a complete Docker-based development environment that mirrors production c
 
 ## Success Criteria
 
-- [ ] Docker Compose configuration for local development
-- [ ] PostgreSQL container with proper health checks
-- [ ] API container with hot reload support
-- [ ] Refinement Service container configuration
-- [ ] Development Dockerfile with multi-stage build
-- [ ] Environment variable management for development
-- [ ] Volume mounting for source code hot reload
-- [ ] Developer can start entire stack with `pnpm dev`
+- [x] Docker Compose configuration for local development
+- [x] PostgreSQL container with proper health checks
+- [x] API container with hot reload support
+- [x] Refinement Service container configuration
+- [x] Development Dockerfile with multi-stage build
+- [x] Environment variable management for development
+- [x] Volume mounting for source code hot reload
+- [x] Developer can start entire stack with `pnpm dev`
 
 ---
 
@@ -33,6 +35,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `docker/docker-compose.yml`:
+
    ```yaml
    version: '3.8'
    services:
@@ -44,11 +47,11 @@ Set up a complete Docker-based development environment that mirrors production c
          POSTGRES_USER: dev
          POSTGRES_PASSWORD: dev
        ports:
-         - "5432:5432"
+         - '5432:5432'
        volumes:
          - postgres_data:/var/lib/postgresql/data
        healthcheck:
-         test: ["CMD-SHELL", "pg_isready -U dev"]
+         test: ['CMD-SHELL', 'pg_isready -U dev']
          interval: 5s
          timeout: 5s
          retries: 5
@@ -72,8 +75,8 @@ Set up a complete Docker-based development environment that mirrors production c
          NODE_ENV: development
          LOG_LEVEL: debug
        ports:
-         - "3000:3000"
-         - "9229:9229"  # Node.js debugger
+         - '3000:3000'
+         - '9229:9229' # Node.js debugger
        command: pnpm --filter @polyladder/api dev
        depends_on:
          db:
@@ -123,6 +126,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `docker/docker-compose.yml`
 
 ---
@@ -134,6 +138,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `docker/Dockerfile.dev`:
+
    ```dockerfile
    FROM node:20-alpine AS base
 
@@ -181,6 +186,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `docker/Dockerfile.dev`
 - `.dockerignore`
 
@@ -193,11 +199,13 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Install nodemon in API package:
+
    ```bash
    pnpm --filter @polyladder/api add -D nodemon ts-node
    ```
 
 2. Create `packages/api/nodemon.json`:
+
    ```json
    {
      "watch": ["src", "../core/src", "../db/src"],
@@ -211,6 +219,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 3. Add dev script to `packages/api/package.json`:
+
    ```json
    {
      "scripts": {
@@ -222,11 +231,13 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 4. Install nodemon in Refinement Service:
+
    ```bash
    pnpm --filter @polyladder/refinement-service add -D nodemon ts-node
    ```
 
 5. Create `packages/refinement-service/nodemon.json`:
+
    ```json
    {
      "watch": ["src", "../core/src", "../db/src"],
@@ -251,6 +262,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `packages/api/nodemon.json`
 - `packages/refinement-service/nodemon.json`
 
@@ -263,6 +275,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `.env.example` at root:
+
    ```env
    # Database
    DATABASE_URL=postgres://dev:dev@localhost:5432/polyladder
@@ -283,6 +296,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 2. Create `docker/.env.development`:
+
    ```env
    DATABASE_URL=postgres://dev:dev@db:5432/polyladder
    JWT_SECRET=dev-secret-change-in-production
@@ -292,6 +306,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 3. Update `.gitignore` to exclude environment files:
+
    ```
    .env
    .env.local
@@ -299,6 +314,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 4. Document environment variables in root `README.md`:
+
    ```markdown
    ## Environment Variables
 
@@ -308,6 +324,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `.env.example`
 - `docker/.env.development`
 
@@ -320,6 +337,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `packages/db/src/init-dev-db.ts`:
+
    ```typescript
    import { Client } from 'pg';
 
@@ -334,7 +352,6 @@ Set up a complete Docker-based development environment that mirrors production c
 
        // Database will be initialized by migrations
        console.log('Database ready for migrations');
-
      } catch (error) {
        console.error('Failed to initialize database:', error);
        process.exit(1);
@@ -347,6 +364,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 2. Add database initialization script to `packages/db/package.json`:
+
    ```json
    {
      "scripts": {
@@ -359,6 +377,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 3. Create wait-for-db script `docker/wait-for-db.sh`:
+
    ```bash
    #!/bin/sh
    # wait-for-db.sh - Wait for PostgreSQL to be ready
@@ -383,6 +402,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `packages/db/src/init-dev-db.ts`
 - `docker/wait-for-db.sh`
 
@@ -395,6 +415,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `scripts/dev-reset.sh` (reset development environment):
+
    ```bash
    #!/bin/bash
    # Reset development environment
@@ -412,6 +433,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 2. Create `scripts/dev-logs.sh` (view logs):
+
    ```bash
    #!/bin/bash
    # View development logs
@@ -426,6 +448,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 3. Create `scripts/dev-shell.sh` (access container shell):
+
    ```bash
    #!/bin/bash
    # Access container shell
@@ -436,6 +459,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 4. Create `scripts/dev-db-shell.sh` (access PostgreSQL):
+
    ```bash
    #!/bin/bash
    # Access PostgreSQL shell
@@ -444,6 +468,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 5. Make all scripts executable:
+
    ```bash
    chmod +x scripts/*.sh
    ```
@@ -461,6 +486,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `scripts/dev-reset.sh`
 - `scripts/dev-logs.sh`
 - `scripts/dev-shell.sh`
@@ -475,6 +501,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `.vscode/launch.json`:
+
    ```json
    {
      "version": "0.2.0",
@@ -507,6 +534,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 2. Create `.vscode/settings.json`:
+
    ```json
    {
      "typescript.tsdk": "node_modules/typescript/lib",
@@ -527,6 +555,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `.vscode/launch.json`
 - `.vscode/settings.json`
 - `.vscode.example/` (templates)
@@ -540,6 +569,7 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Create `docs/DEVELOPMENT.md`:
+
    ```markdown
    # Development Guide
 
@@ -548,14 +578,18 @@ Set up a complete Docker-based development environment that mirrors production c
    ### Start Development Environment
 
    \`\`\`bash
+
    # Start all services (PostgreSQL, API, Refinement Service)
+
    pnpm dev
 
    # In another terminal, start frontend
+
    pnpm --filter @polyladder/web dev
    \`\`\`
 
    Access:
+
    - Frontend: http://localhost:5173
    - API: http://localhost:3000
    - PostgreSQL: localhost:5432 (user: dev, password: dev)
@@ -563,6 +597,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ### Hot Reload
 
    Backend services automatically reload on code changes in:
+
    - `packages/api/src/`
    - `packages/refinement-service/src/`
    - `packages/core/src/`
@@ -575,10 +610,13 @@ Set up a complete Docker-based development environment that mirrors production c
    ### View Logs
 
    \`\`\`bash
+
    # All services
+
    pnpm dev:logs
 
    # Specific service
+
    pnpm dev:logs api
    pnpm dev:logs refinement
    pnpm dev:logs db
@@ -587,17 +625,23 @@ Set up a complete Docker-based development environment that mirrors production c
    ### Access Database
 
    \`\`\`bash
+
    # PostgreSQL shell
+
    pnpm dev:db
 
    # Or use GUI tools (TablePlus, DBeaver, etc.)
+
    # Connection: localhost:5432, user: dev, password: dev, database: polyladder
+
    \`\`\`
 
    ### Reset Environment
 
    \`\`\`bash
+
    # Stop containers and remove all data
+
    pnpm dev:reset
    \`\`\`
 
@@ -621,38 +665,49 @@ Set up a complete Docker-based development environment that mirrors production c
    ### Port Already in Use
 
    \`\`\`bash
+
    # Find process using port 5432
-   lsof -i :5432  # macOS/Linux
-   netstat -ano | findstr :5432  # Windows
+
+   lsof -i :5432 # macOS/Linux
+   netstat -ano | findstr :5432 # Windows
 
    # Or change port in docker-compose.yml
+
    \`\`\`
 
    ### Database Connection Failed
 
    \`\`\`bash
+
    # Check database is running
+
    docker ps | grep polyladder-db-dev
 
    # Check logs
+
    pnpm dev:logs db
 
    # Restart database
+
    docker-compose -f docker/docker-compose.yml restart db
    \`\`\`
 
    ### Hot Reload Not Working
 
    \`\`\`bash
+
    # Rebuild containers
+
    pnpm dev:build
 
    # Or restart specific service
+
    docker-compose -f docker/docker-compose.yml restart api
    \`\`\`
    ```
 
 2. Update root `README.md` to reference development guide:
+
    ```markdown
    ## Development
 
@@ -660,6 +715,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Files Created**:
+
 - `docs/DEVELOPMENT.md`
 
 ---
@@ -671,18 +727,23 @@ Set up a complete Docker-based development environment that mirrors production c
 **Implementation Plan**:
 
 1. Build containers:
+
    ```bash
    pnpm dev:build
    ```
+
    Expected: All containers build without errors
 
 2. Start services:
+
    ```bash
    pnpm dev
    ```
+
    Expected: PostgreSQL, API, Refinement Service all start
 
 3. Check health:
+
    ```bash
    # PostgreSQL health
    docker-compose -f docker/docker-compose.yml exec db pg_isready -U dev
@@ -692,6 +753,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 4. Test hot reload:
+
    ```bash
    # Edit a file in packages/api/src/
    # Watch logs for automatic restart
@@ -709,6 +771,7 @@ Set up a complete Docker-based development environment that mirrors production c
    ```
 
 **Validation**:
+
 - ✅ Containers build successfully
 - ✅ All services start and remain healthy
 - ✅ Hot reload works for backend services
