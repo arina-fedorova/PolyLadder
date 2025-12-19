@@ -5,12 +5,11 @@ import {
   CheckpointState,
   createCheckpointRepository,
 } from './services/checkpoint.service';
+import { WorkPlanner, createWorkPlannerRepository } from './services/work-planner.service';
 import {
-  WorkPlanner,
-  WorkItem,
-  ContentType,
-  createWorkPlannerRepository,
-} from './services/work-planner.service';
+  ContentProcessor,
+  createContentProcessorRepository,
+} from './services/content-processor.service';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -36,32 +35,10 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-function processWorkItem(workItem: WorkItem): void {
-  logger.info({ type: workItem.type, id: workItem.id }, 'Processing work item');
-
-  switch (workItem.type) {
-    case ContentType.ORTHOGRAPHY:
-      logger.info({ language: workItem.language }, 'Generating orthography content');
-      break;
-    case ContentType.MEANING:
-      logger.info({ language: workItem.language, level: workItem.level }, 'Generating meanings');
-      break;
-    case ContentType.UTTERANCE:
-      logger.info({ metadata: workItem.metadata }, 'Generating utterances');
-      break;
-    case ContentType.GRAMMAR_RULE:
-      logger.info({ language: workItem.language, level: workItem.level }, 'Generating grammar');
-      break;
-    case ContentType.EXERCISE:
-      logger.info({ language: workItem.language, level: workItem.level }, 'Generating exercises');
-      break;
-  }
-}
-
 async function mainLoop(
-  _pool: Pool,
   checkpoint: CheckpointService,
-  workPlanner: WorkPlanner
+  workPlanner: WorkPlanner,
+  contentProcessor: ContentProcessor
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
@@ -97,7 +74,7 @@ async function mainLoop(
       consecutiveEmptyIterations = 0;
       currentLoopInterval = Math.max(getLoopInterval(), MIN_LOOP_INTERVAL_MS);
 
-      processWorkItem(workItem);
+      await contentProcessor.process(workItem);
 
       await workPlanner.markWorkComplete(workItem.id);
 
@@ -179,6 +156,9 @@ async function start(): Promise<void> {
   const workPlannerRepo = createWorkPlannerRepository(pool);
   const workPlanner = new WorkPlanner(workPlannerRepo);
 
+  const contentProcessorRepo = createContentProcessorRepository(pool);
+  const contentProcessor = new ContentProcessor(contentProcessorRepo);
+
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
   });
@@ -188,7 +168,7 @@ async function start(): Promise<void> {
   });
 
   try {
-    await mainLoop(pool, checkpoint, workPlanner);
+    await mainLoop(checkpoint, workPlanner, contentProcessor);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.fatal({ error: err.message, stack: err.stack }, 'Fatal error in main loop');

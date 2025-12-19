@@ -3,7 +3,9 @@
 **Feature Code**: F016
 **Created**: 2025-12-17
 **Phase**: 4 - Content Refinement Service
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #19
 
 ---
 
@@ -13,11 +15,11 @@ Pluggable framework for integrating data sources: LLMs (OpenAI, Anthropic), exte
 
 ## Success Criteria
 
-- [ ] Adapter interface for data sources
-- [ ] LLM integration (OpenAI/Anthropic)
-- [ ] External resource parsers
-- [ ] Rule-based generators
-- [ ] DRAFT creation from any source
+- [x] Adapter interface for data sources
+- [x] LLM integration (OpenAI/Anthropic)
+- [x] External resource parsers
+- [x] Rule-based generators
+- [x] DRAFT creation from any source
 
 ---
 
@@ -30,6 +32,7 @@ Pluggable framework for integrating data sources: LLMs (OpenAI, Anthropic), exte
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/sources/source-adapter.interface.ts`:
+
 ```typescript
 import { Language, CEFRLevel } from '@polyladder/core';
 import { ContentType } from '../services/work-planner.service';
@@ -76,6 +79,7 @@ export interface SourceAdapter {
 ```
 
 Create `packages/refinement-service/src/sources/source-registry.ts`:
+
 ```typescript
 import { SourceAdapter, SourceRequest } from './source-adapter.interface';
 import { logger } from '../utils/logger';
@@ -90,8 +94,8 @@ export class SourceRegistry {
 
   async selectAdapter(request: SourceRequest): Promise<SourceAdapter | null> {
     // Find all adapters that can handle this request
-    const candidates = Array.from(this.adapters.values()).filter(
-      adapter => adapter.canHandle(request)
+    const candidates = Array.from(this.adapters.values()).filter((adapter) =>
+      adapter.canHandle(request)
     );
 
     if (candidates.length === 0) {
@@ -121,6 +125,7 @@ export class SourceRegistry {
 ```
 
 **Files Created**:
+
 - `packages/refinement-service/src/sources/source-adapter.interface.ts`
 - `packages/refinement-service/src/sources/source-registry.ts`
 
@@ -133,6 +138,7 @@ export class SourceRegistry {
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/sources/adapters/anthropic-adapter.ts`:
+
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
 import { SourceAdapter, SourceRequest, GeneratedContent } from '../source-adapter.interface';
@@ -164,10 +170,12 @@ export class AnthropicAdapter implements SourceAdapter {
     const response = await this.client.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 2000,
-      messages: [{
-        role: 'user',
-        content: prompt,
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
     });
 
     const content = response.content[0];
@@ -298,8 +306,8 @@ Return ONLY valid JSON:
 
   private calculateCost(usage: { input_tokens: number; output_tokens: number }): number {
     // Claude 3.5 Sonnet pricing (as of 2024)
-    const INPUT_COST_PER_1M = 3.00;  // $3 per 1M input tokens
-    const OUTPUT_COST_PER_1M = 15.00; // $15 per 1M output tokens
+    const INPUT_COST_PER_1M = 3.0; // $3 per 1M input tokens
+    const OUTPUT_COST_PER_1M = 15.0; // $15 per 1M output tokens
 
     const inputCost = (usage.input_tokens / 1_000_000) * INPUT_COST_PER_1M;
     const outputCost = (usage.output_tokens / 1_000_000) * OUTPUT_COST_PER_1M;
@@ -334,6 +342,7 @@ Return ONLY valid JSON:
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/sources/adapters/rule-based-adapter.ts`:
+
 ```typescript
 import { SourceAdapter, SourceRequest, GeneratedContent } from '../source-adapter.interface';
 import { ContentType } from '../../services/work-planner.service';
@@ -353,17 +362,42 @@ export class RuleBasedAdapter implements SourceAdapter {
   // Hardcoded orthography data for supported languages
   private orthographyData: Record<Language, OrthographyRule[]> = {
     EN: [
-      { letter: 'A', ipa: '/eɪ/', soundDescription: 'Long "a" as in "day"', examples: ['able', 'make', 'table'] },
-      { letter: 'B', ipa: '/biː/', soundDescription: 'Hard "b" as in "boy"', examples: ['ball', 'book', 'baby'] },
+      {
+        letter: 'A',
+        ipa: '/eɪ/',
+        soundDescription: 'Long "a" as in "day"',
+        examples: ['able', 'make', 'table'],
+      },
+      {
+        letter: 'B',
+        ipa: '/biː/',
+        soundDescription: 'Hard "b" as in "boy"',
+        examples: ['ball', 'book', 'baby'],
+      },
       // ... full alphabet
     ],
     ES: [
-      { letter: 'A', ipa: '/a/', soundDescription: 'Open "a" as in "father"', examples: ['agua', 'casa', 'mapa'] },
-      { letter: 'B', ipa: '/be/', soundDescription: 'Soft "b" as in "vino"', examples: ['bueno', 'baño', 'bebé'] },
+      {
+        letter: 'A',
+        ipa: '/a/',
+        soundDescription: 'Open "a" as in "father"',
+        examples: ['agua', 'casa', 'mapa'],
+      },
+      {
+        letter: 'B',
+        ipa: '/be/',
+        soundDescription: 'Soft "b" as in "vino"',
+        examples: ['bueno', 'baño', 'bebé'],
+      },
       // ... full alphabet
     ],
     IT: [
-      { letter: 'A', ipa: '/a/', soundDescription: 'Open "a" as in "father"', examples: ['amore', 'casa', 'pasta'] },
+      {
+        letter: 'A',
+        ipa: '/a/',
+        soundDescription: 'Open "a" as in "father"',
+        examples: ['amore', 'casa', 'pasta'],
+      },
       // ... full alphabet
     ],
     PT: [
@@ -377,8 +411,10 @@ export class RuleBasedAdapter implements SourceAdapter {
   };
 
   canHandle(request: SourceRequest): boolean {
-    return request.type === ContentType.ORTHOGRAPHY &&
-           this.orthographyData[request.language] !== undefined;
+    return (
+      request.type === ContentType.ORTHOGRAPHY &&
+      this.orthographyData[request.language] !== undefined
+    );
   }
 
   async generate(request: SourceRequest): Promise<GeneratedContent> {
@@ -393,7 +429,7 @@ export class RuleBasedAdapter implements SourceAdapter {
     }
 
     // Generate complete orthography lesson for this language
-    const lessons = rules.map(rule => ({
+    const lessons = rules.map((rule) => ({
       letter: rule.letter,
       ipa: rule.ipa,
       soundDescription: rule.soundDescription,
@@ -436,6 +472,7 @@ export class RuleBasedAdapter implements SourceAdapter {
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/services/content-processor.service.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { SourceRegistry } from '../sources/source-registry';
@@ -529,11 +566,7 @@ export class ContentProcessor {
         `INSERT INTO curriculum_graph
          (language, concept_type, concept_id, state, metadata)
          VALUES ($1, 'orthography', $2, 'DRAFT', $3)`,
-        [
-          generated.language,
-          `ortho_${lesson.letter.toLowerCase()}`,
-          JSON.stringify(lesson),
-        ]
+        [generated.language, `ortho_${lesson.letter.toLowerCase()}`, JSON.stringify(lesson)]
       );
     }
   }
@@ -614,6 +647,7 @@ export class ContentProcessor {
 **Implementation Plan**:
 
 Create `packages/db/migrations/010-source-costs.sql`:
+
 ```sql
 CREATE TABLE source_generation_costs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -642,6 +676,7 @@ ORDER BY date DESC;
 ```
 
 Update ContentProcessor to log costs:
+
 ```typescript
 private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
   // ... existing insert logic ...
@@ -671,9 +706,11 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
 ## Open Questions
 
 ### Question 1: LLM Provider Selection (DECISION NEEDED for MVP)
+
 **Context**: Multiple LLM options available with different cost/quality tradeoffs.
 
 **Options**:
+
 1. **Anthropic Claude 3.5 Sonnet** (implemented above)
    - Pros: Excellent quality, good at structured output, strong multilingual support
    - Cons: $3/M input + $15/M output tokens
@@ -695,6 +732,7 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
    - Estimated cost: $100/month infrastructure
 
 **Questions**:
+
 1. What's the budget for content generation API costs?
 2. Is quality more important than cost for MVP?
 3. Should we support multiple providers with fallback?
@@ -706,11 +744,13 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
 ---
 
 ### Question 2: Orthography Audio Generation
+
 **Context**: Orthography lessons need audio pronunciation examples.
 
 **Current State**: Rule-based adapter generates orthography data with `audioUrl: null`.
 
 **Options**:
+
 1. **Text-to-Speech API (Google Cloud TTS, Amazon Polly)**
    - Pros: Automated, supports many languages
    - Cons: Robotic sound, $4 per 1M characters
@@ -726,6 +766,7 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
    - Cons: User experience starts mediocre
 
 **Questions**:
+
 1. Is TTS quality acceptable for MVP orthography?
 2. Budget for human recording?
 
@@ -736,11 +777,13 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
 ---
 
 ### Question 3: Content Quality Validation (BLOCKER for automation)
+
 **Context**: LLM-generated content needs validation before promotion to CANDIDATE.
 
 **Current State**: Content goes to DRAFT, but no automated validation.
 
 **Options**:
+
 1. **Manual Review Only** (F025-F028 Operational UI)
    - Pros: Highest quality control
    - Cons: Slow, requires many operator hours
@@ -760,6 +803,7 @@ private async insertDraft(workItem: WorkItem, generated: any): Promise<void> {
    - Cons: Requires strong confidence in LLM quality
 
 **Questions**:
+
 1. How many operator hours available for content review?
 2. What quality threshold is acceptable for MVP?
 3. Should we implement automated validation in F011-F013 first?
