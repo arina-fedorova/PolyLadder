@@ -8,7 +8,7 @@ import {
   type AuthResult,
   type PublicUser,
 } from '../auth/types';
-import type { Language, UserRole } from '../domain/enums';
+import { type Language, UserRole } from '../domain/enums';
 
 export interface UserRecord {
   id: string;
@@ -60,7 +60,7 @@ export async function registerUser(
     email: validatedInput.email,
     passwordHash,
     baseLanguage: validatedInput.baseLanguage,
-    role: 'learner',
+    role: UserRole.LEARNER,
   });
 
   const token = generateToken({ userId: user.id, role: user.role }, jwtSecret);
