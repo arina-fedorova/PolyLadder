@@ -1,5 +1,7 @@
 import { LifecycleState, StateTransition, InvalidTransitionError } from './states';
 import { assertValidTransition } from './validator';
+import { ApprovalType } from '../domain/enums';
+import type { ApprovalEventRepository, CreateApprovalParams } from './approval-events';
 
 export interface TransitionParams {
   itemId: string;
@@ -7,6 +9,11 @@ export interface TransitionParams {
   fromState: LifecycleState;
   toState: LifecycleState;
   metadata?: Record<string, unknown>;
+  approval?: {
+    operatorId?: string;
+    approvalType: ApprovalType;
+    notes?: string;
+  };
 }
 
 export interface TransitionRepository {
@@ -19,18 +26,41 @@ export interface TransitionRepository {
   ): Promise<void>;
 }
 
+export interface TransitionContext {
+  transitionRepository: TransitionRepository;
+  approvalRepository?: ApprovalEventRepository;
+}
+
 export async function executeTransition(
-  repository: TransitionRepository,
+  context: TransitionContext,
   params: TransitionParams
 ): Promise<StateTransition> {
-  const { itemId, itemType, fromState, toState } = params;
+  const { itemId, itemType, fromState, toState, approval } = params;
 
   assertValidTransition(fromState, toState);
 
-  const transition = await repository.recordTransition(params);
-  await repository.moveItemToState(itemId, itemType, fromState, toState);
+  const transition = await context.transitionRepository.recordTransition(params);
+  await context.transitionRepository.moveItemToState(itemId, itemType, fromState, toState);
+
+  if (toState === LifecycleState.APPROVED && context.approvalRepository) {
+    const approvalParams: CreateApprovalParams = {
+      itemId,
+      itemType,
+      operatorId: approval?.operatorId,
+      approvalType: approval?.approvalType ?? ApprovalType.AUTOMATIC,
+      notes: approval?.notes,
+    };
+    await context.approvalRepository.recordApproval(approvalParams);
+  }
 
   return transition;
+}
+
+export async function executeTransitionSimple(
+  repository: TransitionRepository,
+  params: TransitionParams
+): Promise<StateTransition> {
+  return executeTransition({ transitionRepository: repository }, params);
 }
 
 export function getTableForState(itemType: string, state: LifecycleState): string {
