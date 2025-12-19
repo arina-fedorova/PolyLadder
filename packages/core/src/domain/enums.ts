@@ -63,8 +63,8 @@ export enum DataType {
 }
 
 export enum ApprovalType {
-  AUTOMATIC = 'automatic',
-  MANUAL = 'manual',
+  AUTOMATIC = 'AUTOMATIC',
+  MANUAL = 'MANUAL',
 }
 
 export enum ConceptType {
