@@ -1,5 +1,7 @@
-import type { Language, UserRole } from '@polyladder/core';
 import { query } from '../connection';
+
+export type UserRole = 'learner' | 'operator';
+export type Language = 'EN' | 'IT' | 'PT' | 'SL' | 'ES';
 
 export interface UserRow {
   id: string;
