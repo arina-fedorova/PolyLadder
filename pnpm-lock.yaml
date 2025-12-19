@@ -66,10 +66,16 @@ importers:
 
   packages/core:
     dependencies:
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
       zod:
         specifier: ^4.2.1
         version: 4.2.1
     devDependencies:
+      '@types/bcrypt':
+        specifier: ^6.0.0
+        version: 6.0.0
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@25.0.3)(tsx@4.21.0)
