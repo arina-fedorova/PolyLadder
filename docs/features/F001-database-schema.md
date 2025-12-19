@@ -163,10 +163,6 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
          notNull: true,
          default: '[]',
        },
-       russian_gloss: {
-         type: 'text',
-         notNull: false,
-       },
        created_at: {
          type: 'timestamp',
          notNull: true,
@@ -931,8 +927,8 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 
      // Create sample approved meaning
      await query(`
-       INSERT INTO approved_meanings (id, level, tags, russian_gloss)
-       VALUES ('greeting-hello', 'A0', '["greetings"]', 'Привет')
+       INSERT INTO approved_meanings (id, level, tags)
+       VALUES ('greeting-hello', 'A0', '["greetings"]')
        ON CONFLICT (id) DO NOTHING
      `);
 
