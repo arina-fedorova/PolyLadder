@@ -3,7 +3,9 @@
 **Feature Code**: F002
 **Created**: 2025-12-17
 **Phase**: 0 - Foundation & Infrastructure
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #5
 
 ---
 
@@ -13,12 +15,12 @@ Define comprehensive TypeScript types and domain entities for the entire PolyLad
 
 ## Success Criteria
 
-- [ ] All domain entities defined with TypeScript types
-- [ ] Zod schemas created for runtime validation
-- [ ] Enums for lifecycle states, CEFR levels, languages
-- [ ] Types exported and consumable by other packages
-- [ ] 100% type coverage (no `any` types)
-- [ ] Types match database schema from F001
+- [x] All domain entities defined with TypeScript types
+- [x] Zod schemas created for runtime validation
+- [x] Enums for lifecycle states, CEFR levels, languages
+- [x] Types exported and consumable by other packages
+- [x] 100% type coverage (no `any` types)
+- [x] Types match database schema from F001
 
 ---
 
@@ -133,7 +135,6 @@ export const MeaningSchema = z.object({
   id: z.string().max(100),
   level: z.nativeEnum(CEFRLevel),
   tags: z.array(z.string()),
-  russianGloss: z.string().nullable(),
   createdAt: z.date(),
 });
 
@@ -190,6 +191,7 @@ export type Exercise = z.infer<typeof ExerciseSchema>;
 ```
 
 **Files Created**:
+
 - `packages/core/src/domain/meaning.ts`
 - `packages/core/src/domain/utterance.ts`
 - `packages/core/src/domain/grammar-rule.ts`
@@ -381,12 +383,14 @@ export { z } from 'zod';
 **Implementation Plan**:
 
 1. Install Zod:
+
    ```bash
    cd packages/core
    pnpm add zod
    ```
 
 2. Update `package.json`:
+
    ```json
    {
      "name": "@polyladder/core",
@@ -430,12 +434,14 @@ export { z } from 'zod';
 **Current Approach**: All domain types defined as Zod schemas AND TypeScript types (via `z.infer<typeof Schema>`). This provides both compile-time and runtime validation but requires maintaining parallel definitions.
 
 **Alternatives**:
+
 1. **Zod everywhere** (current): Every domain object is a Zod schema. Runtime validation everywhere but verbose and slower. Example: `UserSchema.parse(data)` throws on invalid data.
 2. **TypeScript types only**: Use plain TypeScript interfaces. Fast and clean but no runtime safety - invalid data from database/API can break type assumptions.
 3. **Boundary validation**: TypeScript types for internal code, Zod only at boundaries (API requests, database reads). Balances performance with safety.
 4. **Branded types**: Use TypeScript branded types (`type UUID = string & { __brand: 'UUID' }`) for compile-time safety, validation helpers for runtime checks.
 
 **Recommendation**: Use **boundary validation** (Option 3) with smart caching. Strategy:
+
 - **API layer**: Zod validation on all requests (`RequestSchema.parse(req.body)`)
 - **Database layer**: Zod validation when reading from DB (untrusted source)
 - **Internal code**: TypeScript types only (trusted, already validated)
@@ -452,6 +458,7 @@ Implement validation caching for immutable objects - once an `ApprovedMeaning` i
 **Current Approach**: Domain objects are plain TypeScript interfaces (no methods). Mutations happen via service layer functions. No explicit immutability enforcement or event tracking in the domain model itself.
 
 **Alternatives**:
+
 1. **Mutable objects** (current): Plain objects modified in-place. Simple but prone to bugs (accidental mutations, unclear state transitions).
 2. **Immutable objects**: Use `readonly` modifiers and return new objects for changes. Functional style, safer but more verbose.
 3. **Domain events**: Rich domain objects with methods that emit events (`Utterance.approve()` emits `UtteranceApprovedEvent`). Clear semantics but more complex.
@@ -459,6 +466,7 @@ Implement validation caching for immutable objects - once an `ApprovedMeaning` i
 5. **Hybrid**: Immutable for shared knowledge base (approved content), mutable for user-specific data (SRS items).
 
 **Recommendation**: Implement **immutable objects with domain events** (Option 3 + 2 hybrid). Define domain objects as:
+
 ```typescript
 export class ApprovedMeaning {
   constructor(private readonly data: ApprovedMeaningData) {}
@@ -468,7 +476,7 @@ export class ApprovedMeaning {
       ...this.data,
       status: 'deprecated',
       deprecationReason: reason,
-      deprecatedAt: new Date()
+      deprecatedAt: new Date(),
     });
     const event = new MeaningDeprecatedEvent(this.data.id, reason);
     return [updated, event];
@@ -487,6 +495,7 @@ This makes state transitions explicit, enables event sourcing for audit trails (
 **Current Approach**: Not explicitly defined. Likely uses TypeScript exceptions (standard JavaScript pattern). Errors bubble up to API layer where they're caught and converted to HTTP responses.
 
 **Alternatives**:
+
 1. **Exceptions** (current TypeScript default): `throw new Error()` for errors. Simple and idiomatic but makes error cases invisible in type signatures.
 2. **Result types**: Return `Result<T, Error>` (success or failure). Explicit error handling, forces callers to handle errors, but verbose.
 3. **Hybrid**: Exceptions for truly exceptional cases (programming errors), Result types for expected failures (validation, business rules).
