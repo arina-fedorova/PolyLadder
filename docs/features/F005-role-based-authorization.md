@@ -3,7 +3,9 @@
 **Feature Code**: F005
 **Created**: 2025-12-17
 **Phase**: 1 - Authentication & User Management
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #8
 
 ---
 
@@ -13,12 +15,12 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 
 ## Success Criteria
 
-- [ ] Role field in JWT payload
-- [ ] Authorization middleware checks user role
-- [ ] Operator-only routes return 403 Forbidden for non-operators
-- [ ] Clear separation between learner and operator endpoints
-- [ ] Role validation integrated with Fastify route protection
-- [ ] Authorization errors include descriptive messages
+- [x] Role field in JWT payload
+- [x] Authorization middleware checks user role
+- [x] Operator-only routes return 403 Forbidden for non-operators
+- [x] Clear separation between learner and operator endpoints
+- [x] Role validation integrated with Fastify route protection
+- [x] Authorization errors include descriptive messages
 
 ---
 
@@ -31,6 +33,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/core/src/auth/authorization.ts`:
+
    ```typescript
    import { UserRole } from '../domain/user';
 
@@ -109,6 +112,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/core/src/auth/authorization.ts`
 
 ---
@@ -120,6 +124,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/api/src/plugins/authorization.ts`:
+
    ```typescript
    import { FastifyPluginAsync } from 'fastify';
    import fp from 'fastify-plugin';
@@ -203,6 +208,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/api/src/plugins/authorization.ts`
 
 ---
@@ -214,6 +220,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/api/src/middleware/auth.ts`:
+
    ```typescript
    import { FastifyRequest, FastifyReply } from 'fastify';
    import { verifyToken } from '@polyladder/core';
@@ -290,6 +297,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/api/src/middleware/auth.ts`
 
 ---
@@ -301,6 +309,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/api/src/decorators/route-protection.ts`:
+
    ```typescript
    import { FastifyInstance } from 'fastify';
    import { authMiddleware } from '../middleware/auth';
@@ -343,6 +352,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/api/src/decorators/route-protection.ts`
 
 ---
@@ -354,26 +364,18 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/api/src/types/fastify.d.ts`:
+
    ```typescript
    import { FastifyRequest, FastifyReply } from 'fastify';
    import { UserRole } from '@polyladder/core';
 
    declare module 'fastify' {
      interface FastifyInstance {
-       requireAuth: () => (
-         request: FastifyRequest,
-         reply: FastifyReply
-       ) => Promise<void>;
+       requireAuth: () => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 
-       requireOperator: () => (
-         request: FastifyRequest,
-         reply: FastifyReply
-       ) => Promise<void>;
+       requireOperator: () => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 
-       requireLearner: () => (
-         request: FastifyRequest,
-         reply: FastifyReply
-       ) => Promise<void>;
+       requireLearner: () => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
      }
 
      interface FastifyRequest {
@@ -400,6 +402,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/api/src/types/fastify.d.ts`
 
 ---
@@ -411,6 +414,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `packages/core/tests/auth/authorization.test.ts`:
+
    ```typescript
    import { describe, it, expect } from 'vitest';
    import {
@@ -484,6 +488,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    ```
 
 **Files Created**:
+
 - `packages/core/tests/auth/authorization.test.ts`
 
 ---
@@ -495,6 +500,7 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
 **Implementation Plan**:
 
 1. Create `docs/AUTH_PATTERNS.md`:
+
    ```markdown
    # Authorization Patterns
 
@@ -506,11 +512,11 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    import { protectRoute } from '../decorators/route-protection';
 
    fastify.get('/api/v1/protected',
-     protectRoute(fastify),
-     async (request, reply) => {
-       // Access request.user.userId and request.user.role
-       return { message: 'Protected content' };
-     }
+   protectRoute(fastify),
+   async (request, reply) => {
+   // Access request.user.userId and request.user.role
+   return { message: 'Protected content' };
+   }
    );
    \`\`\`
 
@@ -520,11 +526,11 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    import { protectOperatorRoute } from '../decorators/route-protection';
 
    fastify.get('/api/v1/operational/dashboard',
-     protectOperatorRoute(fastify),
-     async (request, reply) => {
-       // Only operators can access this
-       return { message: 'Operator dashboard' };
-     }
+   protectOperatorRoute(fastify),
+   async (request, reply) => {
+   // Only operators can access this
+   return { message: 'Operator dashboard' };
+   }
    );
    \`\`\`
 
@@ -534,14 +540,14 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    import { optionalAuth } from '../decorators/route-protection';
 
    fastify.get('/api/v1/public',
-     optionalAuth(),
-     async (request, reply) => {
-       // request.user may or may not be present
-       if (request.user) {
-         return { message: `Hello ${request.user.userId}` };
-       }
-       return { message: 'Hello guest' };
-     }
+   optionalAuth(),
+   async (request, reply) => {
+   // request.user may or may not be present
+   if (request.user) {
+   return { message: `Hello ${request.user.userId}` };
+   }
+   return { message: 'Hello guest' };
+   }
    );
    \`\`\`
 
@@ -551,29 +557,32 @@ Implement role-based access control (RBAC) to restrict operator-only functionali
    import { assertOperator, AuthorizationError } from '@polyladder/core';
 
    export function performOperatorAction(userRole: UserRole) {
-     try {
-       assertOperator(userRole);
-       // Perform action
-     } catch (error) {
-       if (error instanceof AuthorizationError) {
-         // Handle authorization error
-       }
-     }
+   try {
+   assertOperator(userRole);
+   // Perform action
+   } catch (error) {
+   if (error instanceof AuthorizationError) {
+   // Handle authorization error
+   }
+   }
    }
    \`\`\`
 
    ## Error Responses
 
    ### 401 Unauthorized
+
    - No token provided
    - Invalid token
    - Expired token
 
    ### 403 Forbidden
+
    - Valid token but insufficient role
    ```
 
 **Files Created**:
+
 - `docs/AUTH_PATTERNS.md`
 
 ---
