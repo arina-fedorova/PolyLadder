@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
-import { Language, CEFRLevel } from '@polyladder/core';
+
+type Language = 'EN' | 'ES' | 'IT' | 'PT' | 'SL';
+type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 export enum ContentType {
   ORTHOGRAPHY = 'orthography',
@@ -46,13 +48,7 @@ export const DEFAULT_TARGETS: ContentTargets = {
   exercisesPerLevel: 50,
 };
 
-export const SUPPORTED_LANGUAGES: Language[] = [
-  Language.EN,
-  Language.ES,
-  Language.IT,
-  Language.PT,
-  Language.SL,
-];
+export const SUPPORTED_LANGUAGES: Language[] = ['EN', 'ES', 'IT', 'PT', 'SL'];
 
 export class WorkPlanner {
   protected repository: WorkPlannerRepository;
@@ -149,7 +145,7 @@ export class WorkPlannerWithGapAnalysis extends WorkPlanner {
         `ortho_${orthographyGap.language}`,
         ContentType.ORTHOGRAPHY,
         orthographyGap.language,
-        CEFRLevel.A1,
+        'A1',
         WorkPriority.CRITICAL,
         { ...orthographyGap }
       );
