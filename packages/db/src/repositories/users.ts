@@ -19,7 +19,10 @@ export interface CreateUserParams {
 }
 
 export async function createUser(params: CreateUserParams): Promise<UserRow> {
-  const { email, passwordHash, baseLanguage, role = 'learner' } = params;
+  const email = params.email;
+  const passwordHash = params.passwordHash;
+  const baseLanguage = params.baseLanguage;
+  const role = params.role ?? 'learner';
 
   const result = await query<UserRow>(
     `INSERT INTO users (email, password_hash, base_language, role)
