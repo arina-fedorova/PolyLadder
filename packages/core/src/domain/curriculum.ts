@@ -7,7 +7,7 @@ export const CurriculumNodeSchema = z.object({
   conceptType: z.nativeEnum(ConceptType),
   language: z.nativeEnum(Language).nullable(),
   prerequisites: z.array(z.string().max(100)),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
   createdAt: z.date(),
 });
 

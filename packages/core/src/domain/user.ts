@@ -19,7 +19,7 @@ export const UserPreferencesSchema = z.object({
   focusModeEnabled: z.boolean(),
   focusLanguage: z.nativeEnum(Language).nullable(),
   onboardingCompleted: z.boolean(),
-  settings: z.record(z.unknown()),
+  settings: z.record(z.string(), z.unknown()),
   updatedAt: z.date(),
 });
 

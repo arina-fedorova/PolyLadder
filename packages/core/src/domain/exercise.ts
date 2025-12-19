@@ -9,7 +9,7 @@ export const ExerciseSchema = z.object({
   prompt: z.string(),
   correctAnswer: z.string(),
   options: z.array(z.string()).nullable(),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
   createdAt: z.date(),
 });
 
