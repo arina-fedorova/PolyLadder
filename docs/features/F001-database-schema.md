@@ -1056,6 +1056,124 @@ Design and implement the complete PostgreSQL database schema for PolyLadder. The
 
 ---
 
+## Decisions Made
+
+### 1. Primary Key Strategy
+
+**Decision**: Hybrid approach with semantic IDs for knowledge base, UUIDs for user data.
+
+**Implementation**:
+
+- `approved_meanings.id`, `approved_rules.id` — `varchar(100)` semantic IDs (e.g., `greeting-hello`, `IT-grammar-articles`)
+- `users.id`, `user_*` tables, pipeline tables — `uuid` with `gen_random_uuid()`
+- `approved_utterances.id`, `approved_exercises.id` — `uuid` (high volume, no need for readable IDs)
+
+**Rationale**:
+
+- Semantic IDs for meanings/rules improve debugging and API readability
+- UUIDs for user data prevent enumeration attacks and support distributed generation
+- UUIDs for utterances/exercises because they're referenced by internal ID, not exposed in URLs
+- PostgreSQL's `gen_random_uuid()` is efficient and requires no extensions
+
+---
+
+### 2. Table Partitioning
+
+**Decision**: No partitioning in MVP. Schema designed to support future partitioning.
+
+**Implementation**:
+
+- All tables use standard single-partition design
+- Primary keys and indexes chosen to not conflict with future partitioning
+- `created_at` timestamp on all tables enables future time-based partitioning
+
+**Rationale**:
+
+- MVP will have <100K rows in largest tables
+- Premature partitioning adds complexity without benefit
+- Schema structure allows adding partitioning via migration when needed
+- Will monitor table sizes and add partitioning when approaching 10M rows
+
+---
+
+### 3. JSONB Usage and Indexing
+
+**Decision**: JSONB for flexible data, no JSONB indexes in MVP.
+
+**Implementation**:
+
+- `tags` — JSONB array for flexible categorization
+- `metadata` — JSONB object for extensible properties
+- `settings`, `achievements` — JSONB for user preferences
+- No GIN or expression indexes created yet
+
+**Rationale**:
+
+- JSONB provides schema flexibility without migrations for new fields
+- Index cost outweighs benefit at MVP scale
+- Will add GIN indexes on `tags` when filtering becomes slow
+- Query patterns not yet established — indexes should follow usage
+
+---
+
+### 4. Foreign Key Cascade Strategy
+
+**Decision**: `ON DELETE CASCADE` for user-owned data, no cascade for shared knowledge base.
+
+**Implementation**:
+
+- `user_preferences`, `user_progress`, `user_vocabulary`, `user_srs_schedule`, `user_statistics` — CASCADE from `users`
+- `approved_utterances` → `approved_meanings` — no cascade (preserve referential integrity)
+- `candidates` → `drafts`, `validated` → `candidates` — no cascade (audit trail)
+
+**Rationale**:
+
+- User deletion should clean up all user data automatically
+- Knowledge base data is immutable — deleting meaning should not cascade to utterances
+- Pipeline data needs full traceability — no silent deletions
+
+---
+
+### 5. Timestamp Handling
+
+**Decision**: Use `timestamp` (without time zone), store UTC.
+
+**Implementation**:
+
+- All `created_at`, `updated_at` columns use `timestamp` type
+- Application responsible for converting to/from UTC
+- `last_study_date` uses `date` type (no time component needed)
+
+**Rationale**:
+
+- `timestamp` is simpler and sufficient for single-timezone storage
+- UTC normalization happens in application layer
+- Avoids PostgreSQL timezone conversion overhead
+- Consistent with Node.js Date handling
+
+---
+
+### 6. Connection Pooling
+
+**Decision**: pg Pool with conservative defaults.
+
+**Implementation**:
+
+- Max connections: 10 (dev), 20 (prod)
+- Idle timeout: 30 seconds
+- Connection timeout: 2 seconds
+- Slow query warning: >100ms
+
+**Rationale**:
+
+- 10 connections sufficient for development, prevents resource exhaustion
+- 20 connections for prod balances concurrency with DB limits
+- Short idle timeout releases unused connections quickly
+- 2 second connection timeout fails fast on DB issues
+- 100ms threshold catches queries that need optimization
+
+---
+
 ## Open Questions
 
 ### 1. Primary Key Strategy: UUID vs Sequential IDs
