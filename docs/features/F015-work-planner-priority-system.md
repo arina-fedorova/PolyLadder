@@ -3,7 +3,9 @@
 **Feature Code**: F015
 **Created**: 2025-12-17
 **Phase**: 4 - Content Refinement Service
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #18
 
 ---
 
@@ -13,10 +15,10 @@ Determines what content to generate next based on database state, gaps in covera
 
 ## Success Criteria
 
-- [ ] Priority rules defined (orthography → meanings → utterances → exercises)
-- [ ] Gap detection identifies missing content
-- [ ] Work queue managed efficiently
-- [ ] Avoids duplicate work
+- [x] Priority rules defined (orthography → meanings → utterances → exercises)
+- [x] Gap detection identifies missing content
+- [x] Work queue managed efficiently
+- [x] Avoids duplicate work
 
 ---
 
@@ -29,6 +31,7 @@ Determines what content to generate next based on database state, gaps in covera
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/services/work-planner.service.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { Language, CEFRLevel } from '@polyladder/core';
@@ -42,10 +45,10 @@ export enum ContentType {
 }
 
 export enum WorkPriority {
-  CRITICAL = 1,    // Orthography (blocks everything)
-  HIGH = 2,        // Meanings (foundational vocabulary)
-  MEDIUM = 3,      // Utterances & Grammar Rules
-  LOW = 4,         // Exercises (practice content)
+  CRITICAL = 1, // Orthography (blocks everything)
+  HIGH = 2, // Meanings (foundational vocabulary)
+  MEDIUM = 3, // Utterances & Grammar Rules
+  LOW = 4, // Exercises (practice content)
 }
 
 interface WorkItem {
@@ -155,14 +158,17 @@ export class WorkPlanner {
 
   private async findMeaningGaps() {
     // Find languages/levels with insufficient meaning coverage
-    const result = await this.pool.query(`
+    const result = await this.pool.query(
+      `
       SELECT language, level, COUNT(*) as count
       FROM approved_meanings
       GROUP BY language, level
       HAVING COUNT(*) < $1
       ORDER BY level ASC, COUNT(*) ASC
       LIMIT 1
-    `, [100]); // Target: 100 meanings per level
+    `,
+      [100]
+    ); // Target: 100 meanings per level
 
     if (result.rows.length > 0) {
       return {
@@ -202,14 +208,17 @@ export class WorkPlanner {
 
   private async findGrammarGaps() {
     // Find languages/levels with insufficient grammar coverage
-    const result = await this.pool.query(`
+    const result = await this.pool.query(
+      `
       SELECT language, level, COUNT(*) as count
       FROM approved_rules
       GROUP BY language, level
       HAVING COUNT(*) < $1
       ORDER BY level ASC, COUNT(*) ASC
       LIMIT 1
-    `, [20]); // Target: 20 grammar rules per level
+    `,
+      [20]
+    ); // Target: 20 grammar rules per level
 
     if (result.rows.length > 0) {
       return {
@@ -226,7 +235,8 @@ export class WorkPlanner {
 
   private async findExerciseGaps() {
     // Find languages/levels with insufficient exercise coverage
-    const result = await this.pool.query(`
+    const result = await this.pool.query(
+      `
       SELECT language, level, COUNT(*) as count
       FROM approved_exercises
       WHERE language = ANY($1)
@@ -234,7 +244,9 @@ export class WorkPlanner {
       HAVING COUNT(*) < $2
       ORDER BY level ASC, COUNT(*) ASC
       LIMIT 1
-    `, [['EN', 'ES', 'IT', 'PT', 'SL'], 50]); // Target: 50 exercises per level
+    `,
+      [['EN', 'ES', 'IT', 'PT', 'SL'], 50]
+    ); // Target: 50 exercises per level
 
     if (result.rows.length > 0) {
       return {
@@ -261,16 +273,20 @@ export class WorkPlanner {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/operational/content-gaps.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Language, CEFRLevel } from '@polyladder/core';
 
 export const contentGapsRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/operational/content-gaps', {
-    preHandler: [authMiddleware, requireOperator()],
-  }, async (request, reply) => {
-    // Get coverage stats for all languages and levels
-    const coverage = await fastify.pg.query(`
+  fastify.get(
+    '/operational/content-gaps',
+    {
+      preHandler: [authMiddleware, requireOperator()],
+    },
+    async (request, reply) => {
+      // Get coverage stats for all languages and levels
+      const coverage = await fastify.pg.query(`
       SELECT
         lang.language,
         lvl.level,
@@ -295,35 +311,36 @@ export const contentGapsRoute: FastifyPluginAsync = async (fastify) => {
       ORDER BY lvl.level ASC, lang.language ASC
     `);
 
-    // Calculate gaps
-    const gaps = coverage.rows.map(row => {
-      const targets = {
-        meanings: 100,
-        utterances: 300, // 100 meanings * 3 utterances
-        rules: 20,
-        exercises: 50,
-      };
+      // Calculate gaps
+      const gaps = coverage.rows.map((row) => {
+        const targets = {
+          meanings: 100,
+          utterances: 300, // 100 meanings * 3 utterances
+          rules: 20,
+          exercises: 50,
+        };
 
-      return {
-        language: row.language,
-        level: row.level,
-        gaps: {
-          meanings: Math.max(0, targets.meanings - row.meanings_count),
-          utterances: Math.max(0, targets.utterances - row.utterances_count),
-          rules: Math.max(0, targets.rules - row.rules_count),
-          exercises: Math.max(0, targets.exercises - row.exercises_count),
-        },
-        coverage: {
-          meanings: `${row.meanings_count}/${targets.meanings}`,
-          utterances: `${row.utterances_count}/${targets.utterances}`,
-          rules: `${row.rules_count}/${targets.rules}`,
-          exercises: `${row.exercises_count}/${targets.exercises}`,
-        },
-      };
-    });
+        return {
+          language: row.language,
+          level: row.level,
+          gaps: {
+            meanings: Math.max(0, targets.meanings - row.meanings_count),
+            utterances: Math.max(0, targets.utterances - row.utterances_count),
+            rules: Math.max(0, targets.rules - row.rules_count),
+            exercises: Math.max(0, targets.exercises - row.exercises_count),
+          },
+          coverage: {
+            meanings: `${row.meanings_count}/${targets.meanings}`,
+            utterances: `${row.utterances_count}/${targets.utterances}`,
+            rules: `${row.rules_count}/${targets.rules}`,
+            exercises: `${row.exercises_count}/${targets.exercises}`,
+          },
+        };
+      });
 
-    return reply.status(200).send({ gaps });
-  });
+      return reply.status(200).send({ gaps });
+    }
+  );
 };
 ```
 
@@ -338,6 +355,7 @@ export const contentGapsRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Add deduplication check to WorkPlanner:
+
 ```typescript
 export class WorkPlanner {
   // ... existing code ...
@@ -363,10 +381,7 @@ export class WorkPlanner {
   }
 
   async markWorkComplete(workId: string): Promise<void> {
-    await this.pool.query(
-      'DELETE FROM work_in_progress WHERE work_id = $1',
-      [workId]
-    );
+    await this.pool.query('DELETE FROM work_in_progress WHERE work_id = $1', [workId]);
   }
 
   async getNextWork(): Promise<WorkItem | null> {
@@ -389,6 +404,7 @@ export class WorkPlanner {
 ```
 
 Add table migration in `packages/db/migrations/009-work-in-progress.sql`:
+
 ```sql
 CREATE TABLE work_in_progress (
   work_id VARCHAR(200) PRIMARY KEY,
@@ -399,6 +415,7 @@ CREATE INDEX idx_work_in_progress_started ON work_in_progress(started_at);
 ```
 
 **Files Created**:
+
 - Update `work-planner.service.ts`
 - `packages/db/migrations/009-work-in-progress.sql`
 
@@ -411,6 +428,7 @@ CREATE INDEX idx_work_in_progress_started ON work_in_progress(started_at);
 **Implementation Plan**:
 
 Update `packages/refinement-service/src/main.ts`:
+
 ```typescript
 async function mainLoop() {
   const workPlanner = new WorkPlanner(pool);
@@ -456,7 +474,6 @@ async function mainLoop() {
         lastProcessedId: workItem.id,
         timestamp: new Date(),
       });
-
     } catch (error) {
       logger.error({ error }, 'Error processing work');
       await sleep(LOOP_INTERVAL_MS);
@@ -472,15 +489,18 @@ async function mainLoop() {
 ## Open Questions
 
 ### Question 1: Content Target Quantities (BLOCKER for accurate planning)
+
 **Context**: How much content is needed per language/level?
 
 **Current Assumptions** (in code above):
+
 - Meanings: 100 per level
 - Utterances: 3 per meaning (300 per level)
 - Grammar Rules: 20 per level
 - Exercises: 50 per level
 
 **Questions**:
+
 1. Are these targets realistic for MVP?
 2. Should targets vary by level? (A1 might need more, C2 less?)
 3. Should targets vary by language? (Popular languages need more?)
@@ -492,11 +512,13 @@ async function mainLoop() {
 ---
 
 ### Question 2: Grammar Rule Categorization
+
 **Context**: Grammar rules need categories (e.g., "verbs", "pronouns", "tenses").
 
 **Current State**: Code uses placeholder `category: 'general'`.
 
 **Questions**:
+
 1. What are the grammar categories for each language?
 2. How many rules per category?
 3. Should categories be standardized across languages or language-specific?
@@ -508,14 +530,17 @@ async function mainLoop() {
 ---
 
 ### Question 3: Work Priority Algorithm Sophistication
+
 **Context**: Current algorithm is simple FIFO with priority tiers.
 
 **Potential Enhancements**:
+
 1. Weight by user demand (which languages/levels are users studying?)
 2. Time-based balancing (ensure all languages get some work each day)
 3. Dependency-aware (don't generate exercises before meanings exist)
 
 **Questions**:
+
 1. Is simple priority sufficient for MVP?
 2. Should we track user learning patterns to prioritize?
 

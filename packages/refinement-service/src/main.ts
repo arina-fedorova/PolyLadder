@@ -5,6 +5,12 @@ import {
   CheckpointState,
   createCheckpointRepository,
 } from './services/checkpoint.service';
+import {
+  WorkPlanner,
+  WorkItem,
+  ContentType,
+  createWorkPlannerRepository,
+} from './services/work-planner.service';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -30,7 +36,33 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-async function mainLoop(pool: Pool, checkpoint: CheckpointService): Promise<void> {
+function processWorkItem(workItem: WorkItem): void {
+  logger.info({ type: workItem.type, id: workItem.id }, 'Processing work item');
+
+  switch (workItem.type) {
+    case ContentType.ORTHOGRAPHY:
+      logger.info({ language: workItem.language }, 'Generating orthography content');
+      break;
+    case ContentType.MEANING:
+      logger.info({ language: workItem.language, level: workItem.level }, 'Generating meanings');
+      break;
+    case ContentType.UTTERANCE:
+      logger.info({ metadata: workItem.metadata }, 'Generating utterances');
+      break;
+    case ContentType.GRAMMAR_RULE:
+      logger.info({ language: workItem.language, level: workItem.level }, 'Generating grammar');
+      break;
+    case ContentType.EXERCISE:
+      logger.info({ language: workItem.language, level: workItem.level }, 'Generating exercises');
+      break;
+  }
+}
+
+async function mainLoop(
+  _pool: Pool,
+  checkpoint: CheckpointService,
+  workPlanner: WorkPlanner
+): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
   const previousState = await checkpoint.restoreState();
@@ -45,9 +77,9 @@ async function mainLoop(pool: Pool, checkpoint: CheckpointService): Promise<void
 
   while (!isShuttingDown) {
     try {
-      const hasWork = await checkForWork(pool);
+      const workItem = await workPlanner.getNextWork();
 
-      if (!hasWork) {
+      if (!workItem) {
         consecutiveEmptyIterations++;
         currentLoopInterval = Math.min(
           getLoopInterval() * Math.pow(1.5, Math.min(consecutiveEmptyIterations, 5)),
@@ -65,13 +97,19 @@ async function mainLoop(pool: Pool, checkpoint: CheckpointService): Promise<void
       consecutiveEmptyIterations = 0;
       currentLoopInterval = Math.max(getLoopInterval(), MIN_LOOP_INTERVAL_MS);
 
+      processWorkItem(workItem);
+
+      await workPlanner.markWorkComplete(workItem.id);
+
       const state: CheckpointState = {
+        lastProcessedId: workItem.id,
+        lastProcessedType: workItem.type,
         timestamp: new Date(),
-        metadata: { iteration: Date.now() },
+        metadata: { priority: workItem.priority },
       };
 
       await checkpoint.saveState(state);
-      logger.debug('Checkpoint saved');
+      logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error({ error: err.message, stack: err.stack }, 'Error in main loop');
@@ -83,10 +121,6 @@ async function mainLoop(pool: Pool, checkpoint: CheckpointService): Promise<void
   }
 
   logger.info('Main loop exited');
-}
-
-function checkForWork(_pool: Pool): Promise<boolean> {
-  return Promise.resolve(false);
 }
 
 async function gracefulShutdown(pool: Pool, reason: string): Promise<void> {
@@ -142,6 +176,9 @@ async function start(): Promise<void> {
   const checkpointRepo = createCheckpointRepository(pool);
   const checkpoint = new CheckpointService(checkpointRepo);
 
+  const workPlannerRepo = createWorkPlannerRepository(pool);
+  const workPlanner = new WorkPlanner(workPlannerRepo);
+
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
   });
@@ -151,7 +188,7 @@ async function start(): Promise<void> {
   });
 
   try {
-    await mainLoop(pool, checkpoint);
+    await mainLoop(pool, checkpoint, workPlanner);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.fatal({ error: err.message, stack: err.stack }, 'Fatal error in main loop');
