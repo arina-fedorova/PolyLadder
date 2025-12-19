@@ -3,7 +3,9 @@
 **Feature Code**: F007
 **Created**: 2025-12-17
 **Phase**: 2 - Data Governance Core
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #10
 
 ---
 
@@ -13,12 +15,12 @@ Implement the core lifecycle state machine that governs data progression through
 
 ## Success Criteria
 
-- [ ] State transition logic implemented (only forward transitions)
-- [ ] Atomic state changes with database transactions
-- [ ] State change events recorded in audit log
-- [ ] Invalid transitions rejected with clear errors
-- [ ] All content types use same state machine
-- [ ] State validation before any transition
+- [x] State transition logic implemented (only forward transitions)
+- [x] Atomic state changes with database transactions
+- [x] State change events recorded in audit log
+- [x] Invalid transitions rejected with clear errors
+- [x] All content types use same state machine
+- [x] State validation before any transition
 
 ---
 
@@ -31,6 +33,7 @@ Implement the core lifecycle state machine that governs data progression through
 **Implementation Plan**:
 
 Create `packages/core/src/lifecycle/states.ts`:
+
 ```typescript
 /**
  * Lifecycle states for content refinement
@@ -73,6 +76,7 @@ export class InvalidTransitionError extends Error {
 ```
 
 **Files Created**:
+
 - `packages/core/src/lifecycle/states.ts`
 
 ---
@@ -84,6 +88,7 @@ export class InvalidTransitionError extends Error {
 **Implementation Plan**:
 
 Create `packages/core/src/lifecycle/validator.ts`:
+
 ```typescript
 import { LifecycleState, VALID_TRANSITIONS, InvalidTransitionError } from './states';
 
@@ -119,6 +124,7 @@ export function isTerminalState(state: LifecycleState): boolean {
 ```
 
 **Files Created**:
+
 - `packages/core/src/lifecycle/validator.ts`
 
 ---
@@ -130,6 +136,7 @@ export function isTerminalState(state: LifecycleState): boolean {
 **Implementation Plan**:
 
 Create `packages/core/src/lifecycle/transition-service.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { LifecycleState, StateTransition } from './states';
@@ -196,10 +203,7 @@ async function moveItemToStateTable(
   const toTable = getTableForState(itemType, toState);
 
   // Copy data
-  await client.query(
-    `INSERT INTO ${toTable} SELECT * FROM ${fromTable} WHERE id = $1`,
-    [itemId]
-  );
+  await client.query(`INSERT INTO ${toTable} SELECT * FROM ${fromTable} WHERE id = $1`, [itemId]);
 
   // Delete from old table
   await client.query(`DELETE FROM ${fromTable} WHERE id = $1`, [itemId]);
@@ -217,6 +221,7 @@ function getTableForState(itemType: string, state: LifecycleState): string {
 ```
 
 **Files Created**:
+
 - `packages/core/src/lifecycle/transition-service.ts`
 
 ---
@@ -228,6 +233,7 @@ function getTableForState(itemType: string, state: LifecycleState): string {
 **Implementation Plan**:
 
 Create `packages/db/migrations/003-lifecycle-state-tracking.sql`:
+
 ```sql
 -- State transition events
 CREATE TABLE state_transition_events (
@@ -246,6 +252,7 @@ CREATE INDEX idx_transition_events_to_state ON state_transition_events(to_state)
 ```
 
 **Files Created**:
+
 - `packages/db/migrations/003-lifecycle-state-tracking.sql`
 
 ---
@@ -257,6 +264,7 @@ CREATE INDEX idx_transition_events_to_state ON state_transition_events(to_state)
 **Implementation Plan**:
 
 Create `packages/core/tests/lifecycle/validator.test.ts`:
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { LifecycleState } from '../../src/lifecycle/states';
@@ -284,6 +292,7 @@ describe('Lifecycle Validator', () => {
 ```
 
 **Files Created**:
+
 - `packages/core/tests/lifecycle/validator.test.ts`
 
 ---
@@ -313,15 +322,18 @@ describe('Lifecycle Validator', () => {
 **Current Approach**: Database transactions with BEGIN/COMMIT, but no explicit locking. Race condition possible: both workers read current state, both validate transition, both attempt INSERT to new table - second fails with unique constraint violation.
 
 **Alternatives**:
+
 1. **Advisory locks**: Use PostgreSQL advisory locks (`pg_advisory_xact_lock(item_id)`) to ensure only one transition at a time per item. Blocks concurrent attempts.
 2. **Optimistic locking**: Add `version` column, increment on each transition, require version match. Failed transactions retry with exponential backoff.
 3. **SELECT FOR UPDATE**: Lock row during state read (`SELECT ... FOR UPDATE`). Prevents concurrent reads.
 4. **Idempotent transitions**: Allow duplicate transitions, last one wins. Simplest but loses strict ordering guarantees.
 
 **Recommendation**: Use **advisory locks** (Option 1). Add to `executeTransition`:
+
 ```typescript
 await client.query('SELECT pg_advisory_xact_lock($1)', [hashItemId(itemId)]);
 ```
+
 This prevents race conditions without adding schema complexity. Lock automatically released on transaction commit/rollback. For distributed systems (multiple API servers), this ensures only one server processes a transition at a time.
 
 ---
@@ -333,12 +345,14 @@ This prevents race conditions without adding schema complexity. Lock automatical
 **Current Approach**: No backward transitions allowed ("immutability principle"). APPROVED is terminal state. Implies deprecation is only option - set `status='deprecated'` flag but item stays in `approved_*` table.
 
 **Alternatives**:
+
 1. **Strict immutability** (current): No rollbacks ever. Bad content must be deprecated + new correct version created. Audit trail perfect but can't fix mistakes in-place.
 2. **Deprecation with replacement**: Add `superseded_by` foreign key pointing to new correct version. Old version deprecated, new version linked.
 3. **Admin rollback**: Allow APPROVED → CANDIDATE transition only for admin users with logged reason. Breaks immutability but enables corrections.
 4. **Soft deletion**: Mark item as deleted but keep in table. Query filters exclude deleted items. Preserves data for audit.
 
 **Recommendation**: Use **deprecation with replacement** (Option 2). Maintain immutability of state machine (no backward transitions) but add deprecation workflow:
+
 - Add `approved_meanings.deprecated_at`, `superseded_by_id` columns
 - When approving new version, link old → new
 - Queries filter `WHERE deprecated_at IS NULL`
@@ -355,18 +369,21 @@ This preserves audit trail while allowing corrections. For truly harmful content
 **Current Approach**: Separate tables per state. Item physically moves between tables on state transition (copy to new table, delete from old). Clean separation but complex migrations.
 
 **Alternatives**:
+
 1. **Separate tables** (current): Each state has own table. Enforces separation, simple queries per state, but complex transitions (move data) and schema changes require modifying 4 tables.
 2. **Single table with state column**: One `content_items` table with `state` enum column. Simpler transitions (UPDATE), easier schema evolution, but mixes concerns and requires filtered queries.
 3. **Partitioned single table**: One logical table partitioned by `state`. Best of both - logical unity with physical separation. PostgreSQL handles routing automatically.
 4. **Hybrid**: User-generated content in separate tables, approved content in single versioned table. Different guarantees for different states.
 
 **Recommendation**: Keep **separate tables** (Option 1) for MVP simplicity, but design for future migration to **partitioned table** (Option 3). Separate tables provide:
+
 - Clear state boundaries (can't accidentally query wrong state)
 - Different indexes per state (candidates need different indexes than approved)
 - Easy to add state-specific columns (validated needs validation_results)
 - Performance: approved table optimized for reads, candidates for writes
 
 If schema evolution becomes painful (>5 migrations affecting all 4 tables), migrate to partitioned table using:
+
 ```sql
 CREATE TABLE content_lifecycle (
   id UUID PRIMARY KEY,
@@ -376,4 +393,5 @@ CREATE TABLE content_lifecycle (
 
 CREATE TABLE drafts PARTITION OF content_lifecycle FOR VALUES IN ('DRAFT');
 ```
+
 This maintains separate physical storage while simplifying schema management.
