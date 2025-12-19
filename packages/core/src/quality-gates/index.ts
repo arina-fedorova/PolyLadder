@@ -6,3 +6,5 @@ export * from './orthography-gate';
 export * from './cefr-gate';
 export * from './prerequisite-gate';
 export * from './content-safety-gate';
+export * from './failure-recorder';
+export * from './retry-logic';

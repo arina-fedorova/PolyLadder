@@ -3,6 +3,7 @@ export interface QualityGateResult {
   gateName: string;
   reason?: string;
   details?: Record<string, unknown>;
+  executionTimeMs?: number;
 }
 
 export interface GateInput {
