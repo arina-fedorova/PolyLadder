@@ -5,4 +5,5 @@ export * from './auth';
 export * from './services';
 export * from './lifecycle';
 export * from './validation';
+export * from './quality-gates';
 export { z } from 'zod';
