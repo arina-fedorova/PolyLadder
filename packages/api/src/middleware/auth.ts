@@ -1,5 +1,25 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { verifyToken } from '@polyladder/core';
+import jwt from 'jsonwebtoken';
+
+interface JWTPayload {
+  userId: string;
+  role: 'learner' | 'operator';
+}
+
+function verifyJWT(token: string, secret: string): JWTPayload {
+  try {
+    const decoded = jwt.verify(token, secret) as JWTPayload;
+    return decoded;
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new Error('Token has expired');
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      throw new Error('Invalid token');
+    }
+    throw error;
+  }
+}
 
 export async function authMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const authHeader = request.headers.authorization;
@@ -16,7 +36,7 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
       throw new Error('JWT_SECRET not configured');
     }
 
-    const payload = verifyToken(token, jwtSecret);
+    const payload = verifyJWT(token, jwtSecret);
 
     request.user = {
       userId: payload.userId,
@@ -45,7 +65,7 @@ export function optionalAuthMiddleware(request: FastifyRequest): void {
       return;
     }
 
-    const payload = verifyToken(token, jwtSecret);
+    const payload = verifyJWT(token, jwtSecret);
     request.user = {
       userId: payload.userId,
       role: payload.role,
