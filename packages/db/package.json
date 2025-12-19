@@ -8,12 +8,21 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "migrate": "node-pg-migrate",
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create",
+    "seed": "tsx src/seeds/index.ts"
   },
   "dependencies": {
-    "@polyladder/core": "workspace:*"
+    "@polyladder/core": "workspace:*",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/pg": "^8.16.0",
+    "node-pg-migrate": "^8.0.4",
+    "tsx": "^4.21.0",
     "vitest": "^3.2.4"
   }
 }
