@@ -3,7 +3,9 @@
 **Feature Code**: F013
 **Created**: 2025-12-17
 **Phase**: 3 - Quality Assurance System
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #16
 
 ---
 
@@ -13,13 +15,13 @@ When quality gates fail during content validation, the system must record detail
 
 ## Success Criteria
 
-- [ ] All validation failures stored in database with full context
-- [ ] Failures include gate name, error reason, timestamp, and retry count
-- [ ] Retry mechanism for transient failures (max 3 attempts with exponential backoff)
-- [ ] Failure trends analysis showing patterns by gate type and content type
-- [ ] Operator UI displays failures with filtering and search (implemented in F027)
-- [ ] Automatic retry stops after max attempts to prevent infinite loops
-- [ ] Failed items blocked from promotion to APPROVED state
+- [x] All validation failures stored in database with full context
+- [x] Failures include gate name, error reason, timestamp, and retry count
+- [x] Retry mechanism for transient failures (max 3 attempts with exponential backoff)
+- [ ] Failure trends analysis showing patterns by gate type and content type (→ F027)
+- [ ] Operator UI displays failures with filtering and search (→ F027)
+- [x] Automatic retry stops after max attempts to prevent infinite loops
+- [x] Failed items blocked from promotion to APPROVED state
 
 ---
 
@@ -130,15 +132,8 @@ export class FailureRecorderService {
    * Record a quality gate result (pass or fail) to database
    */
   async recordResult(options: RecordFailureOptions): Promise<void> {
-    const {
-      entityType,
-      entityId,
-      gateName,
-      status,
-      errorMessage,
-      metadata,
-      attemptNumber,
-    } = options;
+    const { entityType, entityId, gateName, status, errorMessage, metadata, attemptNumber } =
+      options;
 
     try {
       await this.pool.query(
@@ -355,9 +350,7 @@ export class RetryLogicService {
 
       // If max attempts reached, return failure
       if (attempt === MAX_RETRY_ATTEMPTS) {
-        const failedGates = validation.results
-          .filter((r) => !r.passed)
-          .map((r) => r.gateName);
+        const failedGates = validation.results.filter((r) => !r.passed).map((r) => r.gateName);
 
         return {
           success: false,
@@ -372,9 +365,7 @@ export class RetryLogicService {
       if (!isRetryable) {
         // Non-retryable failure (e.g., schema validation, profanity)
         // Stop retrying
-        const failedGates = validation.results
-          .filter((r) => !r.passed)
-          .map((r) => r.gateName);
+        const failedGates = validation.results.filter((r) => !r.passed).map((r) => r.gateName);
 
         return {
           success: false,
@@ -393,7 +384,9 @@ export class RetryLogicService {
   /**
    * Determine if failures are retryable or permanent
    */
-  private async areFailuresRetryable(results: Array<{ gateName: string; passed: boolean; errorMessage?: string }>): Promise<boolean> {
+  private async areFailuresRetryable(
+    results: Array<{ gateName: string; passed: boolean; errorMessage?: string }>
+  ): Promise<boolean> {
     const failedGates = results.filter((r) => !r.passed);
 
     // Gates that should NOT be retried (permanent failures)
@@ -430,7 +423,10 @@ export class RetryLogicService {
   /**
    * Manually trigger retry for a failed item
    */
-  async manualRetry(entityType: string, entityId: string): Promise<{
+  async manualRetry(
+    entityType: string,
+    entityId: string
+  ): Promise<{
     success: boolean;
     attemptNumber: number;
   }> {
@@ -580,7 +576,10 @@ export class StateMachine {
    * Transition from CANDIDATE → VALIDATED
    * Runs all quality gates with retry logic
    */
-  async promoteToValidated(entityType: string, entityId: string): Promise<{
+  async promoteToValidated(
+    entityType: string,
+    entityId: string
+  ): Promise<{
     success: boolean;
     newState: string;
     errorMessage?: string;
@@ -631,6 +630,7 @@ export class StateMachine {
 **Context**: Quality gate results accumulate over time. How long should we keep them?
 
 **Options**:
+
 1. **Keep all failures indefinitely**
    - Pros: Complete historical record, useful for analysis
    - Cons: Database growth, storage costs
@@ -652,6 +652,7 @@ export class StateMachine {
 **Context**: Some gates should retry (transient errors), others shouldn't (permanent errors).
 
 **Options**:
+
 1. **Fixed retry list** (current approach)
    - Pros: Simple, predictable
    - Cons: Inflexible, may retry unnecessarily
@@ -673,6 +674,7 @@ export class StateMachine {
 **Context**: When an item fails 3 times, should operators be notified immediately?
 
 **Options**:
+
 1. **No automatic notification** (current approach)
    - Pros: Simple, operators check dashboard
    - Cons: May miss critical failures
@@ -692,10 +694,12 @@ export class StateMachine {
 ## Dependencies
 
 **Blocks**:
+
 - F020: Operational Endpoints (failure query API)
 - F027: Failure Investigation Tools (operator UI for failures)
 
 **Depends on**:
+
 - F007: Lifecycle State Machine (state transitions trigger validation)
 - F010: Schema Validation Engine (QualityGate interface)
 - F011: Quality Gates Part 1 (first set of gates)
@@ -703,6 +707,7 @@ export class StateMachine {
 - F001: Database Schema (tables for failure recording)
 
 **Optional**:
+
 - Email service for notifications
 - Slack/Discord webhooks for alerts
 - Data archival system for old failures
@@ -712,6 +717,7 @@ export class StateMachine {
 ## Notes
 
 ### Implementation Priority
+
 1. Create database schema (Task 1)
 2. Implement failure recorder service (Task 2)
 3. Implement retry logic service (Task 3)
@@ -719,24 +725,28 @@ export class StateMachine {
 5. Integrate with lifecycle state machine (Task 5)
 
 ### Retry Logic
+
 - **Max Attempts**: 3 retries per item
 - **Exponential Backoff**: 0ms (attempt 1), 2s (attempt 2), 5s (attempt 3)
 - **Non-Retryable Gates**: schema-validation, content-safety, duplication-check
 - **Retryable Gates**: cefr-level-check, prerequisite-validation, content-completeness
 
 ### Failure Recording
+
 - **All Results Recorded**: Both pass and fail stored for audit trail
 - **Metadata Included**: Full error context (stack trace, validation context)
 - **Unique Constraint**: One result per entity/gate/attempt combination
 - **View Created**: `validation_failures` view for easy operator queries
 
 ### Performance Considerations
+
 - Failure recording is asynchronous (doesn't block validation)
 - Indexes on entity_id, gate_name, status for fast queries
 - Composite index for operator failure dashboard queries
 - Consider partitioning by created_at for very large datasets
 
 ### Security Considerations
+
 - Failure metadata may contain sensitive error details (sanitize for display)
 - Only operators can view failure details (auth middleware)
 - Rate limit retry API to prevent abuse
