@@ -59,6 +59,29 @@ export function performOperatorAction(userRole: UserRole) {
 }
 ```
 
+## Logout Pattern
+
+### Client-Side Logout
+
+Since JWT is stateless, logout is handled client-side by removing the token:
+
+```typescript
+export function logout() {
+  localStorage.removeItem('authToken');
+  window.location.href = '/login';
+}
+```
+
+### Server-Side Token Invalidation (Future)
+
+For immediate token invalidation, consider implementing:
+
+- Token blacklist in Redis
+- Token revocation endpoint
+- Shorter token expiration with refresh tokens
+
+Current system: Tokens remain valid until expiration (7 days).
+
 ## Error Responses
 
 ### 401 Unauthorized
