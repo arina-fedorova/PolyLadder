@@ -77,6 +77,7 @@ pnpm format     # Format code with Prettier
 
 ## Documentation
 
+- [Development Guide](docs/DEVELOPMENT.md)
 - [Technical Specification](docs/TECHNICAL_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Feature Specs](docs/features/)
