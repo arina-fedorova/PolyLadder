@@ -1,7 +1,11 @@
 import { LifecycleState, StateTransition, InvalidTransitionError } from './states';
 import { assertValidTransition } from './validator';
 import { ApprovalType } from '../domain/enums';
-import type { ApprovalEventRepository, CreateApprovalParams } from './approval-events';
+import {
+  recordApproval,
+  type ApprovalEventRepository,
+  type CreateApprovalParams,
+} from './approval-events';
 
 export interface TransitionParams {
   itemId: string;
@@ -50,7 +54,7 @@ export async function executeTransition(
       approvalType: approval?.approvalType ?? ApprovalType.AUTOMATIC,
       notes: approval?.notes,
     };
-    await context.approvalRepository.recordApproval(approvalParams);
+    await recordApproval(context.approvalRepository, approvalParams);
   }
 
   return transition;
