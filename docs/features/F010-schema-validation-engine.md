@@ -3,7 +3,9 @@
 **Feature Code**: F010
 **Created**: 2025-12-17
 **Phase**: 3 - Quality Assurance System
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-19
+**PR**: #13
 
 ---
 
@@ -13,12 +15,12 @@ Implement comprehensive JSON schema validation for all data types. Validates req
 
 ## Success Criteria
 
-- [ ] Zod schemas defined for all domain entities
-- [ ] Required field validation
-- [ ] Type checking (string, number, boolean, arrays)
-- [ ] Format validation (URLs, ISO codes, CEFR levels)
-- [ ] Detailed validation error messages
-- [ ] Validation integrated into ingestion pipeline
+- [x] Zod schemas defined for all domain entities
+- [x] Required field validation
+- [x] Type checking (string, number, boolean, arrays)
+- [x] Format validation (URLs, ISO codes, CEFR levels)
+- [x] Detailed validation error messages
+- [ ] Validation integrated into ingestion pipeline (→ F017)
 
 ---
 
@@ -31,11 +33,15 @@ Implement comprehensive JSON schema validation for all data types. Validates req
 **Implementation Plan**:
 
 Create `packages/core/src/validation/schemas.ts`:
+
 ```typescript
 import { z } from 'zod';
 
 // Language codes (ISO 639-1)
-export const LanguageCodeSchema = z.string().length(2).regex(/^[A-Z]{2}$/);
+export const LanguageCodeSchema = z
+  .string()
+  .length(2)
+  .regex(/^[A-Z]{2}$/);
 
 // CEFR levels
 export const CEFRLevelSchema = z.enum(['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
@@ -85,6 +91,7 @@ export const GrammarRuleSchema = z.object({
 ```
 
 **Files Created**:
+
 - `packages/core/src/validation/schemas.ts`
 
 ---
@@ -96,6 +103,7 @@ export const GrammarRuleSchema = z.object({
 **Implementation Plan**:
 
 Create `packages/core/src/validation/validator.ts`:
+
 ```typescript
 import { z } from 'zod';
 
@@ -113,10 +121,7 @@ export interface ValidationError {
 /**
  * Validate data against Zod schema
  */
-export function validate<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown
-): ValidationResult {
+export function validate<T>(schema: z.ZodSchema<T>, data: unknown): ValidationResult {
   const result = schema.safeParse(data);
 
   if (result.success) {
@@ -138,15 +143,13 @@ export function validate<T>(
 /**
  * Assert data is valid, throw if not
  */
-export function assertValid<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown
-): T {
+export function assertValid<T>(schema: z.ZodSchema<T>, data: unknown): T {
   return schema.parse(data);
 }
 ```
 
 **Files Created**:
+
 - `packages/core/src/validation/validator.ts`
 
 ---
@@ -158,6 +161,7 @@ export function assertValid<T>(
 **Implementation Plan**:
 
 Create `packages/core/tests/validation/validator.test.ts`:
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { validate, MeaningSchema } from '../../src/validation';
@@ -187,6 +191,7 @@ describe('Validation Engine', () => {
 ```
 
 **Files Created**:
+
 - `packages/core/tests/validation/validator.test.ts`
 
 ---
