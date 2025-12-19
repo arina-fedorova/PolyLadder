@@ -1,122 +1,141 @@
-# PolyLadder — Cursor Rules
-Dataset-First Execution Contract
+# PolyLadder — Development Rules
 
 ---
 
-## 0. Primary Mental Model (MANDATORY)
+## 1. Project Overview
 
-This project is **DATASET-FIRST**.
+PolyLadder is a cloud-hosted web application for parallel language learning.
+The system consists of four subsystems:
+- Data Governance Core
+- Content Refinement Service
+- Operational UI
+- Learning Application
 
-Your PRIMARY responsibility is:
-> to produce a high-quality, deterministic language-learning dataset.
-
-UI, API, and tooling are SECONDARY
-and MUST NOT begin before Dataset v0 is complete.
-
-If you approach this project as “an app with content”,
-you are violating this contract.
+All development follows feature specifications in `docs/features/`.
 
 ---
 
-## 3. Approval Rules
+## 2. Git Workflow (STRICT)
 
-No file changes without clear user approval in chat.
+### Branches
+- `main` is always stable and deployable
+- Each feature gets its own branch: `feature/FXXX-short-name`
+- Branch from `main`, merge back to `main`
 
-Approval is contextual.
-If there is any doubt — STOP and ask.
+### Commits
+- One task = one commit
+- Commit message format: `feat(FXXX): task description`
+- Examples:
+  - `feat(F000): initialize monorepo structure`
+  - `feat(F001): create users table migration`
+  - `test(F007): add lifecycle validator tests`
+
+### Pull Requests
+- One feature = one PR
+- PR title: `feat: FXXX - Feature Name`
+- PR must pass CI before merge
+- No merges without approval
+
+---
+
+## 3. CI/CD (GitHub Actions)
+
+Add GitHub Actions as soon as there is code to validate:
+- After F000: lint, typecheck, build
+- After F001: database migrations test
+- After first tests: test runner
+- After API: integration tests
+
+CI must pass before PR can be merged.
 
 ---
 
 ## 4. Work Discipline
 
-- One task at a time
-- One task = one PR
-- Plan → Wait → Implement → Stop
+- Follow feature specs in `docs/features/FXXX-*.md`
+- One feature at a time
+- One task at a time within feature
+- Plan → Implement → Test → Commit → Next task
 
-No parallel work.
+No parallel work on multiple features.
 
 ---
 
 ## 5. Code Quality (STRICT)
 
-### 5.1 Clean code
-- Code must be self-descriptive
-- Small functions
+### Clean Code
+- Self-descriptive code
+- Small functions (max 20-30 lines)
 - Clear naming
 - No hidden behavior
 
-### 5.2 Architecture hygiene
-- Clear separation:
-  - dataset
-  - content factory
-  - consumers
-- Deterministic behavior is mandatory
+### Architecture
+- Follow package structure from ARCHITECTURE.md
+- Clear separation between packages
+- No circular dependencies
+
+### TypeScript
+- Strict mode enabled
+- No `any` types
+- Explicit return types on public functions
 
 ---
 
-## 6. Comments Policy (VERY STRICT)
+## 6. Comments Policy
 
 ### PROHIBITED
 - Comments explaining obvious code
 - Inline comments for simple operations
-- Narrative or tutorial comments
+- TODO comments (use GitHub issues instead)
 
 ### ALLOWED
-- Summary comments for public APIs (high-level only)
-- Tests ONLY:
-  - `// Arrange`
-  - `// Act`
-  - `// Assert`
+- JSDoc for public API functions
+- Complex algorithm explanations (rare)
+- Tests: `// Arrange`, `// Act`, `// Assert`
 
-If comments are needed to explain logic → refactor.
+If code needs comments to be understood → refactor.
 
 ---
 
 ## 7. Testing Rules
 
-- Logic must be tested
-- Tests must be readable
-- No skipped or commented-out tests
+- All logic must be tested
+- Tests live in `tests/` folder of each package
+- Use Vitest
+- Test naming: `describe('ModuleName')`, `it('should do X when Y')`
+- No skipped tests in main branch
 
 ---
 
-## 8. Git Workflow
+## 8. Feature Implementation Flow
 
-- `main` is always stable
-- Feature branches from `main`
-- Task branches from feature branches
-- One PR per task
-- Small, reviewable PRs only
-- No merges without approval
+1. Create branch: `git checkout -b feature/FXXX-name`
+2. Read feature spec: `docs/features/FXXX-*.md`
+3. For each task in spec:
+   - Implement
+   - Test
+   - Commit with message `feat(FXXX): task description`
+4. Push branch
+5. Create PR
+6. Wait for CI
+7. Request review
+8. Merge after approval
 
 ---
 
-## 9. Freedom to Think (IMPORTANT)
+## 9. AI Assistant Guidelines
 
 You ARE allowed to:
-- choose patterns
-- choose internal structures
-- design pipelines
-- propose task breakdowns
+- Choose implementation patterns within spec
+- Propose improvements to specs
+- Make technical decisions not covered by spec
 
 You are NOT allowed to:
-- invent product scope
-- skip dataset-first execution
-- bypass QA
-- start UI early
+- Skip tasks or take shortcuts
+- Change product scope
+- Merge without human approval
+- Disable or skip tests
 
 ---
 
-## 10. Success Criteria
-
-You are successful if:
-- Dataset v0 exists and is solid
-- Rebuild is deterministic
-- QA gates work
-- Consumers can learn from the data
-- The human mostly reviews and merges
-
----
-
-End of Cursor Rules
-s
+End of Development Rules
