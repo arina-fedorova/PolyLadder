@@ -1,42 +1,61 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
-import { ErrorResponseSchema, PaginationQuerySchema } from '../../schemas/common';
+import { ErrorResponseSchema } from '../../schemas/common';
+
+const ValidationResultSchema = Type.Object({
+  gate: Type.String(),
+  passed: Type.Boolean(),
+  score: Type.Optional(Type.Number()),
+});
 
 const ReviewQueueItemSchema = Type.Object({
-  itemId: Type.String(),
-  dataType: Type.String(),
-  priority: Type.Number(),
-  queuedAt: Type.String(),
-  assignedTo: Type.Union([Type.String(), Type.Null()]),
+  id: Type.String(),
+  contentType: Type.Union([
+    Type.Literal('vocabulary'),
+    Type.Literal('grammar'),
+    Type.Literal('orthography'),
+  ]),
+  dataType: Type.Union([
+    Type.Literal('meaning'),
+    Type.Literal('utterance'),
+    Type.Literal('rule'),
+    Type.Literal('exercise'),
+  ]),
+  languageCode: Type.String(),
+  languageName: Type.String(),
+  cefrLevel: Type.String(),
+  validatedAt: Type.String(),
+  content: Type.Any(),
+  validationResults: Type.Array(ValidationResultSchema),
 });
 
 const ReviewQueueResponseSchema = Type.Object({
   items: Type.Array(ReviewQueueItemSchema),
   total: Type.Number(),
-  limit: Type.Number(),
-  offset: Type.Number(),
+  page: Type.Number(),
+  pageSize: Type.Number(),
 });
 
-type PaginationQuery = Static<typeof PaginationQuerySchema>;
+const QuerystringSchema = Type.Object({
+  page: Type.Optional(Type.Number({ minimum: 1 })),
+  pageSize: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+  contentType: Type.Optional(
+    Type.Union([Type.Literal('vocabulary'), Type.Literal('grammar'), Type.Literal('orthography')])
+  ),
+});
 
-interface ReviewQueueRow {
-  item_id: string;
-  data_type: string;
-  priority: number;
-  queued_at: Date;
-  assigned_to: string | null;
-}
+type ReviewQueueQuery = Static<typeof QuerystringSchema>;
 
 const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
 
-  fastify.get<{ Querystring: PaginationQuery }>(
+  fastify.get<{ Querystring: ReviewQueueQuery }>(
     '/review-queue',
     {
       preHandler: [authMiddleware],
       schema: {
-        querystring: PaginationQuerySchema,
+        querystring: QuerystringSchema,
         response: {
           200: ReviewQueueResponseSchema,
           401: ErrorResponseSchema,
@@ -56,36 +75,103 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const limit = request.query.limit ?? 20;
-      const offset = request.query.offset ?? 0;
+      const page = request.query.page ?? 1;
+      const pageSize = request.query.pageSize ?? 20;
+      const contentTypeFilter = request.query.contentType;
+      const offset = (page - 1) * pageSize;
 
-      const countResult = await fastify.db.query<{ count: string }>(
-        'SELECT COUNT(*) as count FROM review_queue WHERE reviewed_at IS NULL'
+      type DataType = 'meaning' | 'utterance' | 'rule' | 'exercise';
+      type ContentType = 'vocabulary' | 'grammar' | 'orthography';
+
+      interface TableConfig {
+        name: 'meanings' | 'utterances' | 'rules' | 'exercises';
+        dataType: DataType;
+        contentType: ContentType;
+      }
+
+      const tables: TableConfig[] = [
+        { name: 'meanings', dataType: 'meaning', contentType: 'vocabulary' },
+        { name: 'utterances', dataType: 'utterance', contentType: 'vocabulary' },
+        { name: 'rules', dataType: 'rule', contentType: 'grammar' },
+        { name: 'exercises', dataType: 'exercise', contentType: 'orthography' },
+      ];
+
+      const filteredTables = contentTypeFilter
+        ? tables.filter((t) => t.contentType === contentTypeFilter)
+        : tables;
+
+      if (filteredTables.length === 0) {
+        return reply.status(200).send({
+          items: [],
+          total: 0,
+          page,
+          pageSize,
+        });
+      }
+
+      const countUnionParts = filteredTables.map(
+        (t) => `SELECT COUNT(*) as count FROM validated_${t.name}`
       );
-      const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+      const countQuery = `SELECT SUM(count::int) as total FROM (${countUnionParts.join(' UNION ALL ')}) counts`;
+      const countResult = await fastify.db.query<{ total: string }>(countQuery);
+      const total = parseInt(countResult.rows[0]?.total ?? '0', 10);
 
-      const itemsResult = await fastify.db.query<ReviewQueueRow>(
-        `SELECT item_id, data_type, priority, queued_at, assigned_to
-         FROM review_queue
-         WHERE reviewed_at IS NULL
-         ORDER BY priority ASC, queued_at ASC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset]
+      const unionParts = filteredTables.map(
+        (t) => `
+          SELECT 
+            v.id,
+            '${t.dataType}' as data_type,
+            '${t.contentType}' as content_type,
+            v.language_code,
+            COALESCE(l.name, v.language_code) as language_name,
+            v.cefr_level,
+            v.validated_at,
+            v.content,
+            v.validation_results
+          FROM validated_${t.name} v
+          LEFT JOIN languages l ON v.language_code = l.code
+        `
       );
 
-      const items = itemsResult.rows.map((row) => ({
-        itemId: row.item_id,
+      const itemsQuery = `
+        SELECT * FROM (${unionParts.join(' UNION ALL ')}) combined
+        ORDER BY validated_at DESC
+        LIMIT $1 OFFSET $2
+      `;
+
+      const itemsResult = await fastify.db.query<{
+        id: string;
+        data_type: DataType;
+        content_type: ContentType;
+        language_code: string;
+        language_name: string;
+        cefr_level: string;
+        validated_at: Date;
+        content: Record<string, unknown>;
+        validation_results: Array<{
+          gate: string;
+          passed: boolean;
+          score?: number;
+        }>;
+      }>(itemsQuery, [pageSize, offset]);
+
+      const response = itemsResult.rows.map((row) => ({
+        id: row.id,
+        contentType: row.content_type,
         dataType: row.data_type,
-        priority: row.priority,
-        queuedAt: row.queued_at.toISOString(),
-        assignedTo: row.assigned_to,
+        languageCode: row.language_code,
+        languageName: row.language_name,
+        cefrLevel: row.cefr_level,
+        validatedAt: row.validated_at.toISOString(),
+        content: row.content,
+        validationResults: row.validation_results,
       }));
 
       return reply.status(200).send({
-        items,
+        items: response,
         total,
-        limit,
-        offset,
+        page,
+        pageSize,
       });
     }
   );

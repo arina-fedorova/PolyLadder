@@ -3,7 +3,8 @@
 **Feature Code**: F026
 **Created**: 2025-12-17
 **Phase**: 7 - Operational UI
-**Status**: Not Started
+**Status**: Completed
+**PR**: #29
 
 ---
 
@@ -13,13 +14,13 @@ Operator interface for reviewing content in VALIDATED state and approving or rej
 
 ## Success Criteria
 
-- [ ] Paginated table of validated items with filters
-- [ ] Item detail modal showing full content and validation results
-- [ ] Approve button calling POST /operational/approve/:id
-- [ ] Reject button with required reason input calling POST /operational/reject/:id
-- [ ] Bulk select with approve/reject actions
-- [ ] Optimistic UI updates for instant feedback
-- [ ] Filter by content type (vocabulary/grammar/orthography)
+- [x] Paginated table of validated items with filters
+- [x] Item detail modal showing full content and validation results
+- [x] Approve button calling POST /operational/approve/:id
+- [x] Reject button with required reason input calling POST /operational/reject/:id
+- [x] Bulk select with approve/reject actions
+- [x] Optimistic UI updates for instant feedback
+- [x] Filter by content type (vocabulary/grammar/orthography)
 
 ---
 
@@ -32,6 +33,7 @@ Operator interface for reviewing content in VALIDATED state and approving or rej
 **Implementation Plan**:
 
 Create `packages/web/src/pages/operator/ReviewQueuePage.tsx`:
+
 ```tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -114,14 +116,11 @@ export function ReviewQueuePage() {
       ]);
 
       if (previousData) {
-        queryClient.setQueryData<ReviewQueueResponse>(
-          ['review-queue', page, selectedType],
-          {
-            ...previousData,
-            items: previousData.items.filter(item => item.id !== itemId),
-            total: previousData.total - 1,
-          }
-        );
+        queryClient.setQueryData<ReviewQueueResponse>(['review-queue', page, selectedType], {
+          ...previousData,
+          items: previousData.items.filter((item) => item.id !== itemId),
+          total: previousData.total - 1,
+        });
       }
 
       return { previousData };
@@ -129,10 +128,7 @@ export function ReviewQueuePage() {
     onError: (_err, _itemId, context) => {
       // Rollback on error
       if (context?.previousData) {
-        queryClient.setQueryData(
-          ['review-queue', page, selectedType],
-          context.previousData
-        );
+        queryClient.setQueryData(['review-queue', page, selectedType], context.previousData);
       }
     },
     onSettled: () => {
@@ -156,24 +152,18 @@ export function ReviewQueuePage() {
       ]);
 
       if (previousData) {
-        queryClient.setQueryData<ReviewQueueResponse>(
-          ['review-queue', page, selectedType],
-          {
-            ...previousData,
-            items: previousData.items.filter(item => item.id !== itemId),
-            total: previousData.total - 1,
-          }
-        );
+        queryClient.setQueryData<ReviewQueueResponse>(['review-queue', page, selectedType], {
+          ...previousData,
+          items: previousData.items.filter((item) => item.id !== itemId),
+          total: previousData.total - 1,
+        });
       }
 
       return { previousData };
     },
     onError: (_err, _vars, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(
-          ['review-queue', page, selectedType],
-          context.previousData
-        );
+        queryClient.setQueryData(['review-queue', page, selectedType], context.previousData);
       }
     },
     onSettled: () => {
@@ -203,7 +193,7 @@ export function ReviewQueuePage() {
     if (selectedItems.size === 0) return;
 
     if (confirm(`Approve ${selectedItems.size} selected items?`)) {
-      selectedItems.forEach(itemId => {
+      selectedItems.forEach((itemId) => {
         approveMutation.mutate(itemId);
       });
       setSelectedItems(new Set());
@@ -215,7 +205,7 @@ export function ReviewQueuePage() {
 
     const reason = prompt(`Reject ${selectedItems.size} items. Reason (required):`);
     if (reason && reason.trim()) {
-      selectedItems.forEach(itemId => {
+      selectedItems.forEach((itemId) => {
         rejectMutation.mutate({ itemId, reason: reason.trim() });
       });
       setSelectedItems(new Set());
@@ -236,7 +226,7 @@ export function ReviewQueuePage() {
     if (selectedItems.size === data?.items.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(data?.items.map(item => item.id) || []));
+      setSelectedItems(new Set(data?.items.map((item) => item.id) || []));
     }
   };
 
@@ -254,9 +244,7 @@ export function ReviewQueuePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Review Queue</h1>
-          <p className="text-gray-600 mt-1">
-            {data?.total || 0} items awaiting review
-          </p>
+          <p className="text-gray-600 mt-1">{data?.total || 0} items awaiting review</p>
         </div>
 
         {/* Filters */}
@@ -399,19 +387,19 @@ export function ReviewQueuePage() {
         {data && data.total > pageSize && (
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t">
             <div className="text-sm text-gray-700">
-              Showing {(page - 1) * pageSize + 1} to{' '}
-              {Math.min(page * pageSize, data.total)} of {data.total} results
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, data.total)} of{' '}
+              {data.total} results
             </div>
             <div className="space-x-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="btn-secondary disabled:opacity-50"
               >
                 Previous
               </button>
               <button
-                onClick={() => setPage(p => p + 1)}
+                onClick={() => setPage((p) => p + 1)}
                 disabled={page * pageSize >= data.total}
                 className="btn-secondary disabled:opacity-50"
               >
@@ -453,6 +441,7 @@ export function ReviewQueuePage() {
 **Implementation Plan**:
 
 Create `packages/web/src/components/operational/ItemDetailModal.tsx`:
+
 ```tsx
 import React from 'react';
 import { X, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
@@ -491,10 +480,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
               {item.languageName} • {item.cefrLevel}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -587,13 +573,13 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
                 const colorClass = result.passed
                   ? 'bg-green-50 border-green-200'
                   : result.score
-                  ? 'bg-yellow-50 border-yellow-200'
-                  : 'bg-red-50 border-red-200';
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : 'bg-red-50 border-red-200';
                 const iconColor = result.passed
                   ? 'text-green-600'
                   : result.score
-                  ? 'text-yellow-600'
-                  : 'text-red-600';
+                    ? 'text-yellow-600'
+                    : 'text-red-600';
 
                 return (
                   <div
@@ -606,9 +592,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
                     </div>
                     <div className="text-sm">
                       {result.score !== undefined && (
-                        <span className="font-medium text-gray-700">
-                          Score: {result.score}%
-                        </span>
+                        <span className="font-medium text-gray-700">Score: {result.score}%</span>
                       )}
                       {result.passed ? (
                         <span className="text-green-700 font-medium">Passed</span>
@@ -636,7 +620,9 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Language:</span>
-                <span className="text-gray-900">{item.languageName} ({item.languageCode})</span>
+                <span className="text-gray-900">
+                  {item.languageName} ({item.languageCode})
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">CEFR Level:</span>
@@ -644,9 +630,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Validated:</span>
-                <span className="text-gray-900">
-                  {new Date(item.validatedAt).toLocaleString()}
-                </span>
+                <span className="text-gray-900">{new Date(item.validatedAt).toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -664,10 +648,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
             <XCircle className="w-4 h-4" />
             <span>Reject</span>
           </button>
-          <button
-            onClick={onApprove}
-            className="btn-primary flex items-center space-x-2"
-          >
+          <button onClick={onApprove} className="btn-primary flex items-center space-x-2">
             <CheckCircle className="w-4 h-4" />
             <span>Approve</span>
           </button>
@@ -689,6 +670,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
 **Implementation Plan**:
 
 The endpoint GET /operational/review-queue already exists from F020. Response structure:
+
 ```typescript
 interface ReviewQueueResponse {
   items: Array<{
@@ -723,6 +705,7 @@ No new endpoint needed - F020 already provides this.
 **Implementation Plan**:
 
 Update `packages/web/src/App.tsx`:
+
 ```tsx
 import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
 
@@ -736,7 +719,7 @@ import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
       </MainLayout>
     </ProtectedRoute>
   }
-/>
+/>;
 ```
 
 **Files Modified**: `packages/web/src/App.tsx`
@@ -750,6 +733,7 @@ import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
 **Implementation Plan**:
 
 Create `packages/web/src/hooks/useKeyboardShortcut.ts`:
+
 ```typescript
 import { useEffect } from 'react';
 
@@ -782,6 +766,7 @@ export function useKeyboardShortcut(
 ```
 
 Update ReviewQueuePage to add shortcuts:
+
 ```tsx
 // In ReviewQueuePage component:
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
@@ -809,6 +794,7 @@ useKeyboardShortcut('Escape', () => {
 ```
 
 Add keyboard hints to modal footer:
+
 ```tsx
 <div className="text-xs text-gray-500 text-center mb-2">
   Shortcuts: <kbd className="px-2 py-1 bg-gray-100 rounded">A</kbd> Approve •{' '}
@@ -828,6 +814,7 @@ Add keyboard hints to modal footer:
 **Context**: Currently using browser prompt() for rejection reason. Should we use a proper modal form?
 
 **Options**:
+
 1. Browser prompt() (current)
    - Pros: Simple, no extra component
    - Cons: Poor UX, can't validate input well
@@ -847,6 +834,7 @@ Add keyboard hints to modal footer:
 **Context**: After approve/reject, item disappears from queue. What if operator made mistake?
 
 **Options**:
+
 1. No undo (current)
    - Pros: Simple
    - Cons: Can't fix mistakes easily
@@ -866,6 +854,7 @@ Add keyboard hints to modal footer:
 **Context**: Modal shows text content. For orthography, should we show audio playback? For vocabulary, example sentences?
 
 **Options**:
+
 1. Text only (current)
    - Pros: Simple, works for all content types
    - Cons: Can't verify audio quality
@@ -892,6 +881,7 @@ Add keyboard hints to modal footer:
 ### Optimistic UI Updates
 
 The review queue uses optimistic updates:
+
 1. User clicks approve/reject
 2. Item immediately removed from list (optimistic update)
 3. API call made in background

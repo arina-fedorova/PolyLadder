@@ -2,7 +2,6 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
-import { MainLayout } from '@/components/layout/MainLayout';
 import { StateCountCards } from '@/components/operational/StateCountCards';
 import { PipelineFlowChart } from '@/components/operational/PipelineFlowChart';
 import { ActivityLog } from '@/components/operational/ActivityLog';
@@ -152,9 +151,5 @@ function DashboardContent() {
 }
 
 export function OperatorDashboardPage() {
-  return (
-    <MainLayout showSidebar>
-      <DashboardContent />
-    </MainLayout>
-  );
+  return <DashboardContent />;
 }

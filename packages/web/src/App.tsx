@@ -2,10 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/pages/public/LoginPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
 import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
+import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -49,7 +51,9 @@ export function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <MainLayout>
+                  <DashboardPage />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -58,7 +62,9 @@ export function App() {
             path="/operator/dashboard"
             element={
               <ProtectedRoute requiredRole="operator">
-                <OperatorDashboardPage />
+                <MainLayout showSidebar>
+                  <OperatorDashboardPage />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -67,7 +73,20 @@ export function App() {
             path="/operator/pipeline"
             element={
               <ProtectedRoute requiredRole="operator">
-                <OperatorDashboardPage />
+                <MainLayout showSidebar>
+                  <OperatorDashboardPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/review-queue"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout showSidebar>
+                  <ReviewQueuePage />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
