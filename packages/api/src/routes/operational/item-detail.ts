@@ -4,7 +4,7 @@ import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema } from '../../schemas/common';
 
 const ItemDetailParamsSchema = Type.Object({
-  tableName: Type.String(),
+  dataType: Type.String(),
   id: Type.String(),
 });
 
@@ -20,26 +20,24 @@ const GateResultSchema = Type.Object({
 
 const ItemDetailResponseSchema = Type.Object({
   id: Type.String(),
-  tableName: Type.String(),
+  dataType: Type.String(),
   data: Type.Record(Type.String(), Type.Unknown()),
   createdAt: Type.String(),
-  updatedAt: Type.String(),
   gateResults: Type.Array(GateResultSchema),
 });
 
-const VALID_TABLES = ['meanings', 'utterances', 'rules', 'exercises'] as const;
-type ValidTable = (typeof VALID_TABLES)[number];
+const VALID_DATA_TYPES = ['meaning', 'utterance', 'rule', 'exercise'] as const;
+type ValidDataType = (typeof VALID_DATA_TYPES)[number];
 
-function isValidTable(name: string): name is ValidTable {
-  return VALID_TABLES.includes(name as ValidTable);
+function isValidDataType(name: string): name is ValidDataType {
+  return VALID_DATA_TYPES.includes(name as ValidDataType);
 }
 
 interface ContentRow {
   id: string;
-  data: Record<string, unknown>;
+  data_type: string;
+  validated_data: Record<string, unknown>;
   created_at: Date;
-  updated_at: Date;
-  [key: string]: unknown;
 }
 
 interface GateResultRow {
@@ -54,7 +52,7 @@ const itemDetailRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
 
   fastify.get<{ Params: ItemDetailParams }>(
-    '/items/:tableName/:id',
+    '/items/:dataType/:id',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -80,30 +78,29 @@ const itemDetailRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const { tableName, id } = request.params;
+      const { dataType, id } = request.params;
 
-      if (!isValidTable(tableName)) {
+      if (!isValidDataType(dataType)) {
         return reply.status(400).send({
           error: {
             statusCode: 400,
-            message: `Invalid table name: ${tableName}. Valid tables: ${VALID_TABLES.join(', ')}`,
+            message: `Invalid data type: ${dataType}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
             requestId: request.id,
-            code: 'INVALID_TABLE',
+            code: 'INVALID_DATA_TYPE',
           },
         });
       }
 
-      const validatedTable = `validated_${tableName}`;
       const itemResult = await fastify.db.query<ContentRow>(
-        `SELECT * FROM ${validatedTable} WHERE id = $1`,
-        [id]
+        `SELECT id, data_type, validated_data, created_at FROM validated WHERE id = $1 AND data_type = $2`,
+        [id, dataType]
       );
 
       if (itemResult.rows.length === 0) {
         return reply.status(404).send({
           error: {
             statusCode: 404,
-            message: `Item not found in ${validatedTable}`,
+            message: `Item not found`,
             requestId: request.id,
             code: 'NOT_FOUND',
           },
@@ -117,7 +114,7 @@ const itemDetailRoute: FastifyPluginAsync = async function (fastify) {
          FROM quality_gate_results
          WHERE entity_type = $1 AND entity_id = $2
          ORDER BY created_at DESC`,
-        [tableName, id]
+        [dataType, id]
       );
 
       const gateResults = gateResultsResult.rows.map((row) => ({
@@ -130,10 +127,9 @@ const itemDetailRoute: FastifyPluginAsync = async function (fastify) {
 
       return reply.status(200).send({
         id: item.id,
-        tableName,
-        data: item.data ?? item,
+        dataType: item.data_type,
+        data: item.validated_data,
         createdAt: item.created_at.toISOString(),
-        updatedAt: item.updated_at.toISOString(),
         gateResults,
       });
     }

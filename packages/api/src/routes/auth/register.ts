@@ -9,6 +9,18 @@ const RegisterRequestSchema = Type.Object({
   role: Type.Optional(
     Type.Union([Type.Literal('learner'), Type.Literal('operator')], { default: 'learner' })
   ),
+  baseLanguage: Type.Optional(
+    Type.Union(
+      [
+        Type.Literal('EN'),
+        Type.Literal('IT'),
+        Type.Literal('PT'),
+        Type.Literal('SL'),
+        Type.Literal('ES'),
+      ],
+      { default: 'EN' }
+    )
+  ),
 });
 
 type RegisterRequest = Static<typeof RegisterRequestSchema>;
@@ -36,7 +48,7 @@ const registerRoute: FastifyPluginAsync = async function (fastify) {
       },
     },
     async (request, reply) => {
-      const { email, password, role = 'learner' } = request.body;
+      const { email, password, role = 'learner', baseLanguage = 'EN' } = request.body;
       const normalizedEmail = email.toLowerCase();
 
       const existingUser = await fastify.db.query('SELECT id FROM users WHERE email = $1', [
@@ -57,10 +69,10 @@ const registerRoute: FastifyPluginAsync = async function (fastify) {
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
       const result = await fastify.db.query<{ id: string; email: string; role: string }>(
-        `INSERT INTO users (email, password_hash, role, created_at, updated_at)
-         VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO users (email, password_hash, role, base_language, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING id, email, role`,
-        [normalizedEmail, passwordHash, role]
+        [normalizedEmail, passwordHash, role, baseLanguage]
       );
 
       const user = result.rows[0];

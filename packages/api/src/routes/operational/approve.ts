@@ -9,18 +9,18 @@ const ApproveParamsSchema = Type.Object({
 });
 
 const ApproveBodySchema = Type.Object({
-  tableName: Type.String(),
+  dataType: Type.String(),
   notes: Type.Optional(Type.String()),
 });
 
 type ApproveParams = Static<typeof ApproveParamsSchema>;
 type ApproveBody = Static<typeof ApproveBodySchema>;
 
-const VALID_TABLES = ['meanings', 'utterances', 'rules', 'exercises'] as const;
-type ValidTable = (typeof VALID_TABLES)[number];
+const VALID_DATA_TYPES = ['meaning', 'utterance', 'rule', 'exercise'] as const;
+type ValidDataType = (typeof VALID_DATA_TYPES)[number];
 
-function isValidTable(name: string): name is ValidTable {
-  return VALID_TABLES.includes(name as ValidTable);
+function isValidDataType(name: string): name is ValidDataType {
+  return VALID_DATA_TYPES.includes(name as ValidDataType);
 }
 
 const approveRoute: FastifyPluginAsync = async function (fastify) {
@@ -55,16 +55,16 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
       }
 
       const { id } = request.params;
-      const { tableName, notes } = request.body;
+      const { dataType, notes } = request.body;
       const operatorId = request.user.userId;
 
-      if (!isValidTable(tableName)) {
+      if (!isValidDataType(dataType)) {
         return reply.status(400).send({
           error: {
             statusCode: 400,
-            message: `Invalid table name: ${tableName}. Valid tables: ${VALID_TABLES.join(', ')}`,
+            message: `Invalid data type: ${dataType}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
             requestId: request.id,
-            code: 'INVALID_TABLE',
+            code: 'INVALID_DATA_TYPE',
           },
         });
       }
@@ -73,47 +73,43 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
 
       try {
         await withTransaction(client, async (txClient) => {
-          const validatedTable = `validated_${tableName}`;
-          const approvedTable = `approved_${tableName}`;
-
+          // Check item exists in validated table
           const itemResult = await txClient.query(
-            `SELECT * FROM ${validatedTable} WHERE id = $1 FOR UPDATE`,
-            [id]
+            `SELECT * FROM validated WHERE id = $1 AND data_type = $2 FOR UPDATE`,
+            [id, dataType]
           );
 
           if (itemResult.rows.length === 0) {
-            throw new Error(`Item not found in ${validatedTable}`);
+            throw new Error(`Item not found in validated table`);
           }
 
           const item = itemResult.rows[0] as Record<string, unknown>;
+          const validatedData = item.validated_data;
 
-          const columnNames = Object.keys(item).filter((k) => k !== 'id');
-          const columnPlaceholders = columnNames.map((_, i) => `$${i + 1}`);
-          const columnValues = columnNames.map((k) => item[k]);
-
+          // Insert into approved table based on data type
+          const approvedTable = `approved_${dataType}`;
           await txClient.query(
-            `INSERT INTO ${approvedTable} (${columnNames.join(', ')})
-             VALUES (${columnPlaceholders.join(', ')})`,
-            columnValues
+            `INSERT INTO ${approvedTable} SELECT * FROM jsonb_populate_record(null::${approvedTable}, $1::jsonb)`,
+            [JSON.stringify(validatedData)]
           );
 
-          await txClient.query(`DELETE FROM ${validatedTable} WHERE id = $1`, [id]);
+          await txClient.query(`DELETE FROM validated WHERE id = $1`, [id]);
 
           await txClient.query(
             `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes, created_at)
              VALUES ($1, $2, $3, 'MANUAL', $4, CURRENT_TIMESTAMP)`,
-            [id, tableName, operatorId, notes ?? null]
+            [id, dataType, operatorId, notes ?? null]
           );
 
           await txClient.query(
             `UPDATE review_queue
-             SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approved'
-             WHERE item_id = $1 AND table_name = $2`,
-            [id, tableName]
+             SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approve'
+             WHERE item_id = $1`,
+            [id]
           );
         });
 
-        request.log.info({ itemId: id, tableName, operatorId }, 'Item approved');
+        request.log.info({ itemId: id, dataType, operatorId }, 'Item approved');
 
         return reply.status(200).send({
           success: true,
@@ -121,7 +117,7 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Approval failed';
-        request.log.error({ err: error, itemId: id, tableName }, 'Approval failed');
+        request.log.error({ err: error, itemId: id, dataType }, 'Approval failed');
 
         return reply.status(400).send({
           error: {

@@ -91,12 +91,11 @@ export interface PipelineHealthResponse {
 }
 
 export interface ReviewQueueItem {
-  id: string;
   itemId: string;
-  tableName: string;
+  dataType: string;
   priority: number;
   queuedAt: string;
-  reason: string | null;
+  assignedTo: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -108,10 +107,9 @@ export interface PaginatedResponse<T> {
 
 export interface ItemDetailResponse {
   id: string;
-  tableName: string;
+  dataType: string;
   data: Record<string, unknown>;
   createdAt: string;
-  updatedAt: string;
   gateResults: Array<{
     gateName: string;
     status: string;
@@ -124,9 +122,8 @@ export interface ItemDetailResponse {
 export interface FailureItem {
   id: string;
   itemId: string;
-  tableName: string;
-  stage: string;
+  dataType: string;
+  state: string;
   errorMessage: string;
   failedAt: string;
-  retryCount: number;
 }

@@ -3,6 +3,9 @@ import { MigrationBuilder, ColumnDefinitions } from 'node-pg-migrate';
 export const shorthands: ColumnDefinitions | undefined = undefined;
 
 export function up(pgm: MigrationBuilder): void {
+  // Drop old service_state from migration 003 and recreate with new schema
+  pgm.dropTable('service_state', { ifExists: true });
+
   pgm.createTable('service_state', {
     service_name: {
       type: 'varchar(100)',
@@ -40,7 +43,7 @@ export function up(pgm: MigrationBuilder): void {
     },
     metadata: {
       type: 'jsonb',
-      default: "'{}'::jsonb",
+      default: '{}',
     },
     created_at: {
       type: 'timestamp with time zone',

@@ -28,7 +28,7 @@ export function up(pgm: MigrationBuilder): void {
     metadata: {
       type: 'jsonb',
       notNull: true,
-      default: "'{}'",
+      default: '{}',
     },
     created_at: {
       type: 'timestamp',

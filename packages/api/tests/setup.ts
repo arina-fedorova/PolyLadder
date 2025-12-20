@@ -73,25 +73,31 @@ export async function closeTestPool(): Promise<void> {
 export async function cleanupTestData(): Promise<void> {
   const pool = getTestPool();
 
-  await pool.query('DELETE FROM refresh_tokens');
-  await pool.query('DELETE FROM approval_events');
-  await pool.query('DELETE FROM review_queue');
-  await pool.query('DELETE FROM pipeline_failures');
-  await pool.query('DELETE FROM pipeline_metrics');
-  await pool.query('DELETE FROM quality_gate_results');
-  await pool.query('DELETE FROM validated_meanings');
-  await pool.query('DELETE FROM validated_utterances');
-  await pool.query('DELETE FROM validated_rules');
-  await pool.query('DELETE FROM validated_exercises');
-  await pool.query('DELETE FROM candidate_meanings');
-  await pool.query('DELETE FROM candidate_utterances');
-  await pool.query('DELETE FROM candidate_rules');
-  await pool.query('DELETE FROM candidate_exercises');
-  await pool.query('DELETE FROM draft_meanings');
-  await pool.query('DELETE FROM draft_utterances');
-  await pool.query('DELETE FROM draft_rules');
-  await pool.query('DELETE FROM draft_exercises');
-  await pool.query('DELETE FROM users WHERE email LIKE $1', ['test-%']);
+  const tables = [
+    'refresh_tokens',
+    'approval_events',
+    'review_queue',
+    'pipeline_failures',
+    'pipeline_metrics',
+    'quality_gate_results',
+    'validated',
+    'candidates',
+    'drafts',
+  ];
+
+  for (const table of tables) {
+    try {
+      await pool.query(`DELETE FROM ${table}`);
+    } catch {
+      // Table might not exist yet, ignore
+    }
+  }
+
+  try {
+    await pool.query('DELETE FROM users WHERE email LIKE $1', ['test-%']);
+  } catch {
+    // Table might not exist yet, ignore
+  }
 }
 
 export function useTestServer() {

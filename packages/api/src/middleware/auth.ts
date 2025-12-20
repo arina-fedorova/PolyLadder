@@ -25,6 +25,14 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   const authHeader = request.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    await reply.status(401).send({
+      error: {
+        statusCode: 401,
+        message: 'Authentication required',
+        requestId: request.id,
+        code: 'UNAUTHORIZED',
+      },
+    });
     return;
   }
 

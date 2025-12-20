@@ -6,18 +6,17 @@ import { ErrorResponseSchema, PaginationQuerySchema } from '../../schemas/common
 const FailureItemSchema = Type.Object({
   id: Type.String(),
   itemId: Type.String(),
-  tableName: Type.String(),
-  stage: Type.String(),
+  dataType: Type.String(),
+  state: Type.String(),
   errorMessage: Type.String(),
   failedAt: Type.String(),
-  retryCount: Type.Number(),
 });
 
 const FailuresQuerySchema = Type.Intersect([
   PaginationQuerySchema,
   Type.Object({
-    tableName: Type.Optional(Type.String()),
-    stage: Type.Optional(Type.String()),
+    dataType: Type.Optional(Type.String()),
+    state: Type.Optional(Type.String()),
     since: Type.Optional(Type.String()),
   }),
 ]);
@@ -34,11 +33,10 @@ const FailuresResponseSchema = Type.Object({
 interface FailureRow {
   id: string;
   item_id: string;
-  table_name: string;
-  stage: string;
+  data_type: string;
+  state: string;
   error_message: string;
   failed_at: Date;
-  retry_count: number;
 }
 
 const failuresRoute: FastifyPluginAsync = async function (fastify) {
@@ -71,20 +69,20 @@ const failuresRoute: FastifyPluginAsync = async function (fastify) {
 
       const limit = request.query.limit ?? 20;
       const offset = request.query.offset ?? 0;
-      const { tableName, stage, since } = request.query;
+      const { dataType, state, since } = request.query;
 
       const conditions: string[] = [];
       const values: unknown[] = [];
       let paramIndex = 1;
 
-      if (tableName) {
-        conditions.push(`table_name = $${paramIndex++}`);
-        values.push(tableName);
+      if (dataType) {
+        conditions.push(`data_type = $${paramIndex++}`);
+        values.push(dataType);
       }
 
-      if (stage) {
-        conditions.push(`stage = $${paramIndex++}`);
-        values.push(stage);
+      if (state) {
+        conditions.push(`state = $${paramIndex++}`);
+        values.push(state);
       }
 
       if (since) {
@@ -101,7 +99,7 @@ const failuresRoute: FastifyPluginAsync = async function (fastify) {
       const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
       const failuresResult = await fastify.db.query<FailureRow>(
-        `SELECT id, item_id, table_name, stage, error_message, failed_at, retry_count
+        `SELECT id, item_id, data_type, state, error_message, failed_at
          FROM pipeline_failures
          ${whereClause}
          ORDER BY failed_at DESC
@@ -112,11 +110,10 @@ const failuresRoute: FastifyPluginAsync = async function (fastify) {
       const items = failuresResult.rows.map((row) => ({
         id: row.id,
         itemId: row.item_id,
-        tableName: row.table_name,
-        stage: row.stage,
+        dataType: row.data_type,
+        state: row.state,
         errorMessage: row.error_message,
         failedAt: row.failed_at.toISOString(),
-        retryCount: row.retry_count,
       }));
 
       return reply.status(200).send({

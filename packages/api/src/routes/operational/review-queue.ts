@@ -4,12 +4,11 @@ import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, PaginationQuerySchema } from '../../schemas/common';
 
 const ReviewQueueItemSchema = Type.Object({
-  id: Type.String(),
   itemId: Type.String(),
-  tableName: Type.String(),
+  dataType: Type.String(),
   priority: Type.Number(),
   queuedAt: Type.String(),
-  reason: Type.Union([Type.String(), Type.Null()]),
+  assignedTo: Type.Union([Type.String(), Type.Null()]),
 });
 
 const ReviewQueueResponseSchema = Type.Object({
@@ -22,12 +21,11 @@ const ReviewQueueResponseSchema = Type.Object({
 type PaginationQuery = Static<typeof PaginationQuerySchema>;
 
 interface ReviewQueueRow {
-  id: string;
   item_id: string;
-  table_name: string;
+  data_type: string;
   priority: number;
   queued_at: Date;
-  reason: string | null;
+  assigned_to: string | null;
 }
 
 const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
@@ -67,7 +65,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
       const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
       const itemsResult = await fastify.db.query<ReviewQueueRow>(
-        `SELECT id, item_id, table_name, priority, queued_at, reason
+        `SELECT item_id, data_type, priority, queued_at, assigned_to
          FROM review_queue
          WHERE reviewed_at IS NULL
          ORDER BY priority ASC, queued_at ASC
@@ -76,12 +74,11 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
       );
 
       const items = itemsResult.rows.map((row) => ({
-        id: row.id,
         itemId: row.item_id,
-        tableName: row.table_name,
+        dataType: row.data_type,
         priority: row.priority,
         queuedAt: row.queued_at.toISOString(),
-        reason: row.reason,
+        assignedTo: row.assigned_to,
       }));
 
       return reply.status(200).send({

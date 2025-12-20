@@ -21,9 +21,9 @@ export async function createTestUser(
   const passwordHash = await bcrypt.hash(password, 10);
 
   await pool.query(
-    `INSERT INTO users (id, email, password_hash, role, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    [id, email, passwordHash, role]
+    `INSERT INTO users (id, email, password_hash, role, base_language, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    [id, email, passwordHash, role, 'EN']
   );
 
   return { id, email, password, role };
@@ -49,16 +49,14 @@ export async function insertReviewQueueItem(
     itemId: string;
     tableName: string;
     priority?: number;
-    reason?: string;
   }
 ): Promise<string> {
-  const id = uuidv4();
   await pool.query(
-    `INSERT INTO review_queue (id, item_id, table_name, priority, reason, queued_at)
-     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-    [id, data.itemId, data.tableName, data.priority ?? 5, data.reason ?? null]
+    `INSERT INTO review_queue (item_id, data_type, priority, queued_at)
+     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+    [data.itemId, data.tableName, data.priority ?? 5]
   );
-  return id;
+  return data.itemId;
 }
 
 export async function insertPipelineFailure(
@@ -68,44 +66,56 @@ export async function insertPipelineFailure(
     tableName: string;
     stage: string;
     errorMessage: string;
-    retryCount?: number;
   }
 ): Promise<string> {
   const id = uuidv4();
   await pool.query(
-    `INSERT INTO pipeline_failures (id, item_id, table_name, stage, error_message, retry_count, failed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-    [id, data.itemId, data.tableName, data.stage, data.errorMessage, data.retryCount ?? 0]
+    `INSERT INTO pipeline_failures (id, item_id, data_type, state, error_message, failed_at)
+     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+    [id, data.itemId, data.tableName, data.stage, data.errorMessage]
   );
   return id;
 }
 
-export async function insertValidatedMeaning(
+export async function insertValidatedItem(
   pool: Pool,
   data: {
     id?: string;
-    language?: string;
-    level?: string;
-    word?: string;
-    definition?: string;
+    dataType?: string;
+    candidateId?: string;
+    validatedData?: Record<string, unknown>;
   } = {}
 ): Promise<string> {
   const id = data.id ?? uuidv4();
+  const candidateId = data.candidateId ?? uuidv4();
+  const dataType = data.dataType ?? 'meaning';
+  const validatedData = data.validatedData ?? {
+    id: id,
+    word: 'test',
+    definition: 'a test definition',
+    language: 'EN',
+    level: 'A1',
+  };
+
+  // First create a dummy draft and candidate
   await pool.query(
-    `INSERT INTO validated_meanings (id, language, level, word, definition, data, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    [
-      id,
-      data.language ?? 'EN',
-      data.level ?? 'A1',
-      data.word ?? 'test',
-      data.definition ?? 'a test definition',
-      JSON.stringify({
-        word: data.word ?? 'test',
-        definition: data.definition ?? 'a test definition',
-      }),
-    ]
+    `INSERT INTO drafts (id, data_type, raw_data, source, created_at)
+     VALUES ($1, $2, $3, 'test', CURRENT_TIMESTAMP)`,
+    [candidateId, dataType, JSON.stringify(validatedData)]
   );
+
+  await pool.query(
+    `INSERT INTO candidates (id, data_type, normalized_data, draft_id, created_at)
+     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)`,
+    [candidateId, dataType, JSON.stringify(validatedData), candidateId]
+  );
+
+  await pool.query(
+    `INSERT INTO validated (id, data_type, validated_data, candidate_id, validation_results, created_at)
+     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+    [id, dataType, JSON.stringify(validatedData), candidateId, JSON.stringify({ passed: true })]
+  );
+
   return id;
 }
 
@@ -117,9 +127,9 @@ export async function insertServiceState(
   }
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO service_state (service_name, last_checkpoint, last_processed_id)
-     VALUES ($1, $2, NULL)
-     ON CONFLICT (service_name) DO UPDATE SET last_checkpoint = $2`,
-    [data.serviceName, data.lastCheckpoint ?? new Date()]
+    `INSERT INTO service_state (service_name, state, last_checkpoint)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (service_name) DO UPDATE SET last_checkpoint = $3`,
+    [data.serviceName, '{}', data.lastCheckpoint ?? new Date()]
   );
 }
