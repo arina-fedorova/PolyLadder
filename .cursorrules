@@ -45,6 +45,7 @@ Add GitHub Actions as soon as there is code to validate:
 - After F001: database migrations test
 - After first tests: test runner
 - After API: integration tests
+- After UI: E2E tests with Playwright
 
 CI must pass before PR can be merged.
 
@@ -114,6 +115,16 @@ If code needs comments to be understood → refactor.
 - Clean database between tests with `cleanupTestData()`
 - Run with: `pnpm --filter @polyladder/api test:integration`
 
+### E2E Tests (MANDATORY for UI features)
+- All UI features MUST have E2E tests with Playwright
+- E2E tests live in `packages/web/e2e/`
+- Tests must cover: user flows, edge cases, cross-browser compatibility
+- Use Playwright for browser automation
+- Test naming: `test('should do X when user does Y')`
+- Tests must be runnable in headless mode for CI
+- Run with: `pnpm --filter @polyladder/web test:e2e`
+- Include visual regression tests where appropriate
+
 ---
 
 ## 8. Feature Implementation Flow
@@ -122,11 +133,11 @@ If code needs comments to be understood → refactor.
 2. Read feature spec: `docs/features/FXXX-*.md`
 3. For each task in spec:
    - Implement
-   - Test
+   - Test (unit + integration for API, unit + E2E for UI)
    - Commit with message `feat(FXXX): task description`
 4. Push branch
 5. Create PR
-6. Wait for CI
+6. Wait for CI (lint, typecheck, unit, integration, E2E)
 7. Request review
 8. Merge after approval
 
