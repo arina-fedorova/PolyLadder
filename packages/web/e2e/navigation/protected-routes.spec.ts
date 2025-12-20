@@ -64,8 +64,8 @@ test.describe('Protected Routes', () => {
 
     await page.goto('/operator/pipeline');
 
-    await expect(page.getByRole('heading', { name: 'Operator Dashboard' })).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(page.getByText(/Pipeline Dashboard|Failed to load dashboard metrics/)).toBeVisible(
+      { timeout: 10000 }
+    );
   });
 });

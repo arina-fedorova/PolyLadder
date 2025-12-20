@@ -55,6 +55,15 @@ export function App() {
           />
 
           <Route
+            path="/operator/dashboard"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <OperatorDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/operator/pipeline"
             element={
               <ProtectedRoute requiredRole="operator">
