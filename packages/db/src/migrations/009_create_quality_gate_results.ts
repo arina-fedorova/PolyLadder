@@ -32,7 +32,7 @@ export function up(pgm: MigrationBuilder): void {
     },
     metadata: {
       type: 'jsonb',
-      default: "'{}'::jsonb",
+      default: '{}',
     },
     attempt_number: {
       type: 'integer',

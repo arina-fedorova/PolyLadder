@@ -18,8 +18,9 @@ export function up(pgm: MigrationBuilder): void {
       notNull: true,
     },
     language: {
-      type: 'language_enum',
+      type: 'varchar(2)',
       notNull: true,
+      check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')",
     },
     tokens_used: {
       type: 'integer',

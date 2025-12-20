@@ -16,6 +16,10 @@
     "dev:shell": "bash scripts/dev-shell.sh",
     "dev:db": "bash scripts/dev-db-shell.sh",
     "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @polyladder/api test:integration",
+    "test:all": "pnpm -r test && pnpm test:integration",
+    "test:ci": "pwsh scripts/test-ci.ps1",
+    "test:ci:bash": "bash scripts/test-ci.sh",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "prepare": "husky"
