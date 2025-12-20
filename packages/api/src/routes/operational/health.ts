@@ -178,7 +178,7 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
       const errorRate = totalAttempts > 0 ? (failedCount / totalAttempts) * 100 : 0;
 
       let overall: 'healthy' | 'warning' | 'critical' = 'healthy';
-      if (errorRate > 10 || stuckItems > 50 || serviceStatus === 'error') {
+      if (errorRate > 10 || stuckItems > 50) {
         overall = 'critical';
       } else if (errorRate > 5 || stuckItems > 20 || serviceStatus === 'stopped') {
         overall = 'warning';
