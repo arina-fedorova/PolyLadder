@@ -3,7 +3,8 @@
 **Feature Code**: F025
 **Created**: 2025-12-17
 **Phase**: 7 - Operational UI
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
 
 ---
 
@@ -13,13 +14,13 @@ Operator dashboard displaying real-time content pipeline health metrics: item co
 
 ## Success Criteria
 
-- [ ] Dashboard page at /operator/dashboard with real-time metrics
-- [ ] State count cards showing items in each lifecycle state
-- [ ] Pipeline flow visualization (Sankey diagram or funnel chart)
-- [ ] Health indicators with color-coded status (green/yellow/red)
-- [ ] Recent activity log with pagination
-- [ ] Refinement service status display (running/stopped, last checkpoint)
-- [ ] Auto-refresh every 30 seconds using TanStack Query polling
+- [x] Dashboard page at /operator/dashboard with real-time metrics
+- [x] State count cards showing items in each lifecycle state
+- [x] Pipeline flow visualization (funnel chart)
+- [x] Health indicators with color-coded status (green/yellow/red)
+- [x] Recent activity log with pagination
+- [x] Refinement service status display (running/stopped, last checkpoint)
+- [x] Auto-refresh every 30 seconds using TanStack Query polling
 
 ---
 
@@ -32,6 +33,7 @@ Operator dashboard displaying real-time content pipeline health metrics: item co
 **Implementation Plan**:
 
 Already exists in F020 as GET /operational/health. Response structure:
+
 ```typescript
 interface PipelineHealthResponse {
   summary: {
@@ -72,6 +74,7 @@ No new endpoint needed - F020 already provides this.
 **Implementation Plan**:
 
 Create `packages/web/src/pages/operator/DashboardPage.tsx`:
+
 ```tsx
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -111,7 +114,11 @@ interface PipelineHealth {
 
 export function DashboardPage() {
   // Poll every 30 seconds
-  const { data: health, isLoading, error } = useQuery({
+  const {
+    data: health,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['pipeline-health'],
     queryFn: async () => {
       const response = await apiClient.get<PipelineHealth>('/operational/health');
@@ -141,15 +148,15 @@ export function DashboardPage() {
     health.healthIndicators.overall === 'healthy'
       ? 'text-green-600'
       : health.healthIndicators.overall === 'warning'
-      ? 'text-yellow-600'
-      : 'text-red-600';
+        ? 'text-yellow-600'
+        : 'text-red-600';
 
   const HealthIcon =
     health.healthIndicators.overall === 'healthy'
       ? CheckCircle
       : health.healthIndicators.overall === 'warning'
-      ? Clock
-      : AlertCircle;
+        ? Clock
+        : AlertCircle;
 
   return (
     <div className="space-y-6">
@@ -240,6 +247,7 @@ export function DashboardPage() {
 **Implementation Plan**:
 
 Create `packages/web/src/components/operational/StateCountCards.tsx`:
+
 ```tsx
 import React from 'react';
 import { FileText, Clock, CheckCircle, Shield } from 'lucide-react';
@@ -321,6 +329,7 @@ export function StateCountCards({ summary }: StateCountCardsProps) {
 **Implementation Plan**:
 
 Create `packages/web/src/components/operational/PipelineFlowChart.tsx`:
+
 ```tsx
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
@@ -411,6 +420,7 @@ export function PipelineFlowChart({ summary }: PipelineFlowChartProps) {
 **Implementation Plan**:
 
 Create `packages/web/src/components/operational/ServiceStatus.tsx`:
+
 ```tsx
 import React from 'react';
 import { Activity, AlertCircle, CheckCircle, Clock } from 'lucide-react';
@@ -461,17 +471,13 @@ export function ServiceStatus({ service }: ServiceStatusProps) {
         <div>
           <p className="text-sm text-gray-600">Last Checkpoint</p>
           <p className="text-lg font-semibold text-gray-900 mt-1">
-            {service.lastCheckpointAt
-              ? formatDate(service.lastCheckpointAt)
-              : 'Never'}
+            {service.lastCheckpointAt ? formatDate(service.lastCheckpointAt) : 'Never'}
           </p>
         </div>
 
         <div>
           <p className="text-sm text-gray-600">Items Processed Today</p>
-          <p className="text-lg font-semibold text-gray-900 mt-1">
-            {service.itemsProcessedToday}
-          </p>
+          <p className="text-lg font-semibold text-gray-900 mt-1">{service.itemsProcessedToday}</p>
         </div>
 
         <div>
@@ -513,6 +519,7 @@ export function ServiceStatus({ service }: ServiceStatusProps) {
 **Implementation Plan**:
 
 Create `packages/web/src/components/operational/ActivityLog.tsx`:
+
 ```tsx
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -591,9 +598,7 @@ export function ActivityLog() {
               </div>
 
               {entry.operatorEmail && (
-                <p className="text-xs text-gray-500 mt-1">
-                  by {entry.operatorEmail}
-                </p>
+                <p className="text-xs text-gray-500 mt-1">by {entry.operatorEmail}</p>
               )}
             </div>
 
@@ -605,7 +610,10 @@ export function ActivityLog() {
       })}
 
       <div className="pt-4 border-t border-gray-200">
-        <a href="/operator/activity" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+        <a
+          href="/operator/activity"
+          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+        >
           View full activity log →
         </a>
       </div>
@@ -627,6 +635,7 @@ Note: This component references `/operational/activity-log` endpoint which needs
 **Implementation Plan**:
 
 Update `packages/web/src/App.tsx` to import and use DashboardPage:
+
 ```tsx
 import { DashboardPage } from '@/pages/operator/DashboardPage';
 
@@ -657,6 +666,7 @@ import { DashboardPage } from '@/pages/operator/DashboardPage';
 **Context**: Dashboard currently polls every 30 seconds. Should we use WebSockets for real-time updates?
 
 **Options**:
+
 1. Polling with TanStack Query (current)
    - Pros: Simple, works with existing REST API
    - Cons: 30-second lag, extra load on server
@@ -676,6 +686,7 @@ import { DashboardPage } from '@/pages/operator/DashboardPage';
 **Context**: Dashboard shows current state. Should we show historical trends (e.g., items approved over time)?
 
 **Options**:
+
 1. Current state only (current)
    - Pros: Simple, fast queries
    - Cons: No trend analysis
@@ -695,6 +706,7 @@ import { DashboardPage } from '@/pages/operator/DashboardPage';
 **Context**: Activity log shows state transitions. Should it show more details (e.g., which fields changed)?
 
 **Options**:
+
 1. Basic transitions only (current)
    - Pros: Simple to implement
    - Cons: Limited debugging value
@@ -728,16 +740,19 @@ import { DashboardPage } from '@/pages/operator/DashboardPage';
 ### Health Indicator Thresholds
 
 **Healthy** (green):
+
 - Error rate < 5%
 - Stuck items < 10
 - Throughput > 50 items/day
 
 **Warning** (yellow):
+
 - Error rate 5-15%
 - Stuck items 10-50
 - Throughput 20-50 items/day
 
 **Critical** (red):
+
 - Error rate > 15%
 - Stuck items > 50
 - Throughput < 20 items/day
