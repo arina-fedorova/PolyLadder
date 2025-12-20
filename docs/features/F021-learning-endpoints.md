@@ -3,7 +3,9 @@
 **Feature Code**: F021
 **Created**: 2025-12-17
 **Phase**: 5 - API Layer
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
+**PR**: #24
 
 ---
 
@@ -13,12 +15,20 @@ REST API endpoints for learners: curriculum access, vocabulary state, progress t
 
 ## Success Criteria
 
-- [ ] GET /api/v1/learning/curriculum - User curriculum
-- [ ] GET /api/v1/learning/vocabulary - User vocabulary state
-- [ ] POST /api/v1/learning/progress - Record progress
-- [ ] GET /api/v1/learning/exercises - Fetch exercises
-- [ ] POST /api/v1/learning/exercise-result - Submit exercise result
-- [ ] GET /api/v1/learning/srs-due - Get SRS review queue
+- [x] GET /learning/languages - User's languages with progress
+- [x] POST /learning/languages - Start learning a language
+- [x] DELETE /learning/languages/:language - Stop learning a language
+- [x] GET /learning/orthography/:language - Orthography lessons
+- [x] POST /learning/orthography/complete - Mark gate complete
+- [x] GET /learning/vocabulary - User vocabulary state
+- [x] POST /learning/vocabulary - Add/update vocabulary
+- [x] POST /learning/vocabulary/review - Record vocabulary review
+- [x] GET /learning/exercises - Fetch exercises
+- [x] POST /learning/exercises/submit - Submit exercise result
+- [x] GET /learning/exercises/stats - Exercise statistics
+- [x] GET /learning/srs/due - Get SRS review queue
+- [x] POST /learning/srs/review - Record SRS review (SM-2)
+- [x] GET /learning/srs/stats - SRS statistics
 
 ---
 
@@ -31,6 +41,7 @@ REST API endpoints for learners: curriculum access, vocabulary state, progress t
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/languages.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -49,116 +60,124 @@ const UserLanguageSchema = Type.Object({
 });
 
 export const languagesRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/languages', {
-    preHandler: authMiddleware,
-    schema: {
-      response: {
-        200: Type.Object({
-          languages: Type.Array(UserLanguageSchema),
-        }),
+  fastify.get(
+    '/languages',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        response: {
+          200: Type.Object({
+            languages: Type.Array(UserLanguageSchema),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const userId = request.user!.userId;
 
-    try {
-      // Get user's languages
-      const languagesResult = await fastify.pg.query(
-        `SELECT language, started_at, orthography_completed
+      try {
+        // Get user's languages
+        const languagesResult = await fastify.pg.query(
+          `SELECT language, started_at, orthography_completed
          FROM user_languages
          WHERE user_id = $1
          ORDER BY started_at ASC`,
-        [userId]
-      );
+          [userId]
+        );
 
-      // For each language, get vocabulary counts
-      const languages = await Promise.all(
-        languagesResult.rows.map(async (row) => {
-          const vocabResult = await fastify.pg.query(
-            `SELECT
+        // For each language, get vocabulary counts
+        const languages = await Promise.all(
+          languagesResult.rows.map(async (row) => {
+            const vocabResult = await fastify.pg.query(
+              `SELECT
                COUNT(*) FILTER (WHERE state = 'unknown') as unknown_count,
                COUNT(*) FILTER (WHERE state = 'learning') as learning_count,
                COUNT(*) FILTER (WHERE state = 'known') as known_count
              FROM user_vocabulary
              WHERE user_id = $1 AND language = $2`,
-            [userId, row.language]
-          );
+              [userId, row.language]
+            );
 
-          const vocab = vocabResult.rows[0];
+            const vocab = vocabResult.rows[0];
 
-          return {
-            language: row.language,
-            startedAt: row.started_at.toISOString(),
-            orthographyCompleted: row.orthography_completed,
-            vocabularyCount: {
-              unknown: parseInt(vocab.unknown_count) || 0,
-              learning: parseInt(vocab.learning_count) || 0,
-              known: parseInt(vocab.known_count) || 0,
-            },
-            cefrLevel: null, // TODO: Calculate CEFR level based on progress
-          };
-        })
-      );
+            return {
+              language: row.language,
+              startedAt: row.started_at.toISOString(),
+              orthographyCompleted: row.orthography_completed,
+              vocabularyCount: {
+                unknown: parseInt(vocab.unknown_count) || 0,
+                learning: parseInt(vocab.learning_count) || 0,
+                known: parseInt(vocab.known_count) || 0,
+              },
+              cefrLevel: null, // TODO: Calculate CEFR level based on progress
+            };
+          })
+        );
 
-      return reply.status(200).send({ languages });
-    } catch (error) {
-      request.log.error({ err: error, userId }, 'Failed to fetch user languages');
-      throw error;
+        return reply.status(200).send({ languages });
+      } catch (error) {
+        request.log.error({ err: error, userId }, 'Failed to fetch user languages');
+        throw error;
+      }
     }
-  });
+  );
 
-  fastify.post('/languages', {
-    preHandler: authMiddleware,
-    schema: {
-      body: Type.Object({
-        language: Type.String(),
-      }),
-      response: {
-        201: Type.Object({
-          success: Type.Boolean(),
-          message: Type.String(),
+  fastify.post(
+    '/languages',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: Type.Object({
+          language: Type.String(),
         }),
+        response: {
+          201: Type.Object({
+            success: Type.Boolean(),
+            message: Type.String(),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { language } = request.body;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language } = request.body;
 
-    try {
-      // Check if already learning this language
-      const existing = await fastify.pg.query(
-        'SELECT id FROM user_languages WHERE user_id = $1 AND language = $2',
-        [userId, language]
-      );
+      try {
+        // Check if already learning this language
+        const existing = await fastify.pg.query(
+          'SELECT id FROM user_languages WHERE user_id = $1 AND language = $2',
+          [userId, language]
+        );
 
-      if (existing.rows.length > 0) {
-        return reply.status(400).send({
-          error: {
-            statusCode: 400,
-            message: 'Already learning this language',
-            requestId: request.id,
-          },
-        });
-      }
+        if (existing.rows.length > 0) {
+          return reply.status(400).send({
+            error: {
+              statusCode: 400,
+              message: 'Already learning this language',
+              requestId: request.id,
+            },
+          });
+        }
 
-      // Add language
-      await fastify.pg.query(
-        `INSERT INTO user_languages (user_id, language, started_at, orthography_completed)
+        // Add language
+        await fastify.pg.query(
+          `INSERT INTO user_languages (user_id, language, started_at, orthography_completed)
          VALUES ($1, $2, CURRENT_TIMESTAMP, false)`,
-        [userId, language]
-      );
+          [userId, language]
+        );
 
-      request.log.info({ userId, language }, 'User started learning language');
+        request.log.info({ userId, language }, 'User started learning language');
 
-      return reply.status(201).send({
-        success: true,
-        message: `Started learning ${language}`,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to add language');
-      throw error;
+        return reply.status(201).send({
+          success: true,
+          message: `Started learning ${language}`,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to add language');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -173,6 +192,7 @@ export const languagesRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/orthography.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -183,122 +203,132 @@ const OrthographyLessonSchema = Type.Object({
   letter: Type.String(),
   ipa: Type.String(),
   soundDescription: Type.String(),
-  examples: Type.Array(Type.Object({
-    word: Type.String(),
-    audioUrl: Type.Optional(Type.String()),
-  })),
+  examples: Type.Array(
+    Type.Object({
+      word: Type.String(),
+      audioUrl: Type.Optional(Type.String()),
+    })
+  ),
   completed: Type.Boolean(),
 });
 
 export const orthographyRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/orthography/:language', {
-    preHandler: authMiddleware,
-    schema: {
-      params: Type.Object({
-        language: Type.String(),
-      }),
-      response: {
-        200: Type.Object({
-          lessons: Type.Array(OrthographyLessonSchema),
-          totalLessons: Type.Number(),
-          completedLessons: Type.Number(),
+  fastify.get(
+    '/orthography/:language',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: Type.Object({
+          language: Type.String(),
         }),
+        response: {
+          200: Type.Object({
+            lessons: Type.Array(OrthographyLessonSchema),
+            totalLessons: Type.Number(),
+            completedLessons: Type.Number(),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { language } = request.params;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language } = request.params;
 
-    try {
-      // Get orthography concepts from curriculum graph
-      const conceptsResult = await fastify.pg.query(
-        `SELECT concept_id, metadata
+      try {
+        // Get orthography concepts from curriculum graph
+        const conceptsResult = await fastify.pg.query(
+          `SELECT concept_id, metadata
          FROM curriculum_graph
          WHERE language = $1 AND concept_type = 'orthography'
          ORDER BY metadata->>'order' ASC`,
-        [language]
-      );
-
-      // Get user progress
-      const progressResult = await fastify.pg.query(
-        `SELECT concept_id
-         FROM user_progress
-         WHERE user_id = $1 AND concept_type = 'orthography' AND completed = true`,
-        [userId]
-      );
-
-      const completedConceptIds = new Set(progressResult.rows.map(r => r.concept_id));
-
-      const lessons = conceptsResult.rows.map(row => {
-        const metadata = row.metadata;
-
-        return {
-          conceptId: row.concept_id,
-          letter: metadata.letter,
-          ipa: metadata.ipa,
-          soundDescription: metadata.soundDescription,
-          examples: metadata.exampleWords.map(word => ({
-            word,
-            audioUrl: null, // TODO: Generate/fetch TTS audio
-          })),
-          completed: completedConceptIds.has(row.concept_id),
-        };
-      });
-
-      return reply.status(200).send({
-        lessons,
-        totalLessons: lessons.length,
-        completedLessons: progressResult.rows.length,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to fetch orthography');
-      throw error;
-    }
-  });
-
-  fastify.post('/orthography/complete', {
-    preHandler: authMiddleware,
-    schema: {
-      body: Type.Object({
-        language: Type.String(),
-        accuracy: Type.Number({ minimum: 0, maximum: 100 }),
-      }),
-      response: {
-        200: Type.Object({
-          success: Type.Boolean(),
-          gateCompleted: Type.Boolean(),
-        }),
-      },
-    },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { language, accuracy } = request.body;
-
-    try {
-      // Check if user passed (80% accuracy threshold)
-      const passed = accuracy >= 80;
-
-      if (passed) {
-        // Mark orthography gate as completed
-        await fastify.pg.query(
-          `UPDATE user_languages
-           SET orthography_completed = true
-           WHERE user_id = $1 AND language = $2`,
-          [userId, language]
+          [language]
         );
 
-        request.log.info({ userId, language, accuracy }, 'User completed orthography gate');
-      }
+        // Get user progress
+        const progressResult = await fastify.pg.query(
+          `SELECT concept_id
+         FROM user_progress
+         WHERE user_id = $1 AND concept_type = 'orthography' AND completed = true`,
+          [userId]
+        );
 
-      return reply.status(200).send({
-        success: true,
-        gateCompleted: passed,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to complete orthography');
-      throw error;
+        const completedConceptIds = new Set(progressResult.rows.map((r) => r.concept_id));
+
+        const lessons = conceptsResult.rows.map((row) => {
+          const metadata = row.metadata;
+
+          return {
+            conceptId: row.concept_id,
+            letter: metadata.letter,
+            ipa: metadata.ipa,
+            soundDescription: metadata.soundDescription,
+            examples: metadata.exampleWords.map((word) => ({
+              word,
+              audioUrl: null, // TODO: Generate/fetch TTS audio
+            })),
+            completed: completedConceptIds.has(row.concept_id),
+          };
+        });
+
+        return reply.status(200).send({
+          lessons,
+          totalLessons: lessons.length,
+          completedLessons: progressResult.rows.length,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to fetch orthography');
+        throw error;
+      }
     }
-  });
+  );
+
+  fastify.post(
+    '/orthography/complete',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: Type.Object({
+          language: Type.String(),
+          accuracy: Type.Number({ minimum: 0, maximum: 100 }),
+        }),
+        response: {
+          200: Type.Object({
+            success: Type.Boolean(),
+            gateCompleted: Type.Boolean(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language, accuracy } = request.body;
+
+      try {
+        // Check if user passed (80% accuracy threshold)
+        const passed = accuracy >= 80;
+
+        if (passed) {
+          // Mark orthography gate as completed
+          await fastify.pg.query(
+            `UPDATE user_languages
+           SET orthography_completed = true
+           WHERE user_id = $1 AND language = $2`,
+            [userId, language]
+          );
+
+          request.log.info({ userId, language, accuracy }, 'User completed orthography gate');
+        }
+
+        return reply.status(200).send({
+          success: true,
+          gateCompleted: passed,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to complete orthography');
+        throw error;
+      }
+    }
+  );
 };
 ```
 
@@ -313,6 +343,7 @@ export const orthographyRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/vocabulary.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -325,11 +356,7 @@ const VocabularyItemSchema = Type.Object({
   definition: Type.String(),
   partOfSpeech: Type.String(),
   level: Type.String(),
-  state: Type.Union([
-    Type.Literal('unknown'),
-    Type.Literal('learning'),
-    Type.Literal('known'),
-  ]),
+  state: Type.Union([Type.Literal('unknown'), Type.Literal('learning'), Type.Literal('known')]),
   reviewCount: Type.Number(),
   nextReviewAt: Type.Optional(Type.String({ format: 'date-time' })),
   lastReviewedAt: Type.Optional(Type.String({ format: 'date-time' })),
@@ -339,59 +366,60 @@ const VocabularyQuerySchema = Type.Intersect([
   PaginationQuerySchema,
   Type.Object({
     language: Type.String(),
-    state: Type.Optional(Type.Union([
-      Type.Literal('unknown'),
-      Type.Literal('learning'),
-      Type.Literal('known'),
-    ])),
+    state: Type.Optional(
+      Type.Union([Type.Literal('unknown'), Type.Literal('learning'), Type.Literal('known')])
+    ),
     level: Type.Optional(Type.String()),
   }),
 ]);
 
 export const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/vocabulary', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: VocabularyQuerySchema,
-      response: {
-        200: PaginatedResponseSchema(VocabularyItemSchema),
+  fastify.get(
+    '/vocabulary',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: VocabularyQuerySchema,
+        response: {
+          200: PaginatedResponseSchema(VocabularyItemSchema),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { limit = 20, offset = 0, language, state, level } = request.query;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { limit = 20, offset = 0, language, state, level } = request.query;
 
-    try {
-      // Build WHERE clause
-      const conditions: string[] = ['uv.user_id = $1', 'am.language = $2'];
-      const values: any[] = [userId, language];
-      let paramIndex = 3;
+      try {
+        // Build WHERE clause
+        const conditions: string[] = ['uv.user_id = $1', 'am.language = $2'];
+        const values: any[] = [userId, language];
+        let paramIndex = 3;
 
-      if (state) {
-        conditions.push(`uv.state = $${paramIndex++}`);
-        values.push(state);
-      }
+        if (state) {
+          conditions.push(`uv.state = $${paramIndex++}`);
+          values.push(state);
+        }
 
-      if (level) {
-        conditions.push(`am.level = $${paramIndex++}`);
-        values.push(level);
-      }
+        if (level) {
+          conditions.push(`am.level = $${paramIndex++}`);
+          values.push(level);
+        }
 
-      const whereClause = conditions.join(' AND ');
+        const whereClause = conditions.join(' AND ');
 
-      // Get total count
-      const countResult = await fastify.pg.query(
-        `SELECT COUNT(*) as total
+        // Get total count
+        const countResult = await fastify.pg.query(
+          `SELECT COUNT(*) as total
          FROM user_vocabulary uv
          JOIN approved_meanings am ON am.id = uv.meaning_id
          WHERE ${whereClause}`,
-        values
-      );
-      const total = parseInt(countResult.rows[0].total);
+          values
+        );
+        const total = parseInt(countResult.rows[0].total);
 
-      // Get paginated vocabulary
-      const vocabResult = await fastify.pg.query(
-        `SELECT
+        // Get paginated vocabulary
+        const vocabResult = await fastify.pg.query(
+          `SELECT
            uv.meaning_id,
            uv.state,
            uv.review_count,
@@ -406,32 +434,33 @@ export const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
          WHERE ${whereClause}
          ORDER BY uv.last_reviewed_at DESC NULLS FIRST
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        [...values, limit, offset]
-      );
+          [...values, limit, offset]
+        );
 
-      const items = vocabResult.rows.map(row => ({
-        meaningId: row.meaning_id,
-        word: row.word,
-        definition: row.definition,
-        partOfSpeech: row.part_of_speech,
-        level: row.level,
-        state: row.state,
-        reviewCount: parseInt(row.review_count),
-        nextReviewAt: row.next_review_at?.toISOString(),
-        lastReviewedAt: row.last_reviewed_at?.toISOString(),
-      }));
+        const items = vocabResult.rows.map((row) => ({
+          meaningId: row.meaning_id,
+          word: row.word,
+          definition: row.definition,
+          partOfSpeech: row.part_of_speech,
+          level: row.level,
+          state: row.state,
+          reviewCount: parseInt(row.review_count),
+          nextReviewAt: row.next_review_at?.toISOString(),
+          lastReviewedAt: row.last_reviewed_at?.toISOString(),
+        }));
 
-      return reply.status(200).send({
-        items,
-        total,
-        limit,
-        offset,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to fetch vocabulary');
-      throw error;
+        return reply.status(200).send({
+          items,
+          total,
+          limit,
+          offset,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to fetch vocabulary');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -446,6 +475,7 @@ export const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/exercises.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -468,117 +498,125 @@ const ExerciseQuerySchema = Type.Object({
 });
 
 export const exercisesRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/exercises', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: ExerciseQuerySchema,
-      response: {
-        200: Type.Object({
-          exercises: Type.Array(ExerciseSchema),
-        }),
+  fastify.get(
+    '/exercises',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: ExerciseQuerySchema,
+        response: {
+          200: Type.Object({
+            exercises: Type.Array(ExerciseSchema),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { language, level, count = 10 } = request.query;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language, level, count = 10 } = request.query;
 
-    try {
-      // Build WHERE clause
-      const conditions: string[] = ['language = $1'];
-      const values: any[] = [language];
-      let paramIndex = 2;
+      try {
+        // Build WHERE clause
+        const conditions: string[] = ['language = $1'];
+        const values: any[] = [language];
+        let paramIndex = 2;
 
-      if (level) {
-        conditions.push(`level = $${paramIndex++}`);
-        values.push(level);
-      }
+        if (level) {
+          conditions.push(`level = $${paramIndex++}`);
+          values.push(level);
+        }
 
-      const whereClause = conditions.join(' AND ');
+        const whereClause = conditions.join(' AND ');
 
-      // Fetch random exercises
-      const exercisesResult = await fastify.pg.query(
-        `SELECT id, language, level, prompt, options
+        // Fetch random exercises
+        const exercisesResult = await fastify.pg.query(
+          `SELECT id, language, level, prompt, options
          FROM approved_exercises
          WHERE ${whereClause}
          ORDER BY RANDOM()
          LIMIT $${paramIndex}`,
-        [...values, count]
-      );
+          [...values, count]
+        );
 
-      const exercises = exercisesResult.rows.map(row => ({
-        id: row.id,
-        type: 'multiple_choice', // All exercises are multiple choice for now
-        language: row.language,
-        level: row.level,
-        prompt: row.prompt,
-        options: Array.isArray(row.options) ? row.options : JSON.parse(row.options),
-      }));
+        const exercises = exercisesResult.rows.map((row) => ({
+          id: row.id,
+          type: 'multiple_choice', // All exercises are multiple choice for now
+          language: row.language,
+          level: row.level,
+          prompt: row.prompt,
+          options: Array.isArray(row.options) ? row.options : JSON.parse(row.options),
+        }));
 
-      return reply.status(200).send({ exercises });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to fetch exercises');
-      throw error;
+        return reply.status(200).send({ exercises });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to fetch exercises');
+        throw error;
+      }
     }
-  });
+  );
 
-  fastify.post('/exercises/submit', {
-    preHandler: authMiddleware,
-    schema: {
-      body: Type.Object({
-        exerciseId: Type.String({ format: 'uuid' }),
-        selectedAnswer: Type.Number({ minimum: 0 }),
-      }),
-      response: {
-        200: Type.Object({
-          correct: Type.Boolean(),
-          correctAnswer: Type.Number(),
-          explanation: Type.Optional(Type.String()),
+  fastify.post(
+    '/exercises/submit',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: Type.Object({
+          exerciseId: Type.String({ format: 'uuid' }),
+          selectedAnswer: Type.Number({ minimum: 0 }),
         }),
+        response: {
+          200: Type.Object({
+            correct: Type.Boolean(),
+            correctAnswer: Type.Number(),
+            explanation: Type.Optional(Type.String()),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { exerciseId, selectedAnswer } = request.body;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { exerciseId, selectedAnswer } = request.body;
 
-    try {
-      // Fetch exercise with correct answer
-      const exerciseResult = await fastify.pg.query(
-        'SELECT correct_answer, explanation FROM approved_exercises WHERE id = $1',
-        [exerciseId]
-      );
+      try {
+        // Fetch exercise with correct answer
+        const exerciseResult = await fastify.pg.query(
+          'SELECT correct_answer, explanation FROM approved_exercises WHERE id = $1',
+          [exerciseId]
+        );
 
-      if (exerciseResult.rows.length === 0) {
-        return reply.status(404).send({
-          error: {
-            statusCode: 404,
-            message: 'Exercise not found',
-            requestId: request.id,
-          },
-        });
-      }
+        if (exerciseResult.rows.length === 0) {
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Exercise not found',
+              requestId: request.id,
+            },
+          });
+        }
 
-      const exercise = exerciseResult.rows[0];
-      const correct = selectedAnswer === exercise.correct_answer;
+        const exercise = exerciseResult.rows[0];
+        const correct = selectedAnswer === exercise.correct_answer;
 
-      // Record result (for analytics/SRS)
-      await fastify.pg.query(
-        `INSERT INTO user_exercise_results (user_id, exercise_id, correct, submitted_at)
+        // Record result (for analytics/SRS)
+        await fastify.pg.query(
+          `INSERT INTO user_exercise_results (user_id, exercise_id, correct, submitted_at)
          VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-        [userId, exerciseId, correct]
-      );
+          [userId, exerciseId, correct]
+        );
 
-      request.log.info({ userId, exerciseId, correct }, 'Exercise submitted');
+        request.log.info({ userId, exerciseId, correct }, 'Exercise submitted');
 
-      return reply.status(200).send({
-        correct,
-        correctAnswer: exercise.correct_answer,
-        explanation: exercise.explanation,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, exerciseId }, 'Failed to submit exercise');
-      throw error;
+        return reply.status(200).send({
+          correct,
+          correctAnswer: exercise.correct_answer,
+          explanation: exercise.explanation,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, exerciseId }, 'Failed to submit exercise');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -593,6 +631,7 @@ export const exercisesRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/srs.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -606,36 +645,41 @@ const SRSReviewItemSchema = Type.Object({
   level: Type.String(),
   reviewCount: Type.Number(),
   dueAt: Type.String({ format: 'date-time' }),
-  exampleUtterances: Type.Array(Type.Object({
-    id: Type.String({ format: 'uuid' }),
-    text: Type.String(),
-    translation: Type.String(),
-  })),
+  exampleUtterances: Type.Array(
+    Type.Object({
+      id: Type.String({ format: 'uuid' }),
+      text: Type.String(),
+      translation: Type.String(),
+    })
+  ),
 });
 
 export const srsRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/srs/due', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: Type.Object({
-        language: Type.String(),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 20 })),
-      }),
-      response: {
-        200: Type.Object({
-          items: Type.Array(SRSReviewItemSchema),
-          totalDue: Type.Number(),
+  fastify.get(
+    '/srs/due',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: Type.Object({
+          language: Type.String(),
+          limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 20 })),
         }),
+        response: {
+          200: Type.Object({
+            items: Type.Array(SRSReviewItemSchema),
+            totalDue: Type.Number(),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { language, limit = 20 } = request.query;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language, limit = 20 } = request.query;
 
-    try {
-      // Get vocabulary items due for review
-      const dueResult = await fastify.pg.query(
-        `SELECT
+      try {
+        // Get vocabulary items due for review
+        const dueResult = await fastify.pg.query(
+          `SELECT
            uv.meaning_id,
            uv.review_count,
            uv.next_review_at,
@@ -651,147 +695,149 @@ export const srsRoute: FastifyPluginAsync = async (fastify) => {
            AND uv.next_review_at <= CURRENT_TIMESTAMP
          ORDER BY uv.next_review_at ASC
          LIMIT $3`,
-        [userId, language, limit]
-      );
+          [userId, language, limit]
+        );
 
-      // Fetch example utterances for each word
-      const items = await Promise.all(
-        dueResult.rows.map(async (row) => {
-          const utterancesResult = await fastify.pg.query(
-            `SELECT id, text, translation
+        // Fetch example utterances for each word
+        const items = await Promise.all(
+          dueResult.rows.map(async (row) => {
+            const utterancesResult = await fastify.pg.query(
+              `SELECT id, text, translation
              FROM approved_utterances
              WHERE meaning_id = $1
              ORDER BY RANDOM()
              LIMIT 3`,
-            [row.meaning_id]
-          );
+              [row.meaning_id]
+            );
 
-          return {
-            meaningId: row.meaning_id,
-            word: row.word,
-            definition: row.definition,
-            partOfSpeech: row.part_of_speech,
-            level: row.level,
-            reviewCount: parseInt(row.review_count),
-            dueAt: row.next_review_at.toISOString(),
-            exampleUtterances: utterancesResult.rows.map(u => ({
-              id: u.id,
-              text: u.text,
-              translation: u.translation,
-            })),
-          };
-        })
-      );
+            return {
+              meaningId: row.meaning_id,
+              word: row.word,
+              definition: row.definition,
+              partOfSpeech: row.part_of_speech,
+              level: row.level,
+              reviewCount: parseInt(row.review_count),
+              dueAt: row.next_review_at.toISOString(),
+              exampleUtterances: utterancesResult.rows.map((u) => ({
+                id: u.id,
+                text: u.text,
+                translation: u.translation,
+              })),
+            };
+          })
+        );
 
-      // Get total due count
-      const countResult = await fastify.pg.query(
-        `SELECT COUNT(*) as total
+        // Get total due count
+        const countResult = await fastify.pg.query(
+          `SELECT COUNT(*) as total
          FROM user_vocabulary uv
          JOIN approved_meanings am ON am.id = uv.meaning_id
          WHERE uv.user_id = $1
            AND am.language = $2
            AND uv.state IN ('learning', 'known')
            AND uv.next_review_at <= CURRENT_TIMESTAMP`,
-        [userId, language]
-      );
+          [userId, language]
+        );
 
-      const totalDue = parseInt(countResult.rows[0].total);
+        const totalDue = parseInt(countResult.rows[0].total);
 
-      return reply.status(200).send({
-        items,
-        totalDue,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, language }, 'Failed to fetch SRS due items');
-      throw error;
+        return reply.status(200).send({
+          items,
+          totalDue,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, language }, 'Failed to fetch SRS due items');
+        throw error;
+      }
     }
-  });
+  );
 
-  fastify.post('/srs/review', {
-    preHandler: authMiddleware,
-    schema: {
-      body: Type.Object({
-        meaningId: Type.String({ format: 'uuid' }),
-        correct: Type.Boolean(),
-      }),
-      response: {
-        200: Type.Object({
-          success: Type.Boolean(),
-          nextReviewAt: Type.String({ format: 'date-time' }),
-          newState: Type.Union([
-            Type.Literal('learning'),
-            Type.Literal('known'),
-          ]),
+  fastify.post(
+    '/srs/review',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: Type.Object({
+          meaningId: Type.String({ format: 'uuid' }),
+          correct: Type.Boolean(),
         }),
+        response: {
+          200: Type.Object({
+            success: Type.Boolean(),
+            nextReviewAt: Type.String({ format: 'date-time' }),
+            newState: Type.Union([Type.Literal('learning'), Type.Literal('known')]),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { meaningId, correct } = request.body;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { meaningId, correct } = request.body;
 
-    try {
-      // Get current vocabulary state
-      const vocabResult = await fastify.pg.query(
-        `SELECT state, review_count FROM user_vocabulary
+      try {
+        // Get current vocabulary state
+        const vocabResult = await fastify.pg.query(
+          `SELECT state, review_count FROM user_vocabulary
          WHERE user_id = $1 AND meaning_id = $2`,
-        [userId, meaningId]
-      );
+          [userId, meaningId]
+        );
 
-      if (vocabResult.rows.length === 0) {
-        return reply.status(404).send({
-          error: {
-            statusCode: 404,
-            message: 'Vocabulary item not found',
-            requestId: request.id,
-          },
-        });
-      }
+        if (vocabResult.rows.length === 0) {
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Vocabulary item not found',
+              requestId: request.id,
+            },
+          });
+        }
 
-      const vocab = vocabResult.rows[0];
-      const reviewCount = parseInt(vocab.review_count);
+        const vocab = vocabResult.rows[0];
+        const reviewCount = parseInt(vocab.review_count);
 
-      // Calculate next review interval using SRS algorithm (from F046)
-      // Simple implementation: double interval on success, reset on failure
-      let intervalDays = 1;
-      if (correct) {
-        intervalDays = Math.min(Math.pow(2, reviewCount), 180); // Cap at 180 days
-      }
+        // Calculate next review interval using SRS algorithm (from F046)
+        // Simple implementation: double interval on success, reset on failure
+        let intervalDays = 1;
+        if (correct) {
+          intervalDays = Math.min(Math.pow(2, reviewCount), 180); // Cap at 180 days
+        }
 
-      const nextReviewAt = new Date();
-      nextReviewAt.setDate(nextReviewAt.getDate() + intervalDays);
+        const nextReviewAt = new Date();
+        nextReviewAt.setDate(nextReviewAt.getDate() + intervalDays);
 
-      // Determine new state
-      let newState = vocab.state;
-      if (correct && reviewCount >= 5) {
-        newState = 'known'; // Mark as known after 5+ successful reviews
-      }
+        // Determine new state
+        let newState = vocab.state;
+        if (correct && reviewCount >= 5) {
+          newState = 'known'; // Mark as known after 5+ successful reviews
+        }
 
-      // Update vocabulary
-      await fastify.pg.query(
-        `UPDATE user_vocabulary
+        // Update vocabulary
+        await fastify.pg.query(
+          `UPDATE user_vocabulary
          SET review_count = review_count + 1,
              next_review_at = $1,
              last_reviewed_at = CURRENT_TIMESTAMP,
              state = $2
          WHERE user_id = $3 AND meaning_id = $4`,
-        [nextReviewAt, newState, userId, meaningId]
-      );
+          [nextReviewAt, newState, userId, meaningId]
+        );
 
-      request.log.info(
-        { userId, meaningId, correct, newState, nextReviewAt },
-        'SRS review completed'
-      );
+        request.log.info(
+          { userId, meaningId, correct, newState, nextReviewAt },
+          'SRS review completed'
+        );
 
-      return reply.status(200).send({
-        success: true,
-        nextReviewAt: nextReviewAt.toISOString(),
-        newState,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, meaningId }, 'Failed to record SRS review');
-      throw error;
+        return reply.status(200).send({
+          success: true,
+          nextReviewAt: nextReviewAt.toISOString(),
+          newState,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId, meaningId }, 'Failed to record SRS review');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -806,6 +852,7 @@ export const srsRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/index.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { languagesRoute } from './languages';
@@ -825,6 +872,7 @@ export const learningRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 Update `packages/api/src/server.ts`:
+
 ```typescript
 async function registerRoutes(server: FastifyInstance): Promise<void> {
   // ... health check and root endpoints ...
@@ -842,6 +890,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/learning/index.ts`
 - Update `packages/api/src/server.ts`
 
@@ -854,6 +903,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 **Implementation Plan**:
 
 Create `packages/db/migrations/013-user-exercise-results.sql`:
+
 ```sql
 CREATE TABLE user_exercise_results (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
