@@ -223,6 +223,9 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
   const operationalRoutes = (await import('./routes/operational/index')).default;
   await server.register(operationalRoutes, { prefix: '/operational' });
+
+  const learningRoutes = (await import('./routes/learning/index')).default;
+  await server.register(learningRoutes, { prefix: '/learning' });
 }
 
 export async function startServer(): Promise<FastifyInstance> {
