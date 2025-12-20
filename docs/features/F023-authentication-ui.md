@@ -3,7 +3,9 @@
 **Feature Code**: F023
 **Created**: 2025-12-17
 **Phase**: 6 - Frontend Foundation
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
+**PR**: #26
 
 ---
 
@@ -32,6 +34,7 @@ Build user-facing authentication pages (registration and login), authentication 
 **Implementation Plan**:
 
 Create `packages/web/src/api/client.ts`:
+
 ```typescript
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
@@ -112,6 +115,7 @@ export default apiClient;
 ```
 
 Create `packages/web/src/api/auth.ts` (auth-specific API functions):
+
 ```typescript
 import apiClient from './client';
 import { User } from '@/types';
@@ -162,6 +166,7 @@ export const authApi = {
 ```
 
 **Files Created**:
+
 - `packages/web/src/api/client.ts`
 - `packages/web/src/api/auth.ts`
 
@@ -174,6 +179,7 @@ export const authApi = {
 **Implementation Plan**:
 
 Create `packages/web/src/contexts/AuthContext.tsx`:
+
 ```typescript
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi, LoginRequest, RegisterRequest } from '@/api/auth';
@@ -280,6 +286,7 @@ export function useAuth() {
 ```
 
 Update `packages/web/src/App.tsx` to wrap with AuthProvider:
+
 ```tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -312,6 +319,7 @@ export default App;
 ```
 
 **Files Created**:
+
 - `packages/web/src/contexts/AuthContext.tsx`
 - Update `packages/web/src/App.tsx`
 
@@ -324,6 +332,7 @@ export default App;
 **Implementation Plan**:
 
 Create `packages/web/src/pages/public/LoginPage.tsx`:
+
 ```tsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -392,9 +401,7 @@ export function LoginPage() {
               className="input mt-1"
               placeholder="you@example.com"
             />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>
@@ -446,6 +453,7 @@ export function LoginPage() {
 **Implementation Plan**:
 
 Create `packages/web/src/pages/public/RegisterPage.tsx`:
+
 ```tsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -455,19 +463,22 @@ import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { AxiosError } from 'axios';
 
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirmPassword: z.string(),
-  role: z.enum(['learner', 'operator']).optional(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+const registerSchema = z
+  .object({
+    email: z.string().email('Invalid email address'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirmPassword: z.string(),
+    role: z.enum(['learner', 'operator']).optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -534,9 +545,7 @@ export function RegisterPage() {
               className="input mt-1"
               placeholder="you@example.com"
             />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>
@@ -584,9 +593,7 @@ export function RegisterPage() {
               <option value="learner">Learner</option>
               <option value="operator">Operator (Content Reviewer)</option>
             </select>
-            {errors.role && (
-              <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
-            )}
+            {errors.role && <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>}
           </div>
 
           <button
@@ -621,6 +628,7 @@ export function RegisterPage() {
 **Implementation Plan**:
 
 Update `packages/web/src/App.tsx`:
+
 ```tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -633,9 +641,7 @@ const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
       <h1 className="text-4xl font-bold text-gray-900">Welcome to PolyLadder</h1>
-      <p className="mt-4 text-lg text-gray-600">
-        Accelerated language learning for polyglots
-      </p>
+      <p className="mt-4 text-lg text-gray-600">Accelerated language learning for polyglots</p>
       <div className="mt-8 space-x-4">
         <a href="/login" className="btn-primary">
           Login
@@ -702,6 +708,7 @@ export default App;
 **Context**: Users will inevitably forget passwords. Should we implement password reset in MVP?
 
 **Options**:
+
 1. Add password reset flow (email verification required)
    - Pros: Better UX, expected feature
    - Cons: Requires email service (SendGrid, Postmark, etc.)
@@ -718,6 +725,7 @@ export default App;
 **Context**: Should login have "Remember me" option for longer-lived sessions?
 
 **Options**:
+
 1. Add checkbox that extends refresh token to 30 days
    - Pros: Better UX for frequent users
    - Cons: More complex token management
@@ -734,6 +742,7 @@ export default App;
 **Context**: Should we support "Sign in with Google" / "Sign in with GitHub"?
 
 **Options**:
+
 1. Add OAuth providers (Google, GitHub, Apple)
    - Pros: Faster signup, no password management for users
    - Cons: Requires OAuth setup, more complex authentication flow
