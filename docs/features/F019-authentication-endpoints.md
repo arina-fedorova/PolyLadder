@@ -3,7 +3,9 @@
 **Feature Code**: F019
 **Created**: 2025-12-17
 **Phase**: 5 - API Layer
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
+**PR**: #22
 
 ---
 
@@ -13,11 +15,13 @@ Implement REST API endpoints for user registration, login, and current user info
 
 ## Success Criteria
 
-- [ ] POST /api/v1/auth/register
-- [ ] POST /api/v1/auth/login
-- [ ] GET /api/v1/auth/me
-- [ ] Zod schema validation for request bodies
-- [ ] Proper error responses
+- [x] POST /auth/register
+- [x] POST /auth/login
+- [x] GET /auth/me
+- [x] POST /auth/refresh
+- [x] POST /auth/logout
+- [x] TypeBox schema validation for request bodies
+- [x] Proper error responses
 
 ---
 
@@ -30,6 +34,7 @@ Implement REST API endpoints for user registration, login, and current user info
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/register.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -39,7 +44,9 @@ import { SuccessResponseSchema } from '../../schemas/common';
 const RegisterRequestSchema = Type.Object({
   email: Type.String({ format: 'email', minLength: 5, maxLength: 255 }),
   password: Type.String({ minLength: 8, maxLength: 100 }),
-  role: Type.Optional(Type.Union([Type.Literal('learner'), Type.Literal('operator')], { default: 'learner' })),
+  role: Type.Optional(
+    Type.Union([Type.Literal('learner'), Type.Literal('operator')], { default: 'learner' })
+  ),
 });
 
 const RegisterResponseSchema = Type.Object({
@@ -49,65 +56,68 @@ const RegisterResponseSchema = Type.Object({
 });
 
 export const registerRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/register', {
-    schema: {
-      body: RegisterRequestSchema,
-      response: {
-        201: RegisterResponseSchema,
-        400: Type.Object({
-          error: Type.Object({
-            statusCode: Type.Literal(400),
-            message: Type.String(),
-            requestId: Type.String(),
+  fastify.post(
+    '/register',
+    {
+      schema: {
+        body: RegisterRequestSchema,
+        response: {
+          201: RegisterResponseSchema,
+          400: Type.Object({
+            error: Type.Object({
+              statusCode: Type.Literal(400),
+              message: Type.String(),
+              requestId: Type.String(),
+            }),
           }),
-        }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { email, password, role = 'learner' } = request.body;
+    async (request, reply) => {
+      const { email, password, role = 'learner' } = request.body;
 
-    try {
-      // Check if user already exists
-      const existingUser = await fastify.pg.query(
-        'SELECT id FROM users WHERE email = $1',
-        [email.toLowerCase()]
-      );
+      try {
+        // Check if user already exists
+        const existingUser = await fastify.pg.query('SELECT id FROM users WHERE email = $1', [
+          email.toLowerCase(),
+        ]);
 
-      if (existingUser.rows.length > 0) {
-        return reply.status(400).send({
-          error: {
-            statusCode: 400,
-            message: 'User with this email already exists',
-            requestId: request.id,
-          },
-        });
-      }
+        if (existingUser.rows.length > 0) {
+          return reply.status(400).send({
+            error: {
+              statusCode: 400,
+              message: 'User with this email already exists',
+              requestId: request.id,
+            },
+          });
+        }
 
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 12); // Cost factor 12
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 12); // Cost factor 12
 
-      // Insert user
-      const result = await fastify.pg.query(
-        `INSERT INTO users (email, password_hash, role, created_at, updated_at)
+        // Insert user
+        const result = await fastify.pg.query(
+          `INSERT INTO users (email, password_hash, role, created_at, updated_at)
          VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING id, email, role`,
-        [email.toLowerCase(), passwordHash, role]
-      );
+          [email.toLowerCase(), passwordHash, role]
+        );
 
-      const user = result.rows[0];
+        const user = result.rows[0];
 
-      request.log.info({ userId: user.id, email: user.email }, 'User registered');
+        request.log.info({ userId: user.id, email: user.email }, 'User registered');
 
-      return reply.status(201).send({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      });
-    } catch (error) {
-      request.log.error({ err: error, email }, 'Registration failed');
-      throw error;
+        return reply.status(201).send({
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+        });
+      } catch (error) {
+        request.log.error({ err: error, email }, 'Registration failed');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -122,6 +132,7 @@ export const registerRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/login.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -148,91 +159,91 @@ const LoginResponseSchema = Type.Object({
 });
 
 export const loginRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/login', {
-    schema: {
-      body: LoginRequestSchema,
-      response: {
-        200: LoginResponseSchema,
-        401: Type.Object({
-          error: Type.Object({
-            statusCode: Type.Literal(401),
-            message: Type.String(),
-            requestId: Type.String(),
+  fastify.post(
+    '/login',
+    {
+      schema: {
+        body: LoginRequestSchema,
+        response: {
+          200: LoginResponseSchema,
+          401: Type.Object({
+            error: Type.Object({
+              statusCode: Type.Literal(401),
+              message: Type.String(),
+              requestId: Type.String(),
+            }),
           }),
-        }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { email, password } = request.body;
+    async (request, reply) => {
+      const { email, password } = request.body;
 
-    try {
-      // Find user by email
-      const result = await fastify.pg.query(
-        'SELECT id, email, password_hash, role FROM users WHERE email = $1',
-        [email.toLowerCase()]
-      );
+      try {
+        // Find user by email
+        const result = await fastify.pg.query(
+          'SELECT id, email, password_hash, role FROM users WHERE email = $1',
+          [email.toLowerCase()]
+        );
 
-      if (result.rows.length === 0) {
-        return reply.status(401).send({
-          error: {
-            statusCode: 401,
-            message: 'Invalid email or password',
-            requestId: request.id,
-          },
+        if (result.rows.length === 0) {
+          return reply.status(401).send({
+            error: {
+              statusCode: 401,
+              message: 'Invalid email or password',
+              requestId: request.id,
+            },
+          });
+        }
+
+        const user = result.rows[0];
+
+        // Verify password
+        const isValid = await bcrypt.compare(password, user.password_hash);
+
+        if (!isValid) {
+          return reply.status(401).send({
+            error: {
+              statusCode: 401,
+              message: 'Invalid email or password',
+              requestId: request.id,
+            },
+          });
+        }
+
+        // Generate JWT tokens
+        const accessToken = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+          expiresIn: JWT_ACCESS_EXPIRY,
         });
-      }
 
-      const user = result.rows[0];
-
-      // Verify password
-      const isValid = await bcrypt.compare(password, user.password_hash);
-
-      if (!isValid) {
-        return reply.status(401).send({
-          error: {
-            statusCode: 401,
-            message: 'Invalid email or password',
-            requestId: request.id,
-          },
+        const refreshToken = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+          expiresIn: JWT_REFRESH_EXPIRY,
         });
-      }
 
-      // Generate JWT tokens
-      const accessToken = jwt.sign(
-        { userId: user.id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: JWT_ACCESS_EXPIRY }
-      );
-
-      const refreshToken = jwt.sign(
-        { userId: user.id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: JWT_REFRESH_EXPIRY }
-      );
-
-      // Store refresh token in database
-      await fastify.pg.query(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at)
+        // Store refresh token in database
+        await fastify.pg.query(
+          `INSERT INTO refresh_tokens (user_id, token, expires_at)
          VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '${JWT_REFRESH_EXPIRY}')`,
-        [user.id, refreshToken]
-      );
+          [user.id, refreshToken]
+        );
 
-      request.log.info({ userId: user.id, email: user.email }, 'User logged in');
+        request.log.info({ userId: user.id, email: user.email }, 'User logged in');
 
-      return reply.status(200).send({
-        accessToken,
-        refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-        },
-      });
-    } catch (error) {
-      request.log.error({ err: error, email }, 'Login failed');
-      throw error;
+        return reply.status(200).send({
+          accessToken,
+          refreshToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      } catch (error) {
+        request.log.error({ err: error, email }, 'Login failed');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -247,6 +258,7 @@ export const loginRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/me.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -260,54 +272,61 @@ const UserProfileSchema = Type.Object({
 });
 
 export const meRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/me', {
-    preHandler: authMiddleware,
-    schema: {
-      response: {
-        200: UserProfileSchema,
-        401: Type.Object({
-          error: Type.Object({
-            statusCode: Type.Literal(401),
-            message: Type.String(),
-            requestId: Type.String(),
+  fastify.get(
+    '/me',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        response: {
+          200: UserProfileSchema,
+          401: Type.Object({
+            error: Type.Object({
+              statusCode: Type.Literal(401),
+              message: Type.String(),
+              requestId: Type.String(),
+            }),
           }),
-        }),
+        },
       },
     },
-  }, async (request, reply) => {
-    try {
-      // User is attached by authMiddleware
-      const userId = request.user!.userId;
+    async (request, reply) => {
+      try {
+        // User is attached by authMiddleware
+        const userId = request.user!.userId;
 
-      // Fetch user from database
-      const result = await fastify.pg.query(
-        'SELECT id, email, role, created_at FROM users WHERE id = $1',
-        [userId]
-      );
+        // Fetch user from database
+        const result = await fastify.pg.query(
+          'SELECT id, email, role, created_at FROM users WHERE id = $1',
+          [userId]
+        );
 
-      if (result.rows.length === 0) {
-        return reply.status(401).send({
-          error: {
-            statusCode: 401,
-            message: 'User not found',
-            requestId: request.id,
-          },
+        if (result.rows.length === 0) {
+          return reply.status(401).send({
+            error: {
+              statusCode: 401,
+              message: 'User not found',
+              requestId: request.id,
+            },
+          });
+        }
+
+        const user = result.rows[0];
+
+        return reply.status(200).send({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          createdAt: user.created_at.toISOString(),
         });
+      } catch (error) {
+        request.log.error(
+          { err: error, userId: request.user?.userId },
+          'Failed to fetch user profile'
+        );
+        throw error;
       }
-
-      const user = result.rows[0];
-
-      return reply.status(200).send({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        createdAt: user.created_at.toISOString(),
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId: request.user?.userId }, 'Failed to fetch user profile');
-      throw error;
     }
-  });
+  );
 };
 ```
 
@@ -322,6 +341,7 @@ export const meRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/refresh.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -339,73 +359,75 @@ const RefreshResponseSchema = Type.Object({
 });
 
 export const refreshRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/refresh', {
-    schema: {
-      body: RefreshRequestSchema,
-      response: {
-        200: RefreshResponseSchema,
-        401: Type.Object({
-          error: Type.Object({
-            statusCode: Type.Literal(401),
-            message: Type.String(),
-            requestId: Type.String(),
+  fastify.post(
+    '/refresh',
+    {
+      schema: {
+        body: RefreshRequestSchema,
+        response: {
+          200: RefreshResponseSchema,
+          401: Type.Object({
+            error: Type.Object({
+              statusCode: Type.Literal(401),
+              message: Type.String(),
+              requestId: Type.String(),
+            }),
           }),
-        }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { refreshToken } = request.body;
+    async (request, reply) => {
+      const { refreshToken } = request.body;
 
-    try {
-      // Verify refresh token
-      const decoded = jwt.verify(refreshToken, JWT_SECRET) as {
-        userId: string;
-        role: 'learner' | 'operator';
-      };
+      try {
+        // Verify refresh token
+        const decoded = jwt.verify(refreshToken, JWT_SECRET) as {
+          userId: string;
+          role: 'learner' | 'operator';
+        };
 
-      // Check if refresh token exists in database
-      const tokenResult = await fastify.pg.query(
-        'SELECT user_id FROM refresh_tokens WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
-        [refreshToken]
-      );
+        // Check if refresh token exists in database
+        const tokenResult = await fastify.pg.query(
+          'SELECT user_id FROM refresh_tokens WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
+          [refreshToken]
+        );
 
-      if (tokenResult.rows.length === 0) {
-        return reply.status(401).send({
-          error: {
-            statusCode: 401,
-            message: 'Invalid or expired refresh token',
-            requestId: request.id,
-          },
+        if (tokenResult.rows.length === 0) {
+          return reply.status(401).send({
+            error: {
+              statusCode: 401,
+              message: 'Invalid or expired refresh token',
+              requestId: request.id,
+            },
+          });
+        }
+
+        // Generate new access token
+        const accessToken = jwt.sign({ userId: decoded.userId, role: decoded.role }, JWT_SECRET, {
+          expiresIn: JWT_ACCESS_EXPIRY,
         });
-      }
 
-      // Generate new access token
-      const accessToken = jwt.sign(
-        { userId: decoded.userId, role: decoded.role },
-        JWT_SECRET,
-        { expiresIn: JWT_ACCESS_EXPIRY }
-      );
+        request.log.info({ userId: decoded.userId }, 'Access token refreshed');
 
-      request.log.info({ userId: decoded.userId }, 'Access token refreshed');
-
-      return reply.status(200).send({
-        accessToken,
-      });
-    } catch (error) {
-      if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
-        return reply.status(401).send({
-          error: {
-            statusCode: 401,
-            message: 'Invalid or expired refresh token',
-            requestId: request.id,
-          },
+        return reply.status(200).send({
+          accessToken,
         });
-      }
+      } catch (error) {
+        if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+          return reply.status(401).send({
+            error: {
+              statusCode: 401,
+              message: 'Invalid or expired refresh token',
+              requestId: request.id,
+            },
+          });
+        }
 
-      request.log.error({ err: error }, 'Token refresh failed');
-      throw error;
+        request.log.error({ err: error }, 'Token refresh failed');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -420,6 +442,7 @@ export const refreshRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/logout.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -431,36 +454,40 @@ const LogoutRequestSchema = Type.Object({
 });
 
 export const logoutRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/logout', {
-    preHandler: authMiddleware,
-    schema: {
-      body: LogoutRequestSchema,
-      response: {
-        200: SuccessResponseSchema,
+  fastify.post(
+    '/logout',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: LogoutRequestSchema,
+        response: {
+          200: SuccessResponseSchema,
+        },
       },
     },
-  }, async (request, reply) => {
-    const { refreshToken } = request.body;
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { refreshToken } = request.body;
+      const userId = request.user!.userId;
 
-    try {
-      // Delete refresh token from database
-      await fastify.pg.query(
-        'DELETE FROM refresh_tokens WHERE token = $1 AND user_id = $2',
-        [refreshToken, userId]
-      );
+      try {
+        // Delete refresh token from database
+        await fastify.pg.query('DELETE FROM refresh_tokens WHERE token = $1 AND user_id = $2', [
+          refreshToken,
+          userId,
+        ]);
 
-      request.log.info({ userId }, 'User logged out');
+        request.log.info({ userId }, 'User logged out');
 
-      return reply.status(200).send({
-        success: true,
-        message: 'Logged out successfully',
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId }, 'Logout failed');
-      throw error;
+        return reply.status(200).send({
+          success: true,
+          message: 'Logged out successfully',
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId }, 'Logout failed');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -475,6 +502,7 @@ export const logoutRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/auth/index.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { registerRoute } from './register';
@@ -494,6 +522,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 Update `packages/api/src/server.ts` to register auth routes:
+
 ```typescript
 async function registerRoutes(server: FastifyInstance): Promise<void> {
   // Health check endpoint
@@ -517,6 +546,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/auth/index.ts`
 - Update `packages/api/src/server.ts`
 
@@ -529,6 +559,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 **Implementation Plan**:
 
 Create `packages/db/migrations/012-refresh-tokens.sql`:
+
 ```sql
 CREATE TABLE refresh_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
