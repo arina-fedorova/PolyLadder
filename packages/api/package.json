@@ -6,9 +6,8 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "dev": "nodemon",
-    "dev:watch": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/"
@@ -16,14 +15,21 @@
   "dependencies": {
     "@polyladder/core": "workspace:*",
     "@polyladder/db": "workspace:*",
+    "@fastify/cors": "^10.0.3",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/type-provider-typebox": "^5.1.0",
+    "@sinclair/typebox": "^0.34.31",
     "fastify": "^5.6.2",
     "fastify-plugin": "^5.1.0",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.16.0",
+    "pino": "^9.8.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
-    "nodemon": "^3.1.11",
-    "ts-node": "^10.9.2",
+    "@types/pg": "^8.15.2",
     "tsx": "^4.21.0",
     "vitest": "^3.2.4"
   }
