@@ -101,7 +101,7 @@ describe('Operational Integration Tests', () => {
 
       const response = await server.inject({
         method: 'POST',
-        url: '/operational/approve/some-id',
+        url: '/api/v1/operational/approve/some-id',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           dataType: 'invalid_type',

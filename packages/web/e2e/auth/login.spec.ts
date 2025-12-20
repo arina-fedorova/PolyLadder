@@ -19,9 +19,7 @@ test.describe('Login Page', () => {
     await loginPage.goto();
 
     await loginPage.emailInput.fill('invalid-email');
-    await loginPage.passwordInput.fill('password123');
-    await loginPage.submitButton.click();
-
+    await loginPage.emailInput.blur();
     await expect(page.getByText('Invalid email address')).toBeVisible();
   });
 
@@ -30,7 +28,8 @@ test.describe('Login Page', () => {
     await loginPage.goto();
 
     await loginPage.emailInput.fill('test@example.com');
-    await loginPage.submitButton.click();
+    await loginPage.passwordInput.focus();
+    await loginPage.passwordInput.blur();
 
     await expect(page.getByText('Password is required')).toBeVisible();
   });
@@ -52,13 +51,23 @@ test.describe('Login Page', () => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
+    // Mock API to add delay for observing loading state
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.fulfill({
+        status: 401,
+        body: JSON.stringify({ error: { message: 'Invalid credentials' } }),
+      });
+    });
+
     await loginPage.emailInput.fill('test@example.com');
     await loginPage.passwordInput.fill('password123');
-    await loginPage.submitButton.click();
 
-    // Button should show loading state
+    // Click and immediately check loading state
+    const submitPromise = loginPage.submitButton.click();
     await expect(loginPage.submitButton).toHaveText('Signing in...');
     await expect(loginPage.submitButton).toBeDisabled();
+    await submitPromise;
   });
 
   test('should navigate to register page when clicking sign up link', async ({ page }) => {

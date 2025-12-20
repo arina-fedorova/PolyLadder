@@ -22,9 +22,7 @@ test.describe('Register Page', () => {
     await registerPage.goto();
 
     await registerPage.emailInput.fill('invalid-email');
-    await registerPage.passwordInput.fill('Password123');
-    await registerPage.confirmPasswordInput.fill('Password123');
-    await registerPage.submitButton.click();
+    await registerPage.emailInput.blur();
 
     await expect(page.getByText('Invalid email address')).toBeVisible();
   });
@@ -83,15 +81,24 @@ test.describe('Register Page', () => {
     const registerPage = new RegisterPage(page);
     await registerPage.goto();
 
-    await registerPage.register({
-      email: 'test@example.com',
-      password: 'Password123',
-      confirmPassword: 'Password123',
+    // Mock API to add delay for observing loading state
+    await page.route('**/api/v1/auth/register', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.fulfill({
+        status: 400,
+        body: JSON.stringify({ error: { message: 'Email already exists' } }),
+      });
     });
 
-    // Button should show loading state
+    await registerPage.emailInput.fill('test@example.com');
+    await registerPage.passwordInput.fill('Password123');
+    await registerPage.confirmPasswordInput.fill('Password123');
+
+    // Click and immediately check loading state
+    const submitPromise = registerPage.submitButton.click();
     await expect(registerPage.submitButton).toHaveText('Creating account...');
     await expect(registerPage.submitButton).toBeDisabled();
+    await submitPromise;
   });
 
   test('should navigate to login page when clicking sign in link', async ({ page }) => {

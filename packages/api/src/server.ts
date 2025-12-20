@@ -211,21 +211,27 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
       version: env.APP_VERSION ?? '0.1.0',
       endpoints: {
         health: '/health',
-        auth: '/auth',
-        learning: '/learning',
-        operational: '/operational',
+        auth: '/api/v1/auth',
+        learning: '/api/v1/learning',
+        operational: '/api/v1/operational',
       },
     });
   });
 
-  const authRoutes = (await import('./routes/auth/index')).default;
-  await server.register(authRoutes, { prefix: '/auth' });
+  // Register API v1 routes
+  await server.register(
+    async (apiV1: FastifyInstance) => {
+      const authRoutes = (await import('./routes/auth/index')).default;
+      await apiV1.register(authRoutes, { prefix: '/auth' });
 
-  const operationalRoutes = (await import('./routes/operational/index')).default;
-  await server.register(operationalRoutes, { prefix: '/operational' });
+      const operationalRoutes = (await import('./routes/operational/index')).default;
+      await apiV1.register(operationalRoutes, { prefix: '/operational' });
 
-  const learningRoutes = (await import('./routes/learning/index')).default;
-  await server.register(learningRoutes, { prefix: '/learning' });
+      const learningRoutes = (await import('./routes/learning/index')).default;
+      await apiV1.register(learningRoutes, { prefix: '/learning' });
+    },
+    { prefix: '/api/v1' }
+  );
 }
 
 export async function startServer(): Promise<FastifyInstance> {

@@ -38,11 +38,11 @@ describe('Auth Integration Tests', () => {
     await cleanupTestData();
   });
 
-  describe('POST /auth/register', () => {
+  describe('POST /api/v1/auth/register', () => {
     it('should register a new user', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/api/v1/auth/register',
         payload: {
           email: 'test-newuser@example.com',
           password: 'SecurePassword123!',
@@ -59,7 +59,7 @@ describe('Auth Integration Tests', () => {
     it('should register an operator when role specified', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/api/v1/auth/register',
         payload: {
           email: 'test-operator@example.com',
           password: 'SecurePassword123!',
@@ -78,7 +78,7 @@ describe('Auth Integration Tests', () => {
 
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/api/v1/auth/register',
         payload: {
           email: 'test-existing@example.com',
           password: 'SecurePassword123!',
@@ -93,7 +93,7 @@ describe('Auth Integration Tests', () => {
     it('should reject invalid email format', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/api/v1/auth/register',
         payload: {
           email: 'invalid-email',
           password: 'SecurePassword123!',
@@ -106,7 +106,7 @@ describe('Auth Integration Tests', () => {
     it('should reject short password', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/api/v1/auth/register',
         payload: {
           email: 'test-short@example.com',
           password: 'short',
@@ -126,7 +126,7 @@ describe('Auth Integration Tests', () => {
 
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: {
           email: user.email,
           password: user.password,
@@ -144,7 +144,7 @@ describe('Auth Integration Tests', () => {
     it('should reject invalid email', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: {
           email: 'nonexistent@example.com',
           password: 'SecurePassword123!',
@@ -164,7 +164,7 @@ describe('Auth Integration Tests', () => {
 
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: {
           email: 'test-wrongpass@example.com',
           password: 'WrongPassword123!',
@@ -184,14 +184,14 @@ describe('Auth Integration Tests', () => {
 
       const loginResponse = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
       const { accessToken } = loginResponse.json<LoginResponse>();
 
       const response = await server.inject({
         method: 'GET',
-        url: '/auth/me',
+        url: '/api/v1/auth/me',
         headers: {
           authorization: `Bearer ${accessToken}`,
         },
@@ -207,7 +207,7 @@ describe('Auth Integration Tests', () => {
     it('should reject request without token', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: '/auth/me',
+        url: '/api/v1/auth/me',
       });
 
       expect(response.statusCode).toBe(401);
@@ -217,7 +217,7 @@ describe('Auth Integration Tests', () => {
     it.skip('should reject request with invalid token', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: '/auth/me',
+        url: '/api/v1/auth/me',
         headers: {
           authorization: 'Bearer invalid-token',
         },
@@ -236,14 +236,14 @@ describe('Auth Integration Tests', () => {
 
       const loginResponse = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
       const { refreshToken } = loginResponse.json<LoginResponse>();
 
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/refresh',
+        url: '/api/v1/auth/refresh',
         payload: { refreshToken },
       });
 
@@ -255,7 +255,7 @@ describe('Auth Integration Tests', () => {
     it('should reject invalid refresh token', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: '/auth/refresh',
+        url: '/api/v1/auth/refresh',
         payload: { refreshToken: 'invalid-refresh-token' },
       });
 
@@ -272,14 +272,14 @@ describe('Auth Integration Tests', () => {
 
       const loginResponse = await server.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
       const { accessToken, refreshToken } = loginResponse.json<LoginResponse>();
 
       const logoutResponse = await server.inject({
         method: 'POST',
-        url: '/auth/logout',
+        url: '/api/v1/auth/logout',
         headers: {
           authorization: `Bearer ${accessToken}`,
         },
@@ -291,7 +291,7 @@ describe('Auth Integration Tests', () => {
 
       const refreshResponse = await server.inject({
         method: 'POST',
-        url: '/auth/refresh',
+        url: '/api/v1/auth/refresh',
         payload: { refreshToken },
       });
 
