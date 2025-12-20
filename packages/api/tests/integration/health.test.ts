@@ -43,8 +43,9 @@ describe('Health Integration Tests', () => {
       const body = response.json<ApiInfoResponse>();
       expect(body.service).toBe('PolyLadder API');
       expect(body.endpoints).toBeDefined();
-      expect(body.endpoints.auth).toBe('/auth');
-      expect(body.endpoints.operational).toBe('/operational');
+      expect(body.endpoints.auth).toBe('/api/v1/auth');
+      expect(body.endpoints.operational).toBe('/api/v1/operational');
+      expect(body.endpoints.learning).toBe('/api/v1/learning');
     });
   });
 

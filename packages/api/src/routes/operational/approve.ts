@@ -9,7 +9,12 @@ const ApproveParamsSchema = Type.Object({
 });
 
 const ApproveBodySchema = Type.Object({
-  dataType: Type.String(),
+  dataType: Type.Union([
+    Type.Literal('meaning'),
+    Type.Literal('utterance'),
+    Type.Literal('rule'),
+    Type.Literal('exercise'),
+  ]),
   notes: Type.Optional(Type.String()),
 });
 
@@ -58,11 +63,12 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
       const { dataType, notes } = request.body;
       const operatorId = request.user.userId;
 
+      // TypeBox schema already validates dataType, but double-check for type safety
       if (!isValidDataType(dataType)) {
         return reply.status(400).send({
           error: {
             statusCode: 400,
-            message: `Invalid data type: ${dataType}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
+            message: `Invalid data type: ${String(dataType)}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
             requestId: request.id,
             code: 'INVALID_DATA_TYPE',
           },
