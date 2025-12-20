@@ -62,7 +62,9 @@ export function App() {
             path="/operator/dashboard"
             element={
               <ProtectedRoute requiredRole="operator">
-                <OperatorDashboardPage />
+                <MainLayout showSidebar>
+                  <OperatorDashboardPage />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
