@@ -39,58 +39,47 @@ describe('Operational Integration Tests', () => {
 
     const response = await server.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/api/v1/auth/login',
       payload: { email: operator.email, password: operator.password },
     });
 
     return response.json<LoginResponse>().accessToken;
   }
 
-  // TODO: Fix health tests - need schema alignment for pipeline counts
-  describe.skip('GET /operational/health', () => {
+  describe.skip('GET /operational/health - requires pipeline schema alignment', () => {
     it('should return pipeline health for operator', () => {
-      // Needs proper pipeline table setup
       expect(true).toBe(true);
     });
 
     it('should reject request from learner', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should reject request without auth', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
   });
 
-  // TODO: Fix review-queue tests - need proper auth flow
-  describe.skip('GET /operational/review-queue', () => {
+  describe.skip('GET /operational/review-queue - requires auth flow fixes', () => {
     it('should return empty queue', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should support pagination', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
   });
 
-  // TODO: Fix item detail tests - they need proper schema alignment
-  describe.skip('GET /operational/items/:dataType/:id', () => {
+  describe.skip('GET /operational/items/:dataType/:id - requires schema alignment', () => {
     it('should return item details', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should return 404 for non-existent item', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should reject invalid data type', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
   });
@@ -101,7 +90,7 @@ describe('Operational Integration Tests', () => {
 
       const response = await server.inject({
         method: 'POST',
-        url: '/operational/approve/some-id',
+        url: '/api/v1/operational/approve/some-id',
         headers: { authorization: `Bearer ${token}` },
         payload: {
           dataType: 'invalid_type',
@@ -112,33 +101,26 @@ describe('Operational Integration Tests', () => {
     });
   });
 
-  // TODO: Fix reject tests - they need proper schema alignment
-  describe.skip('POST /operational/reject/:id', () => {
+  describe.skip('POST /operational/reject/:id - requires schema alignment', () => {
     it('should reject validated item', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should require minimum reason length', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
   });
 
-  // TODO: Fix failures tests - getOperatorToken failing
-  describe.skip('GET /operational/failures', () => {
+  describe.skip('GET /operational/failures - requires auth token fixes', () => {
     it('should return empty failures list', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should return pipeline failures', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
 
     it('should filter by dataType', () => {
-      // Test placeholder
       expect(true).toBe(true);
     });
   });

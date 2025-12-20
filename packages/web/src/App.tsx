@@ -1,67 +1,63 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { LoginPage } from '@/pages/public/LoginPage';
+import { RegisterPage } from '@/pages/public/RegisterPage';
 
-// Placeholder pages (to be implemented in F023-F024)
+// Placeholders for pages not yet implemented
 const LandingPage = () => (
-  <div className="flex h-screen items-center justify-center">
-    <div className="card">
-      <h1 className="text-3xl font-bold text-primary-600 mb-4">PolyLadder</h1>
-      <p className="text-gray-600">Parallel Language Learning Platform</p>
-    </div>
-  </div>
-);
-
-const LoginPage = () => (
-  <div className="flex h-screen items-center justify-center">
-    <div className="card">
-      <h2 className="text-2xl font-bold mb-4">Login</h2>
-      <p>Login page (to be implemented)</p>
-    </div>
-  </div>
-);
-
-const RegisterPage = () => (
-  <div className="flex h-screen items-center justify-center">
-    <div className="card">
-      <h2 className="text-2xl font-bold mb-4">Register</h2>
-      <p>Register page (to be implemented)</p>
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <h1 className="text-4xl font-bold text-gray-900">Welcome to PolyLadder</h1>
+      <p className="mt-4 text-lg text-gray-600">Accelerated language learning for polyglots</p>
+      <div className="mt-8 space-x-4">
+        <a href="/login" className="btn-primary">
+          Login
+        </a>
+        <a href="/register" className="btn-secondary">
+          Sign Up
+        </a>
+      </div>
     </div>
   </div>
 );
 
 const DashboardPage = () => (
-  <div className="flex h-screen items-center justify-center">
-    <div className="card">
-      <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
-      <p>Protected dashboard (to be implemented)</p>
-    </div>
+  <div className="p-8">
+    <h1 className="text-2xl font-bold">Dashboard</h1>
+    <p className="text-gray-600">Protected page (requires auth)</p>
   </div>
 );
 
 const NotFoundPage = () => (
-  <div className="flex h-screen items-center justify-center">
-    <div className="card">
-      <h2 className="text-2xl font-bold mb-4">404 Not Found</h2>
-      <p>The page you are looking for does not exist.</p>
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <h1 className="text-6xl font-bold text-gray-900">404</h1>
+      <p className="mt-4 text-lg text-gray-600">Page not found</p>
+      <a href="/" className="mt-8 inline-block btn-primary">
+        Go Home
+      </a>
     </div>
   </div>
 );
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Protected routes (to be wrapped with auth in F024) */}
-        <Route path="/dashboard" element={<DashboardPage />} />
+          {/* Protected routes (to be wrapped with auth guard in F024) */}
+          <Route path="/dashboard" element={<DashboardPage />} />
 
-        {/* 404 */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+          {/* 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
