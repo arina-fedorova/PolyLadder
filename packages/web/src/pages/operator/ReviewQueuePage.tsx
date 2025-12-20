@@ -8,6 +8,7 @@ import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 interface ValidatedItem {
   id: string;
   contentType: 'vocabulary' | 'grammar' | 'orthography';
+  dataType: 'meaning' | 'utterance' | 'rule' | 'exercise';
   languageCode: string;
   languageName: string;
   cefrLevel: string;
@@ -64,8 +65,7 @@ export function ReviewQueuePage() {
         throw new Error('Item not found');
       }
 
-      const dataType = getDataType(item);
-      await apiClient.post(`/operational/approve/${itemId}`, { dataType });
+      await apiClient.post(`/operational/approve/${itemId}`, { dataType: item.dataType });
     },
     onMutate: async (itemId) => {
       await queryClient.cancelQueries(['review-queue']);
@@ -114,8 +114,7 @@ export function ReviewQueuePage() {
         throw new Error('Item not found');
       }
 
-      const dataType = getDataType(item);
-      await apiClient.post(`/operational/reject/${itemId}`, { dataType, reason });
+      await apiClient.post(`/operational/reject/${itemId}`, { dataType: item.dataType, reason });
     },
     onMutate: async ({ itemId }) => {
       await queryClient.cancelQueries(['review-queue']);
@@ -151,16 +150,6 @@ export function ReviewQueuePage() {
     if (typeof value === 'string') return value;
     if (typeof value === 'number') return String(value);
     return '';
-  };
-
-  const getDataType = (item: ValidatedItem): string => {
-    if (item.contentType === 'vocabulary') {
-      return item.content.word_text ? 'meaning' : 'utterance';
-    }
-    if (item.contentType === 'grammar') {
-      return 'rule';
-    }
-    return 'exercise';
   };
 
   const getContentDisplay = (item: ValidatedItem): string => {

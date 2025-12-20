@@ -16,6 +16,12 @@ const ReviewQueueItemSchema = Type.Object({
     Type.Literal('grammar'),
     Type.Literal('orthography'),
   ]),
+  dataType: Type.Union([
+    Type.Literal('meaning'),
+    Type.Literal('utterance'),
+    Type.Literal('rule'),
+    Type.Literal('exercise'),
+  ]),
   languageCode: Type.String(),
   languageName: Type.String(),
   cefrLevel: Type.String(),
@@ -74,9 +80,69 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
       const contentTypeFilter = request.query.contentType;
       const offset = (page - 1) * pageSize;
 
-      interface ItemRow {
+      type DataType = 'meaning' | 'utterance' | 'rule' | 'exercise';
+      type ContentType = 'vocabulary' | 'grammar' | 'orthography';
+
+      interface TableConfig {
+        name: 'meanings' | 'utterances' | 'rules' | 'exercises';
+        dataType: DataType;
+        contentType: ContentType;
+      }
+
+      const tables: TableConfig[] = [
+        { name: 'meanings', dataType: 'meaning', contentType: 'vocabulary' },
+        { name: 'utterances', dataType: 'utterance', contentType: 'vocabulary' },
+        { name: 'rules', dataType: 'rule', contentType: 'grammar' },
+        { name: 'exercises', dataType: 'exercise', contentType: 'orthography' },
+      ];
+
+      const filteredTables = contentTypeFilter
+        ? tables.filter((t) => t.contentType === contentTypeFilter)
+        : tables;
+
+      if (filteredTables.length === 0) {
+        return reply.status(200).send({
+          items: [],
+          total: 0,
+          page,
+          pageSize,
+        });
+      }
+
+      const countUnionParts = filteredTables.map(
+        (t) => `SELECT COUNT(*) as count FROM validated_${t.name}`
+      );
+      const countQuery = `SELECT SUM(count::int) as total FROM (${countUnionParts.join(' UNION ALL ')}) counts`;
+      const countResult = await fastify.db.query<{ total: string }>(countQuery);
+      const total = parseInt(countResult.rows[0]?.total ?? '0', 10);
+
+      const unionParts = filteredTables.map(
+        (t) => `
+          SELECT 
+            v.id,
+            '${t.dataType}' as data_type,
+            '${t.contentType}' as content_type,
+            v.language_code,
+            COALESCE(l.name, v.language_code) as language_name,
+            v.cefr_level,
+            v.validated_at,
+            v.content,
+            v.validation_results
+          FROM validated_${t.name} v
+          LEFT JOIN languages l ON v.language_code = l.code
+        `
+      );
+
+      const itemsQuery = `
+        SELECT * FROM (${unionParts.join(' UNION ALL ')}) combined
+        ORDER BY validated_at DESC
+        LIMIT $1 OFFSET $2
+      `;
+
+      const itemsResult = await fastify.db.query<{
         id: string;
-        content_type: 'vocabulary' | 'grammar' | 'orthography';
+        data_type: DataType;
+        content_type: ContentType;
         language_code: string;
         language_name: string;
         cefr_level: string;
@@ -87,74 +153,12 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           passed: boolean;
           score?: number;
         }>;
-      }
+      }>(itemsQuery, [pageSize, offset]);
 
-      const tables: Array<{
-        name: string;
-        type: 'vocabulary' | 'grammar' | 'orthography';
-      }> = [
-        { name: 'meanings', type: 'vocabulary' },
-        { name: 'utterances', type: 'vocabulary' },
-        { name: 'rules', type: 'grammar' },
-        { name: 'exercises', type: 'orthography' },
-      ];
-
-      const filteredTables = contentTypeFilter
-        ? tables.filter((t) => t.type === contentTypeFilter)
-        : tables;
-
-      const items: ItemRow[] = [];
-      let total = 0;
-
-      for (const table of filteredTables) {
-        const countQuery = `SELECT COUNT(*) as count FROM validated_${table.name}`;
-        const countResult = await fastify.db.query<{ count: string }>(countQuery);
-        total += parseInt(countResult.rows[0]?.count ?? '0', 10);
-      }
-
-      for (const table of filteredTables) {
-        const itemsQuery = `
-          SELECT 
-            v.id,
-            v.language_code,
-            l.name as language_name,
-            v.cefr_level,
-            v.validated_at,
-            v.content,
-            v.validation_results
-          FROM validated_${table.name} v
-          LEFT JOIN languages l ON v.language_code = l.code
-          ORDER BY v.validated_at DESC
-          LIMIT $1 OFFSET $2
-        `;
-        const itemsResult = await fastify.db.query<{
-          id: string;
-          language_code: string;
-          language_name: string;
-          cefr_level: string;
-          validated_at: Date;
-          content: Record<string, unknown>;
-          validation_results: Array<{
-            gate: string;
-            passed: boolean;
-            score?: number;
-          }>;
-        }>(itemsQuery, [pageSize, offset]);
-
-        items.push(
-          ...itemsResult.rows.map((row) => ({
-            ...row,
-            content_type: table.type,
-          }))
-        );
-      }
-
-      items.sort((a, b) => new Date(b.validated_at).getTime() - new Date(a.validated_at).getTime());
-      const paginatedItems = items.slice(0, pageSize);
-
-      const response = paginatedItems.map((row) => ({
+      const response = itemsResult.rows.map((row) => ({
         id: row.id,
         contentType: row.content_type,
+        dataType: row.data_type,
         languageCode: row.language_code,
         languageName: row.language_name,
         cefrLevel: row.cefr_level,
