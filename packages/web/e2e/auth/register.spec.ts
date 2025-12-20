@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { RegisterPage } from '../helpers/page-objects/RegisterPage';
+import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
 
 test.describe('Register Page', () => {
+  // Clean up database before each test
+  test.beforeEach(async () => {
+    await cleanupTestData();
+  });
+
   test('should display registration form', async ({ page }) => {
     const registerPage = new RegisterPage(page);
     await registerPage.goto();
@@ -34,43 +40,56 @@ test.describe('Register Page', () => {
     ).toBeVisible();
   });
 
-  // Successful registration test will be added when we have test database setup
-  test.skip('should successfully register with valid data', async ({ page }) => {
+  test('should successfully register with valid data', async ({ page }) => {
     const registerPage = new RegisterPage(page);
     await registerPage.goto();
 
+    const uniqueEmail = `test-${Date.now()}@example.com`;
+
     await registerPage.register({
-      email: `test-${Date.now()}@example.com`,
+      email: uniqueEmail,
       password: 'TestPassword123',
       confirmPassword: 'TestPassword123',
     });
 
     // Should navigate to dashboard after auto-login
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+
+    // Verify user is logged in by checking for some dashboard element
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  // Skip this test for now - requires database cleanup between runs
-  test.skip('should show error when email already exists', async ({ page }) => {
+  test('should successfully register as operator', async ({ page }) => {
     const registerPage = new RegisterPage(page);
     await registerPage.goto();
 
-    // First registration
-    const testEmail = `duplicate-${Date.now()}@example.com`;
-    await registerPage.register({
-      email: testEmail,
-      password: 'TestPassword123',
-      confirmPassword: 'TestPassword123',
+    const uniqueEmail = `operator-${Date.now()}@example.com`;
+
+    await registerPage.emailInput.fill(uniqueEmail);
+    await registerPage.passwordInput.fill('OperatorPass123');
+    await registerPage.confirmPasswordInput.fill('OperatorPass123');
+    await registerPage.roleSelect.selectOption('operator');
+    await registerPage.submitButton.click();
+
+    // Should navigate to dashboard after auto-login
+    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+  });
+
+  test('should show error when email already exists', async ({ page }) => {
+    // Create user in database first
+    const existingEmail = 'existing@example.com';
+    await createTestUser({
+      email: existingEmail,
+      password: 'ExistingPassword123',
+      role: 'learner',
     });
 
-    // Wait for first registration to complete (should redirect to dashboard)
-    await page.waitForURL('/dashboard', { timeout: 10000 });
-
-    // Navigate back to register page
+    const registerPage = new RegisterPage(page);
     await registerPage.goto();
 
-    // Try to register again with same email
+    // Try to register with same email
     await registerPage.register({
-      email: testEmail,
+      email: existingEmail,
       password: 'TestPassword123',
       confirmPassword: 'TestPassword123',
     });
@@ -80,5 +99,27 @@ test.describe('Register Page', () => {
     const errorText = await registerPage.getErrorText();
     expect(errorText).toBeTruthy();
     expect(errorText!.length).toBeGreaterThan(0);
+  });
+
+  test('should register with different base languages', async ({ page }) => {
+    const registerPage = new RegisterPage(page);
+
+    const languages = ['EN', 'ES', 'PT', 'IT', 'SL'];
+
+    for (const lang of languages) {
+      await cleanupTestData(); // Clean between iterations
+      await registerPage.goto();
+
+      const uniqueEmail = `test-${lang.toLowerCase()}-${Date.now()}@example.com`;
+
+      await registerPage.emailInput.fill(uniqueEmail);
+      await registerPage.passwordInput.fill('TestPassword123');
+      await registerPage.confirmPasswordInput.fill('TestPassword123');
+      await registerPage.baseLanguageSelect.selectOption(lang);
+      await registerPage.submitButton.click();
+
+      // Should navigate to dashboard
+      await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    }
   });
 });

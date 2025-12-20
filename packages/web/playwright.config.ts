@@ -2,15 +2,18 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false, // Run tests serially for database consistency
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: [['html'], ['junit', { outputFile: 'test-results/junit.xml' }]],
+  workers: 1, // Single worker to avoid database conflicts
+  reporter: [['html'], ['junit', { outputFile: 'test-results/junit.xml' }], ['list']],
+  globalSetup: require.resolve('./playwright/global-setup'),
+  globalTeardown: require.resolve('./playwright/global-teardown'),
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   projects: [
     {
@@ -22,5 +25,8 @@ export default defineConfig({
     command: 'pnpm dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    env: {
+      VITE_API_URL: 'http://localhost:3001/api/v1',
+    },
   },
 });

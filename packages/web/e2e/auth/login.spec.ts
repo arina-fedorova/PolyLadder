@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../helpers/page-objects/LoginPage';
+import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
 
 test.describe('Login Page', () => {
+  // Clean up database before each test
+  test.beforeEach(async () => {
+    await cleanupTestData();
+  });
+
   test('should display login form', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
@@ -38,14 +44,37 @@ test.describe('Login Page', () => {
     expect(errorText!.length).toBeGreaterThan(0);
   });
 
-  // Successful login test will be added when we have test database with known users
-  test.skip('should successfully login with valid credentials', async ({ page }) => {
+  test('should successfully login with valid credentials', async ({ page }) => {
+    // Create test user in database
+    await createTestUser({
+      email: 'testuser@example.com',
+      password: 'TestPassword123',
+      role: 'learner',
+    });
+
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
     await loginPage.login('testuser@example.com', 'TestPassword123');
 
     // Should navigate to dashboard
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+  });
+
+  test('should successfully login as operator', async ({ page }) => {
+    // Create operator user in database
+    await createTestUser({
+      email: 'operator@example.com',
+      password: 'OperatorPass123',
+      role: 'operator',
+    });
+
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    await loginPage.login('operator@example.com', 'OperatorPass123');
+
+    // Should navigate to dashboard
+    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
   });
 });
