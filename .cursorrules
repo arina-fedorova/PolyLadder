@@ -99,11 +99,20 @@ If code needs comments to be understood → refactor.
 
 ## 7. Testing Rules
 
-- All logic must be tested
+### Unit Tests
+- All business logic must be unit tested
 - Tests live in `tests/` folder of each package
 - Use Vitest
 - Test naming: `describe('ModuleName')`, `it('should do X when Y')`
 - No skipped tests in main branch
+
+### Integration Tests (MANDATORY for API features)
+- All API endpoints MUST have integration tests
+- Integration tests live in `packages/api/tests/integration/`
+- Tests must cover: success cases, error cases, auth requirements
+- Use `server.inject()` for HTTP testing
+- Clean database between tests with `cleanupTestData()`
+- Run with: `pnpm --filter @polyladder/api test:integration`
 
 ---
 
