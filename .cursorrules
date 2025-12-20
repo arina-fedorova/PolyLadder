@@ -82,19 +82,33 @@ No parallel work on multiple features.
 
 ---
 
-## 6. Comments Policy
+## 6. Comments Policy (STRICT)
 
-### PROHIBITED
-- Comments explaining obvious code
+Code must be self-documenting. Comments are a code smell.
+
+### ABSOLUTELY PROHIBITED
+- Comments explaining what code does (the code itself should be clear)
 - Inline comments for simple operations
-- TODO comments (use GitHub issues instead)
+- TODO/FIXME/HACK comments (use GitHub issues instead)
+- Commented-out code (delete it, git has history)
+- `eslint-disable` comments (fix the issue or configure ESLint properly)
+- Redundant JSDoc that repeats function signature
 
-### ALLOWED
-- JSDoc for public API functions
-- Complex algorithm explanations (rare)
-- Tests: `// Arrange`, `// Act`, `// Assert`
+### ALLOWED (use sparingly)
+- `// Arrange`, `// Act`, `// Assert` in tests
+- JSDoc for public API with non-obvious behavior
+- Links to external documentation or specs
+- Regex explanations (regex is inherently cryptic)
+- Legal/license headers if required
 
-If code needs comments to be understood → refactor.
+### REFACTOR INSTEAD OF COMMENT
+If you feel the need to write a comment, ask yourself:
+- Can I rename this variable/function to be clearer?
+- Can I extract this into a well-named function?
+- Can I simplify this logic?
+- Is there a design pattern that makes this obvious?
+
+**The best comment is the one you didn't have to write.**
 
 ---
 

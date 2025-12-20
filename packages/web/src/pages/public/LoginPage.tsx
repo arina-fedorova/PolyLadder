@@ -31,8 +31,7 @@ export function LoginPage() {
 
     try {
       await login(data);
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      navigate('/dashboard');
+      void navigate('/dashboard');
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(axiosError.response?.data?.error?.message || 'Login failed. Please try again.');

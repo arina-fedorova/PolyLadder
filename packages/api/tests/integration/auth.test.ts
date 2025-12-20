@@ -72,8 +72,7 @@ describe('Auth Integration Tests', () => {
       expect(body.role).toBe('operator');
     });
 
-    // TODO: Fix duplicate email test - createTestUser needs base_language
-    it.skip('should reject duplicate email', async () => {
+    it.skip('should reject duplicate email - requires base_language in createTestUser', async () => {
       await createTestUser(pool, { email: 'test-existing@example.com' });
 
       const response = await server.inject({
@@ -213,8 +212,7 @@ describe('Auth Integration Tests', () => {
       expect(response.statusCode).toBe(401);
     });
 
-    // TODO: Fix invalid token test - auth flow needs review
-    it.skip('should reject request with invalid token', async () => {
+    it.skip('should reject request with invalid token - auth flow needs review', async () => {
       const response = await server.inject({
         method: 'GET',
         url: '/api/v1/auth/me',

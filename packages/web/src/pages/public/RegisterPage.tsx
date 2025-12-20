@@ -56,9 +56,7 @@ export function RegisterPage() {
         role: data.role,
       });
 
-      // User is automatically logged in after registration
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      navigate('/dashboard');
+      void navigate('/dashboard');
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(
