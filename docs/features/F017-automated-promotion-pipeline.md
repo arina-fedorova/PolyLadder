@@ -3,7 +3,9 @@
 **Feature Code**: F017
 **Created**: 2025-12-17
 **Phase**: 4 - Content Refinement Service
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
+**PR**: #20
 
 ---
 
@@ -13,11 +15,11 @@ Orchestrates content progression through lifecycle states: DRAFT → CANDIDATE (
 
 ## Success Criteria
 
-- [ ] DRAFT → CANDIDATE normalization
-- [ ] CANDIDATE → VALIDATED validation (runs all quality gates)
-- [ ] VALIDATED → APPROVED promotion (configurable)
-- [ ] Pipeline error handling
-- [ ] Throughput metrics tracked
+- [x] DRAFT → CANDIDATE normalization
+- [x] CANDIDATE → VALIDATED validation (runs all quality gates)
+- [x] VALIDATED → APPROVED promotion (configurable)
+- [x] Pipeline error handling
+- [x] Throughput metrics tracked
 
 ---
 
@@ -30,6 +32,7 @@ Orchestrates content progression through lifecycle states: DRAFT → CANDIDATE (
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/pipeline/pipeline-orchestrator.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { NormalizationStep } from './steps/normalization.step';
@@ -147,7 +150,10 @@ export class PipelineOrchestrator {
     throw new Error('Pipeline processing failed after max retries');
   }
 
-  private async promoteToCandidateWithRetry(item: PipelineItem, startTime: number): Promise<PipelineResult> {
+  private async promoteToCandidateWithRetry(
+    item: PipelineItem,
+    startTime: number
+  ): Promise<PipelineResult> {
     const normalized = await this.normalization.normalize(item);
 
     if (!normalized.success) {
@@ -171,7 +177,10 @@ export class PipelineOrchestrator {
     };
   }
 
-  private async promoteToValidatedWithRetry(item: PipelineItem, startTime: number): Promise<PipelineResult> {
+  private async promoteToValidatedWithRetry(
+    item: PipelineItem,
+    startTime: number
+  ): Promise<PipelineResult> {
     const validated = await this.validation.validate(item);
 
     if (!validated.success) {
@@ -195,7 +204,10 @@ export class PipelineOrchestrator {
     };
   }
 
-  private async promoteToApprovedWithRetry(item: PipelineItem, startTime: number): Promise<PipelineResult> {
+  private async promoteToApprovedWithRetry(
+    item: PipelineItem,
+    startTime: number
+  ): Promise<PipelineResult> {
     const approved = await this.approval.approve(item);
 
     if (!approved.success) {
@@ -225,17 +237,19 @@ export class PipelineOrchestrator {
     const items: PipelineItem[] = [];
 
     for (const table of tables) {
-      const result = await this.pool.query(
-        `SELECT id, * FROM ${table} WHERE state = $1 LIMIT $2`,
-        [state, limit]
-      );
+      const result = await this.pool.query(`SELECT id, * FROM ${table} WHERE state = $1 LIMIT $2`, [
+        state,
+        limit,
+      ]);
 
-      items.push(...result.rows.map(row => ({
-        id: row.id,
-        tableName: table,
-        currentState: state,
-        data: row,
-      })));
+      items.push(
+        ...result.rows.map((row) => ({
+          id: row.id,
+          tableName: table,
+          currentState: state,
+          data: row,
+        }))
+      );
     }
 
     return items;
@@ -252,8 +266,8 @@ export class PipelineOrchestrator {
     const approvedTable = `approved_${item.tableName}`;
 
     // Copy all columns except id and state
-    const columns = Object.keys(item.data).filter(k => k !== 'id' && k !== 'state');
-    const values = columns.map(k => item.data[k]);
+    const columns = Object.keys(item.data).filter((k) => k !== 'id' && k !== 'state');
+    const values = columns.map((k) => item.data[k]);
 
     await this.pool.query(
       `INSERT INTO ${approvedTable} (${columns.join(', ')})
@@ -271,7 +285,7 @@ export class PipelineOrchestrator {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 ```
@@ -287,6 +301,7 @@ export class PipelineOrchestrator {
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/pipeline/steps/normalization.step.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { PipelineItem } from '../pipeline-orchestrator';
@@ -445,9 +460,10 @@ export class NormalizationStep {
     // Validate examples (should be array)
     if (item.data.examples) {
       try {
-        const examples = typeof item.data.examples === 'string'
-          ? JSON.parse(String(item.data.examples))
-          : item.data.examples;
+        const examples =
+          typeof item.data.examples === 'string'
+            ? JSON.parse(String(item.data.examples))
+            : item.data.examples;
 
         if (!Array.isArray(examples) || examples.length === 0) {
           errors.push('At least one example is required');
@@ -486,9 +502,10 @@ export class NormalizationStep {
     // Validate options (should be array of 2-6 options)
     if (item.data.options) {
       try {
-        const options = typeof item.data.options === 'string'
-          ? JSON.parse(String(item.data.options))
-          : item.data.options;
+        const options =
+          typeof item.data.options === 'string'
+            ? JSON.parse(String(item.data.options))
+            : item.data.options;
 
         if (!Array.isArray(options)) {
           errors.push('Options must be an array');
@@ -559,6 +576,7 @@ export class NormalizationStep {
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/pipeline/steps/validation.step.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { PipelineItem } from '../pipeline-orchestrator';
@@ -580,10 +598,10 @@ export class ValidationStep {
       const gateResults = await runQualityGates(item, this.pool);
 
       // Check if all gates passed
-      const failedGates = gateResults.filter(r => !r.passed);
+      const failedGates = gateResults.filter((r) => !r.passed);
 
       if (failedGates.length > 0) {
-        errors.push(...failedGates.map(g => `${g.gateName}: ${g.reason}`));
+        errors.push(...failedGates.map((g) => `${g.gateName}: ${g.reason}`));
         return { success: false, errors };
       }
 
@@ -648,10 +666,9 @@ export class ValidationStep {
     const errors: string[] = [];
 
     // Check that meaning_id exists
-    const meaningExists = await this.pool.query(
-      `SELECT id FROM meanings WHERE id = $1`,
-      [item.data.meaning_id]
-    );
+    const meaningExists = await this.pool.query(`SELECT id FROM meanings WHERE id = $1`, [
+      item.data.meaning_id,
+    ]);
 
     if (meaningExists.rows.length === 0) {
       errors.push(`Meaning ID ${item.data.meaning_id} does not exist`);
@@ -701,9 +718,10 @@ export class ValidationStep {
 
     // Validate examples structure
     try {
-      const examples = typeof item.data.examples === 'string'
-        ? JSON.parse(String(item.data.examples))
-        : item.data.examples;
+      const examples =
+        typeof item.data.examples === 'string'
+          ? JSON.parse(String(item.data.examples))
+          : item.data.examples;
 
       if (!Array.isArray(examples) || examples.length < 2) {
         errors.push('Grammar rule must have at least 2 examples');
@@ -731,14 +749,17 @@ export class ValidationStep {
 
     // Validate options and correct_answer
     try {
-      const options = typeof item.data.options === 'string'
-        ? JSON.parse(String(item.data.options))
-        : item.data.options;
+      const options =
+        typeof item.data.options === 'string'
+          ? JSON.parse(String(item.data.options))
+          : item.data.options;
 
       const correctIndex = Number(item.data.correct_answer);
 
       if (correctIndex < 0 || correctIndex >= options.length) {
-        errors.push(`Correct answer index ${correctIndex} is out of range for ${options.length} options`);
+        errors.push(
+          `Correct answer index ${correctIndex} is out of range for ${options.length} options`
+        );
       }
 
       // Check that options are unique
@@ -768,6 +789,7 @@ export class ValidationStep {
 ```
 
 Create `packages/refinement-service/src/quality-gates/gate-runner.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { PipelineItem } from '../pipeline/pipeline-orchestrator';
@@ -804,7 +826,11 @@ async function validateSchema(item: PipelineItem): Promise<GateResult> {
 
     if (item.tableName === 'exercises') {
       if (typeof item.data.correct_answer !== 'number') {
-        return { gateName: 'SchemaValidation', passed: false, reason: 'Correct answer must be a number' };
+        return {
+          gateName: 'SchemaValidation',
+          passed: false,
+          reason: 'Correct answer must be a number',
+        };
       }
     }
 
@@ -824,12 +850,20 @@ async function validateRequiredFields(item: PipelineItem): Promise<GateResult> {
 
   const required = requiredFields[item.tableName];
   if (!required) {
-    return { gateName: 'RequiredFields', passed: false, reason: `Unknown table: ${item.tableName}` };
+    return {
+      gateName: 'RequiredFields',
+      passed: false,
+      reason: `Unknown table: ${item.tableName}`,
+    };
   }
 
   for (const field of required) {
     if (!item.data[field]) {
-      return { gateName: 'RequiredFields', passed: false, reason: `Missing required field: ${field}` };
+      return {
+        gateName: 'RequiredFields',
+        passed: false,
+        reason: `Missing required field: ${field}`,
+      };
     }
   }
 
@@ -842,7 +876,11 @@ async function validateLanguageSpecific(item: PipelineItem, pool: Pool): Promise
   const validLanguages = ['EN', 'ES', 'IT', 'PT', 'SL'];
 
   if (!validLanguages.includes(String(item.data.language))) {
-    return { gateName: 'LanguageSpecific', passed: false, reason: `Invalid language: ${item.data.language}` };
+    return {
+      gateName: 'LanguageSpecific',
+      passed: false,
+      reason: `Invalid language: ${item.data.language}`,
+    };
   }
 
   return { gateName: 'LanguageSpecific', passed: true };
@@ -850,6 +888,7 @@ async function validateLanguageSpecific(item: PipelineItem, pool: Pool): Promise
 ```
 
 **Files Created**:
+
 - `packages/refinement-service/src/pipeline/steps/validation.step.ts`
 - `packages/refinement-service/src/quality-gates/gate-runner.ts`
 
@@ -862,6 +901,7 @@ async function validateLanguageSpecific(item: PipelineItem, pool: Pool): Promise
 **Implementation Plan**:
 
 Create `packages/refinement-service/src/pipeline/steps/approval.step.ts`:
+
 ```typescript
 import { Pool } from 'pg';
 import { PipelineItem } from '../pipeline-orchestrator';
@@ -997,6 +1037,7 @@ export class ApprovalStep {
 **Implementation Plan**:
 
 Create `packages/db/migrations/011-pipeline-tables.sql`:
+
 ```sql
 -- Pipeline failure log
 CREATE TABLE pipeline_failures (
@@ -1069,6 +1110,7 @@ GROUP BY table_name;
 **Implementation Plan**:
 
 Update `packages/refinement-service/src/main.ts`:
+
 ```typescript
 import { PipelineOrchestrator } from './pipeline/pipeline-orchestrator';
 
@@ -1121,9 +1163,11 @@ async function mainLoop() {
 ## Open Questions
 
 ### Question 1: Auto-Approval Strategy (DECISION NEEDED for MVP)
+
 **Context**: Should VALIDATED content be automatically promoted to APPROVED, or require manual operator review?
 
 **Options**:
+
 1. **Full Auto-Approval** (development/staging only)
    - Pros: Fast iteration, no manual bottleneck
    - Cons: Quality risk, errors reach learners
@@ -1142,6 +1186,7 @@ async function mainLoop() {
    - Cons: Slow throughput, requires operator time
 
 **Questions**:
+
 1. What's acceptable error rate for MVP? (1%, 5%, 10%?)
 2. How many operator hours available for review per day?
 3. Should strategy differ by content type? (meanings auto-approved, grammar manual?)
@@ -1153,11 +1198,13 @@ async function mainLoop() {
 ---
 
 ### Question 2: Pipeline Retry Logic
+
 **Context**: What should happen when a pipeline step fails?
 
 **Current Implementation**: 3 retry attempts with exponential backoff, then log failure and move on.
 
 **Alternative Options**:
+
 1. **Dead Letter Queue**
    - Move failed items to separate "failed" table
    - Operator investigates and manually fixes
@@ -1172,6 +1219,7 @@ async function mainLoop() {
    - Cons: Wastes API costs
 
 **Questions**:
+
 1. Is current retry logic sufficient?
 2. Should we implement dead letter queue?
 
@@ -1182,15 +1230,18 @@ async function mainLoop() {
 ---
 
 ### Question 3: Pipeline Throughput Targets
+
 **Context**: How many items should pipeline process per hour?
 
 **Current State**: Batch size = 10 items per cycle, cycle interval = 5 seconds.
 
 **Calculations**:
+
 - Max throughput: 10 items/cycle × 12 cycles/minute × 60 minutes = 7,200 items/hour
 - Realistic throughput: ~1,000-2,000 items/hour (accounting for validation, DB queries)
 
 **Questions**:
+
 1. How much content needed for MVP launch?
    - 5 languages × 6 levels × 100 meanings = 3,000 meanings
    - 3,000 meanings × 3 utterances = 9,000 utterances

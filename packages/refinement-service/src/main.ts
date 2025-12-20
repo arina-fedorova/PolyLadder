@@ -10,6 +10,9 @@ import {
   ContentProcessor,
   createContentProcessorRepository,
 } from './services/content-processor.service';
+import { PipelineOrchestrator, createPipelineRepository } from './pipeline/pipeline-orchestrator';
+import { createValidationRepository } from './pipeline/steps/validation.step';
+import { createApprovalRepository } from './pipeline/steps/approval.step';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -38,7 +41,8 @@ function getDatabaseUrl(): string {
 async function mainLoop(
   checkpoint: CheckpointService,
   workPlanner: WorkPlanner,
-  contentProcessor: ContentProcessor
+  contentProcessor: ContentProcessor,
+  pipeline: PipelineOrchestrator
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
@@ -56,6 +60,26 @@ async function mainLoop(
     try {
       const workItem = await workPlanner.getNextWork();
 
+      if (workItem) {
+        consecutiveEmptyIterations = 0;
+        currentLoopInterval = Math.max(getLoopInterval(), MIN_LOOP_INTERVAL_MS);
+
+        await contentProcessor.process(workItem);
+        await workPlanner.markWorkComplete(workItem.id);
+
+        const state: CheckpointState = {
+          lastProcessedId: workItem.id,
+          lastProcessedType: workItem.type,
+          timestamp: new Date(),
+          metadata: { priority: workItem.priority },
+        };
+
+        await checkpoint.saveState(state);
+        logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
+      }
+
+      await pipeline.processBatch();
+
       if (!workItem) {
         consecutiveEmptyIterations++;
         currentLoopInterval = Math.min(
@@ -67,26 +91,9 @@ async function mainLoop(
           { intervalMs: currentLoopInterval },
           'No work available, waiting with adaptive interval'
         );
-        await sleep(currentLoopInterval);
-        continue;
       }
 
-      consecutiveEmptyIterations = 0;
-      currentLoopInterval = Math.max(getLoopInterval(), MIN_LOOP_INTERVAL_MS);
-
-      await contentProcessor.process(workItem);
-
-      await workPlanner.markWorkComplete(workItem.id);
-
-      const state: CheckpointState = {
-        lastProcessedId: workItem.id,
-        lastProcessedType: workItem.type,
-        timestamp: new Date(),
-        metadata: { priority: workItem.priority },
-      };
-
-      await checkpoint.saveState(state);
-      logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
+      await sleep(currentLoopInterval);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error({ error: err.message, stack: err.stack }, 'Error in main loop');
@@ -159,6 +166,15 @@ async function start(): Promise<void> {
   const contentProcessorRepo = createContentProcessorRepository(pool);
   const contentProcessor = new ContentProcessor(contentProcessorRepo);
 
+  const pipelineRepo = createPipelineRepository(pool);
+  const validationRepo = createValidationRepository(pool);
+  const approvalRepo = createApprovalRepository(pool);
+  const pipeline = new PipelineOrchestrator(pipelineRepo, validationRepo, approvalRepo, {
+    autoApproval: process.env.AUTO_APPROVAL === 'true',
+    retryAttempts: 3,
+    batchSize: 10,
+  });
+
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
   });
@@ -168,7 +184,7 @@ async function start(): Promise<void> {
   });
 
   try {
-    await mainLoop(checkpoint, workPlanner, contentProcessor);
+    await mainLoop(checkpoint, workPlanner, contentProcessor, pipeline);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.fatal({ error: err.message, stack: err.stack }, 'Fatal error in main loop');
