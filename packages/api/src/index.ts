@@ -9,3 +9,10 @@ export {
   protectLearnerRoute,
   optionalAuth,
 } from './decorators/route-protection';
+
+export { buildServer, startServer, closeServer } from './server';
+export { validateEnv, getEnv, resetEnv } from './config/env';
+export type { Env } from './config/env';
+
+export * from './schemas/common';
+export * from './utils/db.utils';
