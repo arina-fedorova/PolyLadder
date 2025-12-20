@@ -18,19 +18,22 @@ describe('JWT Generation and Verification', () => {
     const token = generateToken(payload, TEST_SECRET);
 
     const decoded = verifyToken(token, TEST_SECRET);
-    expect(decoded.userId).toBe('123');
-    expect(decoded.role).toBe('learner');
+    expect(decoded).not.toBeNull();
+    expect(decoded?.userId).toBe('123');
+    expect(decoded?.role).toBe('learner');
   });
 
-  it('should throw error for invalid JWT', () => {
-    expect(() => verifyToken('invalid.token.here', TEST_SECRET)).toThrow('Invalid token');
+  it('should return null for invalid JWT', () => {
+    const result = verifyToken('invalid.token.here', TEST_SECRET);
+    expect(result).toBeNull();
   });
 
-  it('should throw error for wrong secret', () => {
+  it('should return null for wrong secret', () => {
     const payload = { userId: '123', role: UserRole.LEARNER };
     const token = generateToken(payload, TEST_SECRET);
 
-    expect(() => verifyToken(token, 'wrong-secret')).toThrow('Invalid token');
+    const result = verifyToken(token, 'wrong-secret');
+    expect(result).toBeNull();
   });
 
   it('should decode token without verification', () => {

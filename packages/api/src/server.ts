@@ -55,7 +55,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await registerPlugins(server);
   registerErrorHandler(server);
-  registerRoutes(server);
+  await registerRoutes(server);
 
   return server;
 }
@@ -158,7 +158,7 @@ function registerErrorHandler(server: FastifyInstance): void {
   });
 }
 
-function registerRoutes(server: FastifyInstance): void {
+async function registerRoutes(server: FastifyInstance): Promise<void> {
   const env = getEnv();
   const dbPool = getPool();
 
@@ -217,6 +217,9 @@ function registerRoutes(server: FastifyInstance): void {
       },
     });
   });
+
+  const authRoutes = (await import('./routes/auth/index')).default;
+  await server.register(authRoutes, { prefix: '/auth' });
 }
 
 export async function startServer(): Promise<FastifyInstance> {

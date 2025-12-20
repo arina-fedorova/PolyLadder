@@ -1,24 +1,24 @@
 import jwt from 'jsonwebtoken';
 import type { JWTPayload } from './types';
 
-const JWT_EXPIRATION = '7d';
+const DEFAULT_EXPIRATION = '7d';
 
-export function generateToken(payload: JWTPayload, secret: string): string {
-  return jwt.sign(payload, secret, { expiresIn: JWT_EXPIRATION });
+export function generateToken(
+  payload: JWTPayload,
+  secret: string,
+  expiresIn: string = DEFAULT_EXPIRATION
+): string {
+  return jwt.sign(payload as object, secret, {
+    expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
+  });
 }
 
-export function verifyToken(token: string, secret: string): JWTPayload {
+export function verifyToken(token: string, secret: string): JWTPayload | null {
   try {
     const decoded = jwt.verify(token, secret) as JWTPayload;
     return decoded;
-  } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Token has expired');
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token');
-    }
-    throw error;
+  } catch {
+    return null;
   }
 }
 
