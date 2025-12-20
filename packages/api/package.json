@@ -21,7 +21,7 @@
     "@polyladder/core": "workspace:*",
     "@polyladder/db": "workspace:*",
     "@sinclair/typebox": "^0.34.31",
-    "bcrypt": "^6.0.0",
+    "bcrypt": "^5.1.1",
     "fastify": "^5.6.2",
     "fastify-plugin": "^5.1.0",
     "jsonwebtoken": "^9.0.3",
@@ -31,7 +31,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
+    "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.15.2",
     "@types/uuid": "^10.0.0",
