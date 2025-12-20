@@ -2,7 +2,7 @@
 
 ## Overview
 
-PolyLadder uses Playwright for end-to-end testing with a **real PostgreSQL database**. This ensures tests accurately reflect production behavior.
+PolyLadder uses Playwright for end-to-end testing with a **real PostgreSQL database**. Tests are fully automated - Playwright handles all setup and teardown automatically.
 
 ## Architecture
 
@@ -40,36 +40,28 @@ PolyLadder uses Playwright for end-to-end testing with a **real PostgreSQL datab
 
 ## Running E2E Tests
 
-### Option 1: Automatic (Recommended)
-
-Playwright will automatically setup and teardown the environment:
+### From Project Root
 
 ```bash
-# From project root
 pnpm --filter @polyladder/web test:e2e
 ```
 
-### Option 2: Manual Setup
-
-For development or debugging:
+### With UI (Visual Debugging)
 
 ```bash
-# 1. Setup environment (Windows)
-cd packages/web
-pwsh scripts/e2e-setup.ps1
+pnpm --filter @polyladder/web test:e2e:ui
+```
 
-# 1. Setup environment (Linux/Mac)
-cd packages/web
-bash scripts/e2e-setup.sh
+### Headed Mode (Watch Browser)
 
-# 2. Run tests
-pnpm test:e2e
+```bash
+pnpm --filter @polyladder/web test:e2e:headed
+```
 
-# 3. Cleanup (Windows)
-pwsh scripts/e2e-teardown.ps1
+### Debug Mode (Step Through)
 
-# 3. Cleanup (Linux/Mac)
-bash scripts/e2e-teardown.sh
+```bash
+pnpm --filter @polyladder/web test:e2e:debug
 ```
 
 ## Test Database
@@ -117,6 +109,8 @@ test.describe('Feature Name', () => {
 ### Database Helpers
 
 ```typescript
+import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
+
 // Clean all test data
 await cleanupTestData();
 
@@ -127,6 +121,18 @@ const user = await createTestUser({
   role: 'learner', // or 'operator'
   baseLanguage: 'EN', // optional, defaults to 'EN'
 });
+```
+
+### Page Objects
+
+Use page objects for reusable interactions:
+
+```typescript
+import { LoginPage } from '../helpers/page-objects/LoginPage';
+
+const loginPage = new LoginPage(page);
+await loginPage.goto();
+await loginPage.login('user@example.com', 'password');
 ```
 
 ## Best Practices
@@ -154,20 +160,8 @@ const uniqueEmail = `test-${Date.now()}@example.com`;
 Wait for navigation or elements:
 
 ```typescript
-await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
 await expect(page.getByRole('heading')).toBeVisible();
-```
-
-### 4. Page Objects
-
-Use page objects for reusable interactions:
-
-```typescript
-import { LoginPage } from '../helpers/page-objects/LoginPage';
-
-const loginPage = new LoginPage(page);
-await loginPage.goto();
-await loginPage.login('user@example.com', 'password');
 ```
 
 ## Debugging
@@ -178,77 +172,44 @@ await loginPage.login('user@example.com', 'password');
 pnpm --filter @polyladder/web test:e2e:report
 ```
 
-### Run in UI Mode
-
-```bash
-pnpm --filter @polyladder/web test:e2e:ui
-```
-
-### Run in Headed Mode
-
-```bash
-pnpm --filter @polyladder/web test:e2e:headed
-```
-
-### Debug Mode
-
-```bash
-pnpm --filter @polyladder/web test:e2e:debug
-```
-
 ### View Trace
 
 When tests fail, traces are automatically captured:
 
 ```bash
-pnpm exec playwright show-trace packages/web/test-results/[test-name]/trace.zip
+pnpm --filter @polyladder/web test:e2e:trace test-results/[test-name]/trace.zip
 ```
 
 ## CI Integration
 
-In CI, the E2E tests run automatically:
+In GitHub Actions CI:
 
-1. GitHub Actions starts PostgreSQL service
-2. Runs migrations
-3. Starts API server in background
-4. Playwright starts Vite dev server
-5. Runs all E2E tests
-6. Uploads test reports and screenshots as artifacts
+1. PostgreSQL E2E service starts on port 5433
+2. Migrations run automatically
+3. API server starts via global-setup
+4. Playwright runs all E2E tests
+5. Reports uploaded as artifacts
 
 ## Troubleshooting
 
 ### Port Already in Use
 
-If port 5433 is already in use:
-
 ```bash
 # Stop existing container
-docker compose -f docker/docker-compose.e2e.yml down
-
-# Or find and kill process using port
-# Windows
-netstat -ano | findstr :5433
-taskkill /PID <PID> /F
-
-# Linux/Mac
-lsof -ti:5433 | xargs kill -9
+docker compose -f docker/docker-compose.e2e.yml down -v
 ```
 
-### Database Connection Failed
+### API Already Running
 
-Check if Docker is running:
+If the API is already running on port 3001, global-setup will detect it and skip setup. This is useful for development:
 
 ```bash
-docker ps
+# Start API manually for faster iteration
+pnpm --filter @polyladder/api dev
+
+# Run tests (will use existing API)
+pnpm --filter @polyladder/web test:e2e
 ```
-
-### API Server Not Starting
-
-Check logs in global setup output. Common issues:
-
-- Port 3001 already in use
-- Database migrations failed
-- Missing environment variables
 
 ### Tests Timing Out
 
@@ -265,13 +226,5 @@ test('slow test', async ({ page }) => {
 
 - **Single Worker**: Tests run serially to avoid database conflicts
 - **Database Cleanup**: ~100ms per test
-- **Test Execution**: ~2-5s per test
-- **Total Suite**: ~30-60s for full suite
-
-## Future Improvements
-
-- [ ] Parallel test execution with database isolation
-- [ ] Test data fixtures for common scenarios
-- [ ] Visual regression testing
-- [ ] Performance testing with Lighthouse
-- [ ] Cross-browser testing (Firefox, Safari)
+- **Test Execution**: ~1-2s per test
+- **Total Suite**: ~15-30s for full suite

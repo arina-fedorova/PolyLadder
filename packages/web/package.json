@@ -13,8 +13,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "e2e:setup": "node scripts/e2e-setup.ps1",
-    "e2e:teardown": "node scripts/e2e-teardown.ps1",
+    "test:e2e:trace": "playwright show-trace",
     "lint": "eslint src/"
   },
   "dependencies": {

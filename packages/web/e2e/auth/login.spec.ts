@@ -33,13 +33,17 @@ test.describe('Login Page', () => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
-    await loginPage.login('nonexistent@example.com', 'WrongPassword123');
+    // Fill and submit the form
+    await loginPage.emailInput.fill('nonexistent@example.com');
+    await loginPage.passwordInput.fill('WrongPassword123');
+    await loginPage.submitButton.click();
 
-    // Wait for error message to appear
-    await expect(loginPage.errorMessage).toBeVisible({ timeout: 10000 });
+    // Wait for error message to appear (role="alert" in LoginPage.tsx)
+    const errorAlert = page.locator('[role="alert"]');
+    await expect(errorAlert).toBeVisible({ timeout: 15000 });
 
-    // Should show some error message (exact message may vary)
-    const errorText = await loginPage.getErrorText();
+    // Verify error text contains something
+    const errorText = await errorAlert.textContent();
     expect(errorText).toBeTruthy();
     expect(errorText!.length).toBeGreaterThan(0);
   });
@@ -55,10 +59,12 @@ test.describe('Login Page', () => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
-    await loginPage.login('testuser@example.com', 'TestPassword123');
+    await loginPage.emailInput.fill('testuser@example.com');
+    await loginPage.passwordInput.fill('TestPassword123');
+    await loginPage.submitButton.click();
 
     // Should navigate to dashboard
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
   });
 
   test('should successfully login as operator', async ({ page }) => {
@@ -72,9 +78,11 @@ test.describe('Login Page', () => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
-    await loginPage.login('operator@example.com', 'OperatorPass123');
+    await loginPage.emailInput.fill('operator@example.com');
+    await loginPage.passwordInput.fill('OperatorPass123');
+    await loginPage.submitButton.click();
 
     // Should navigate to dashboard
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
   });
 });

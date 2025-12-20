@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
   testDir: './e2e',
@@ -7,8 +12,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Single worker to avoid database conflicts
   reporter: [['html'], ['junit', { outputFile: 'test-results/junit.xml' }], ['list']],
-  globalSetup: require.resolve('./playwright/global-setup'),
-  globalTeardown: require.resolve('./playwright/global-teardown'),
+  globalSetup: resolve(__dirname, './playwright/global-setup.ts'),
+  globalTeardown: resolve(__dirname, './playwright/global-teardown.ts'),
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
@@ -26,7 +31,7 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     env: {
-      VITE_API_URL: 'http://localhost:3001/api/v1',
+      VITE_API_URL: process.env.VITE_API_URL || 'http://localhost:3001/api/v1',
     },
   },
 });

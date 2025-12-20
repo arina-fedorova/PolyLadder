@@ -34,6 +34,15 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
+    // Don't handle 401 for auth endpoints - let the component handle the error
+    const isAuthEndpoint =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register');
+
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
     // If 401 error and we have a refresh token, try to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;

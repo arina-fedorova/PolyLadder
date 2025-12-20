@@ -25,6 +25,21 @@ jobs:
         ports:
           - 5432:5432
 
+      # E2E database on different port
+      postgres-e2e:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_e2e
+          POSTGRES_PASSWORD: test_e2e_password
+          POSTGRES_DB: polyladder_e2e
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,6 +92,9 @@ jobs:
         run: pnpm --filter @polyladder/web test:e2e
         env:
           CI: true
+          DATABASE_URL: postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
+          JWT_SECRET: test-secret-key-for-e2e-tests-min-32-chars-long
+          VITE_API_URL: http://localhost:3001/api/v1
 
       - name: Upload Playwright report
         if: always()

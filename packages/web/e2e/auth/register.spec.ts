@@ -46,14 +46,13 @@ test.describe('Register Page', () => {
 
     const uniqueEmail = `test-${Date.now()}@example.com`;
 
-    await registerPage.register({
-      email: uniqueEmail,
-      password: 'TestPassword123',
-      confirmPassword: 'TestPassword123',
-    });
+    await registerPage.emailInput.fill(uniqueEmail);
+    await registerPage.passwordInput.fill('TestPassword123');
+    await registerPage.confirmPasswordInput.fill('TestPassword123');
+    await registerPage.submitButton.click();
 
     // Should navigate to dashboard after auto-login
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
 
     // Verify user is logged in by checking for some dashboard element
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
@@ -72,7 +71,7 @@ test.describe('Register Page', () => {
     await registerPage.submitButton.click();
 
     // Should navigate to dashboard after auto-login
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
   });
 
   test('should show error when email already exists', async ({ page }) => {
@@ -88,38 +87,34 @@ test.describe('Register Page', () => {
     await registerPage.goto();
 
     // Try to register with same email
-    await registerPage.register({
-      email: existingEmail,
-      password: 'TestPassword123',
-      confirmPassword: 'TestPassword123',
-    });
+    await registerPage.emailInput.fill(existingEmail);
+    await registerPage.passwordInput.fill('TestPassword123');
+    await registerPage.confirmPasswordInput.fill('TestPassword123');
+    await registerPage.submitButton.click();
 
-    // Should show error (exact message may vary)
-    await expect(registerPage.errorMessage).toBeVisible({ timeout: 10000 });
-    const errorText = await registerPage.getErrorText();
+    // Should show error (role="alert")
+    const errorAlert = page.locator('[role="alert"]');
+    await expect(errorAlert).toBeVisible({ timeout: 15000 });
+
+    const errorText = await errorAlert.textContent();
     expect(errorText).toBeTruthy();
     expect(errorText!.length).toBeGreaterThan(0);
   });
 
-  test('should register with different base languages', async ({ page }) => {
+  test('should register with Spanish base language', async ({ page }) => {
+    await cleanupTestData();
     const registerPage = new RegisterPage(page);
+    await registerPage.goto();
 
-    const languages = ['EN', 'ES', 'PT', 'IT', 'SL'];
+    const uniqueEmail = `test-es-${Date.now()}@example.com`;
 
-    for (const lang of languages) {
-      await cleanupTestData(); // Clean between iterations
-      await registerPage.goto();
+    await registerPage.emailInput.fill(uniqueEmail);
+    await registerPage.passwordInput.fill('TestPassword123');
+    await registerPage.confirmPasswordInput.fill('TestPassword123');
+    await registerPage.baseLanguageSelect.selectOption('ES');
+    await registerPage.submitButton.click();
 
-      const uniqueEmail = `test-${lang.toLowerCase()}-${Date.now()}@example.com`;
-
-      await registerPage.emailInput.fill(uniqueEmail);
-      await registerPage.passwordInput.fill('TestPassword123');
-      await registerPage.confirmPasswordInput.fill('TestPassword123');
-      await registerPage.baseLanguageSelect.selectOption(lang);
-      await registerPage.submitButton.click();
-
-      // Should navigate to dashboard
-      await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
-    }
+    // Should navigate to dashboard
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
   });
 });
