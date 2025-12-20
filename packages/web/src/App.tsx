@@ -1,10 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LoginPage } from '@/pages/public/LoginPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
+import { DashboardPage } from '@/pages/learner/DashboardPage';
+import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 
-// Placeholders for pages not yet implemented
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
@@ -19,13 +21,6 @@ const LandingPage = () => (
         </a>
       </div>
     </div>
-  </div>
-);
-
-const DashboardPage = () => (
-  <div className="p-8">
-    <h1 className="text-2xl font-bold">Dashboard</h1>
-    <p className="text-gray-600">Protected page (requires auth)</p>
   </div>
 );
 
@@ -46,15 +41,28 @@ export function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected routes (to be wrapped with auth guard in F024) */}
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* 404 */}
+          <Route
+            path="/operator/pipeline"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <OperatorDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>

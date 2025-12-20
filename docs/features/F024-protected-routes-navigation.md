@@ -3,7 +3,8 @@
 **Feature Code**: F024
 **Created**: 2025-12-17
 **Phase**: 6 - Frontend Foundation
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed**: 2025-12-20
 
 ---
 
@@ -13,13 +14,13 @@ Implement protected route wrapper component that enforces authentication, role-b
 
 ## Success Criteria
 
-- [ ] ProtectedRoute wrapper component requires authentication
-- [ ] Redirects to /login if not authenticated
-- [ ] Role-based protection for operator routes
-- [ ] Main application header with logo and user menu
-- [ ] User menu with profile and logout options
-- [ ] Responsive layout system with mobile support
-- [ ] Loading state during auth initialization
+- [x] ProtectedRoute wrapper component requires authentication
+- [x] Redirects to /login if not authenticated
+- [x] Role-based protection for operator routes
+- [x] Main application header with logo and user menu
+- [x] User menu with profile and logout options
+- [x] Responsive layout system with mobile support
+- [x] Loading state during auth initialization
 
 ---
 
@@ -32,6 +33,7 @@ Implement protected route wrapper component that enforces authentication, role-b
 **Implementation Plan**:
 
 Create `packages/web/src/components/auth/ProtectedRoute.tsx`:
+
 ```tsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
@@ -97,6 +99,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 **Implementation Plan**:
 
 Create `packages/web/src/components/layout/MainLayout.tsx`:
+
 ```tsx
 import React, { ReactNode } from 'react';
 import { Header } from './Header';
@@ -122,9 +125,7 @@ export function MainLayout({ children, showSidebar = false }: MainLayoutProps) {
         )}
 
         <main className="flex-1">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</div>
         </main>
       </div>
     </div>
@@ -143,6 +144,7 @@ export function MainLayout({ children, showSidebar = false }: MainLayoutProps) {
 **Implementation Plan**:
 
 Create `packages/web/src/components/layout/Header.tsx`:
+
 ```tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -175,16 +177,28 @@ export function Header() {
           <nav className="hidden md:flex items-center space-x-8">
             {user?.role === 'learner' && (
               <>
-                <Link to="/dashboard" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/dashboard"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Dashboard
                 </Link>
-                <Link to="/learn" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/learn"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Learn
                 </Link>
-                <Link to="/review" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/review"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Review
                 </Link>
-                <Link to="/progress" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/progress"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Progress
                 </Link>
               </>
@@ -192,13 +206,22 @@ export function Header() {
 
             {user?.role === 'operator' && (
               <>
-                <Link to="/operator/pipeline" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/operator/pipeline"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Pipeline
                 </Link>
-                <Link to="/operator/review-queue" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/operator/review-queue"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Review Queue
                 </Link>
-                <Link to="/operator/content" className="text-gray-700 hover:text-primary-600 transition-colors">
+                <Link
+                  to="/operator/content"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
                   Content
                 </Link>
               </>
@@ -330,10 +353,7 @@ export function Header() {
 
       {/* Click outside to close user menu */}
       {userMenuOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setUserMenuOpen(false)}
-        />
+        <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
       )}
     </header>
   );
@@ -351,6 +371,7 @@ export function Header() {
 **Implementation Plan**:
 
 Update `packages/web/src/App.tsx`:
+
 ```tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -509,6 +530,7 @@ export default App;
 **Implementation Plan**:
 
 Create `packages/web/src/pages/public/LandingPage.tsx`:
+
 ```tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -602,7 +624,10 @@ export function LandingPage() {
           <p className="text-xl text-primary-100 mb-8">
             Join thousands of learners mastering multiple languages simultaneously.
           </p>
-          <Link to="/register" className="btn-secondary text-lg px-8 py-3 bg-white text-primary-600 hover:bg-gray-100">
+          <Link
+            to="/register"
+            className="btn-secondary text-lg px-8 py-3 bg-white text-primary-600 hover:bg-gray-100"
+          >
             Get Started Now
           </Link>
         </div>
@@ -630,6 +655,7 @@ export function LandingPage() {
 **Implementation Plan**:
 
 Create `packages/web/src/hooks/useClickOutside.ts`:
+
 ```typescript
 import { useEffect, RefObject } from 'react';
 
@@ -664,6 +690,7 @@ export function useClickOutside<T extends HTMLElement = HTMLElement>(
 ```
 
 Update Header to use this hook:
+
 ```tsx
 // In Header.tsx, add at top:
 import { useClickOutside } from '@/hooks/useClickOutside';
@@ -676,7 +703,7 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 // Wrap dropdown in ref:
 <div ref={userMenuRef} className="relative">
   {/* user menu button and dropdown */}
-</div>
+</div>;
 ```
 
 **Files Created**: `packages/web/src/hooks/useClickOutside.ts`
@@ -690,6 +717,7 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 **Context**: MainLayout has sidebar placeholder for operator pages. What should sidebar contain?
 
 **Options**:
+
 1. Navigation links only (same as header)
    - Pros: Simple, consistent with header
    - Cons: Redundant with header
@@ -709,6 +737,7 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 **Context**: Mobile menu currently slides down from header. Should it be a full-screen overlay or drawer?
 
 **Options**:
+
 1. Dropdown from header (current)
    - Pros: Simple, space-efficient
    - Cons: Can be cramped with many nav items
@@ -728,6 +757,7 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 **Context**: User menu shows loading spinner briefly on page refresh while auth state loads. Should we persist auth state to avoid flicker?
 
 **Options**:
+
 1. Current approach: check localStorage token on mount
    - Pros: Simple, secure (validates with server)
    - Cons: Brief loading flicker
@@ -755,17 +785,19 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 
 1. **Public routes**: Accessible to all users (/, /login, /register)
 2. **Protected routes**: Require authentication (/dashboard, /learn, /review)
-3. **Role-protected routes**: Require specific role (/operator/*)
+3. **Role-protected routes**: Require specific role (/operator/\*)
 
 ### Navigation Structure
 
 **Learner Navigation**:
+
 - Dashboard: Overview of progress, upcoming reviews
 - Learn: Access to learning modules (orthography, vocabulary, grammar)
 - Review: SRS review sessions
 - Progress: Analytics and statistics
 
 **Operator Navigation**:
+
 - Pipeline: Content refinement pipeline health dashboard
 - Review Queue: Pending content requiring manual review
 - Content: Browse and manage approved content
@@ -779,6 +811,7 @@ useClickOutside(userMenuRef, () => setUserMenuOpen(false));
 ### Layout System
 
 The MainLayout component provides:
+
 - Consistent header across all protected pages
 - Optional sidebar for pages that need it (operator tools)
 - Max-width content container for readability
