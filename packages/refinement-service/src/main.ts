@@ -13,6 +13,8 @@ import {
 import { PipelineOrchestrator, createPipelineRepository } from './pipeline/pipeline-orchestrator';
 import { createValidationRepository } from './pipeline/steps/validation.step';
 import { createApprovalRepository } from './pipeline/steps/approval.step';
+import { SemanticMapperService } from './services/semantic-mapper.service';
+import { ContentTransformerService } from './services/content-transformer.service';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -38,11 +40,71 @@ function getDatabaseUrl(): string {
   return url;
 }
 
+interface DocumentProcessingContext {
+  semanticMapper: SemanticMapperService | null;
+  contentTransformer: ContentTransformerService | null;
+  pool: Pool;
+}
+
+interface UnmappedDocument {
+  id: string;
+  level_id: string;
+}
+
+interface MappingForTransformation {
+  id: string;
+}
+
+async function findDocumentWithUnmappedChunks(pool: Pool): Promise<UnmappedDocument | null> {
+  const result = await pool.query<UnmappedDocument>(
+    `SELECT DISTINCT d.id, l.id as level_id
+     FROM document_sources d
+     JOIN curriculum_levels l ON d.language = l.language AND d.target_level = l.cefr_level
+     JOIN raw_content_chunks c ON c.document_id = d.id
+     LEFT JOIN content_topic_mappings m ON m.chunk_id = c.id
+     WHERE d.status = 'ready' AND m.id IS NULL
+     LIMIT 1`
+  );
+  return result.rows[0] ?? null;
+}
+
+async function findConfirmedMappingForTransformation(
+  pool: Pool
+): Promise<MappingForTransformation | null> {
+  const result = await pool.query<MappingForTransformation>(
+    `SELECT m.id
+     FROM content_topic_mappings m
+     LEFT JOIN transformation_jobs j ON j.mapping_id = m.id AND j.status = 'completed'
+     WHERE m.status = 'confirmed' AND j.id IS NULL
+     LIMIT 1`
+  );
+  return result.rows[0] ?? null;
+}
+
+async function processDocumentPipeline(ctx: DocumentProcessingContext): Promise<boolean> {
+  const unmappedDoc = await findDocumentWithUnmappedChunks(ctx.pool);
+  if (unmappedDoc && ctx.semanticMapper) {
+    logger.info({ documentId: unmappedDoc.id }, 'Mapping chunks to topics');
+    await ctx.semanticMapper.mapChunksToTopics(unmappedDoc.id, unmappedDoc.level_id);
+    return true;
+  }
+
+  const confirmedMapping = await findConfirmedMappingForTransformation(ctx.pool);
+  if (confirmedMapping && ctx.contentTransformer) {
+    logger.info({ mappingId: confirmedMapping.id }, 'Transforming mapping');
+    await ctx.contentTransformer.transformMapping(confirmedMapping.id);
+    return true;
+  }
+
+  return false;
+}
+
 async function mainLoop(
   checkpoint: CheckpointService,
   workPlanner: WorkPlanner,
   contentProcessor: ContentProcessor,
-  pipeline: PipelineOrchestrator
+  pipeline: PipelineOrchestrator,
+  docContext: DocumentProcessingContext
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
@@ -58,6 +120,8 @@ async function mainLoop(
 
   while (!isShuttingDown) {
     try {
+      let workDone = false;
+
       const workItem = await workPlanner.getNextWork();
 
       if (workItem) {
@@ -76,11 +140,17 @@ async function mainLoop(
 
         await checkpoint.saveState(state);
         logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
+        workDone = true;
       }
 
       await pipeline.processBatch();
 
-      if (!workItem) {
+      const docProcessed = await processDocumentPipeline(docContext);
+      if (docProcessed) {
+        workDone = true;
+      }
+
+      if (!workDone) {
         consecutiveEmptyIterations++;
         currentLoopInterval = Math.min(
           getLoopInterval() * Math.pow(1.5, Math.min(consecutiveEmptyIterations, 5)),
@@ -91,6 +161,9 @@ async function mainLoop(
           { intervalMs: currentLoopInterval },
           'No work available, waiting with adaptive interval'
         );
+      } else {
+        consecutiveEmptyIterations = 0;
+        currentLoopInterval = Math.max(getLoopInterval(), MIN_LOOP_INTERVAL_MS);
       }
 
       await sleep(currentLoopInterval);
@@ -175,6 +248,24 @@ async function start(): Promise<void> {
     batchSize: 10,
   });
 
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  let semanticMapper: SemanticMapperService | null = null;
+  let contentTransformer: ContentTransformerService | null = null;
+
+  if (anthropicKey) {
+    semanticMapper = new SemanticMapperService(pool, anthropicKey);
+    contentTransformer = new ContentTransformerService(pool, anthropicKey);
+    logger.info('LLM services initialized (semantic mapping and content transformation)');
+  } else {
+    logger.warn('ANTHROPIC_API_KEY not set - LLM services disabled');
+  }
+
+  const docContext: DocumentProcessingContext = {
+    semanticMapper,
+    contentTransformer,
+    pool,
+  };
+
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
   });
@@ -184,7 +275,7 @@ async function start(): Promise<void> {
   });
 
   try {
-    await mainLoop(checkpoint, workPlanner, contentProcessor, pipeline);
+    await mainLoop(checkpoint, workPlanner, contentProcessor, pipeline, docContext);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.fatal({ error: err.message, stack: err.stack }, 'Fatal error in main loop');
