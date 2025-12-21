@@ -163,6 +163,7 @@ The system consists of five components running in the cloud.
 **Purpose**: Contains all domain logic and business rules. Framework-agnostic.
 
 **Responsibilities**:
+
 - Domain model definitions (User, Meaning, Utterance, Exercise, etc.)
 - Lifecycle state machine (DRAFT→CANDIDATE→VALIDATED→APPROVED)
 - Immutability enforcement logic
@@ -179,6 +180,7 @@ The system consists of five components running in the cloud.
 **Purpose**: Abstracts all database access. Provides type-safe query builders and migrations.
 
 **Responsibilities**:
+
 - PostgreSQL schema definition
 - Migration scripts (using node-pg-migrate)
 - Query builders for all tables
@@ -190,6 +192,7 @@ The system consists of five components running in the cloud.
 **API**: Exported functions for CRUD operations. No business logic here.
 
 **Schema categories**:
+
 - **User tables**: `users`, `sessions`
 - **Approved knowledge base** (shared): `approved_meanings`, `approved_utterances`, `approved_rules`, `approved_exercises`, `curriculum_graph`
 - **Pipeline tables**: `drafts`, `candidates`, `validated`, `validation_failures`, `approval_events`, `service_state`
@@ -202,6 +205,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Purpose**: REST API for authentication, data access, and learning functionality.
 
 **Responsibilities**:
+
 - User registration and authentication
 - Session management (JWT)
 - Expose data health metrics
@@ -215,6 +219,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Technology**: Fastify + Zod + Passport.js. Uses `@polyladder/core` for logic, `@polyladder/db` for data access.
 
 **API Design**:
+
 - RESTful endpoints
 - JSON request/response
 - Versioned (`/api/v1/...`)
@@ -222,6 +227,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 - JWT authentication required for all endpoints except `/auth/register` and `/auth/login`
 
 **Key endpoints**:
+
 - `POST /api/v1/auth/register` - Create user account
 - `POST /api/v1/auth/login` - Login, returns JWT
 - `GET /api/v1/auth/me` - Get current user info
@@ -233,6 +239,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 - `GET /api/v1/learning/vocabulary` - Get user vocabulary state
 
 **Authorization**:
+
 - Regular users can only access `/auth` and `/learning` endpoints
 - Operator role required for `/operational` endpoints
 - Role stored in `users.role` field (enum: 'learner', 'operator')
@@ -242,6 +249,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Purpose**: Background process that continuously grows the shared knowledge base.
 
 **Responsibilities**:
+
 - Work planning (decide what to generate next)
 - Data generation (via LLMs, parsers, rules)
 - Data normalization (DRAFT → CANDIDATE)
@@ -254,6 +262,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Technology**: TypeScript/Node.js standalone process. No HTTP server. Direct database access.
 
 **Lifecycle**:
+
 1. Start → Load state from database
 2. Loop:
    - Determine next work unit
@@ -269,6 +278,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Purpose**: Single-page application for both learners and operators.
 
 **Responsibilities**:
+
 - User registration and login
 - Learning interface (curriculum, exercises, progress)
 - Operational dashboard (data health, approval workflow)
@@ -277,6 +287,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Technology**: React + Vite + TanStack Query + Tailwind CSS + React Router.
 
 **Routes**:
+
 - `/` - Landing page
 - `/register` - User registration
 - `/login` - Login
@@ -292,6 +303,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 - `/operator/failures` - Validation failures (role-restricted)
 
 **Authentication flow**:
+
 1. User submits login form
 2. Frontend calls `POST /api/v1/auth/login`
 3. Backend returns JWT
@@ -306,6 +318,7 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 **Purpose**: Entry point for all HTTP traffic. Serves static files and proxies API requests.
 
 **Configuration**:
+
 ```nginx
 server {
   listen 443 ssl;
@@ -329,6 +342,7 @@ server {
 ```
 
 **Why nginx?**
+
 - Efficient static file serving
 - SSL termination
 - Compression
@@ -342,6 +356,7 @@ server {
 ### 4.1 User Model
 
 **User** contains:
+
 - `id` (UUID, primary key)
 - `email` (unique, required)
 - `password_hash` (bcrypt, required)
@@ -415,6 +430,7 @@ fastify.addHook('onRequest', async (request, reply) => {
 ### 5.1 Shared Knowledge Base
 
 The linguistic knowledge base is **shared among all users**. This includes:
+
 - Approved meanings
 - Approved utterances
 - Approved grammar rules
@@ -423,6 +439,7 @@ The linguistic knowledge base is **shared among all users**. This includes:
 - Orthography and phonetics data
 
 **Why shared?**
+
 - No reason to duplicate the same data per user
 - Content Refinement Service grows the base for everyone
 - Reduces database size
@@ -433,6 +450,7 @@ The linguistic knowledge base is **shared among all users**. This includes:
 ### 5.2 User-Specific Data
 
 Each user has **private data** tied to their account:
+
 - Learning progress (which units completed, current position)
 - Vocabulary state (Unknown/Learning/Known per word per language)
 - SRS schedules (when each item is due for review)
@@ -443,6 +461,7 @@ Each user has **private data** tied to their account:
 **Isolation**: Each user sees only their own data. Queries filter by `user_id`.
 
 **Example**:
+
 ```sql
 -- Shared data (no user_id)
 SELECT * FROM approved_meanings WHERE level = 'A1';
@@ -505,33 +524,39 @@ SELECT * FROM user_vocabulary WHERE user_id = $1 AND language = 'IT';
 ### 6.4 Communication Protocols
 
 **Frontend ↔ API**
+
 - Protocol: HTTP REST
 - Format: JSON
 - Authentication: JWT in `Authorization: Bearer <token>` header
 - CORS: Enabled (API and frontend on same domain in production)
 
 **Refinement Service ↔ Database**
+
 - Protocol: Direct PostgreSQL connection
 - No API layer (service is trusted, has full database access)
 
 **Core Library ↔ Database Layer**
+
 - Protocol: Function calls (in-process)
 - Transactions managed by database layer
 
 ### 6.5 Error Handling Strategy
 
 **At API Level**:
+
 - All errors return structured JSON: `{ error: string, code: string, details?: any }`
 - HTTP status codes match error type (400 client, 401 unauthorized, 403 forbidden, 500 server)
 - Validation errors include field-level details
 
 **At Service Level**:
+
 - Service logs all errors
 - Non-fatal errors recorded but don't stop service
 - Fatal errors saved to database, service exits gracefully
 - Restart resumes from last checkpoint
 
 **At UI Level**:
+
 - TanStack Query handles network errors automatically
 - User-friendly error messages
 - Retry mechanisms for transient failures
@@ -642,6 +667,7 @@ pnpm dev
 ```
 
 This starts:
+
 - PostgreSQL (port 5432)
 - API server (port 3000)
 - Refinement service (background)
@@ -650,6 +676,7 @@ This starts:
 Developer opens `localhost:5173` in browser.
 
 **docker-compose.yml**:
+
 ```yaml
 version: '3.8'
 services:
@@ -660,7 +687,7 @@ services:
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: dev
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
   api:
     build:
@@ -670,7 +697,7 @@ services:
       DATABASE_URL: postgres://dev:dev@db:5432/polyladder
       JWT_SECRET: dev-secret
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - db
 
@@ -688,21 +715,25 @@ services:
 ### 8.2 Production Deployment (Fly.io)
 
 **Build**:
+
 ```bash
 pnpm build
 ```
 
 This:
+
 1. Compiles all TypeScript to JavaScript
 2. Bundles React app (Vite)
 3. Creates Docker images
 
 **Deploy to Fly.io**:
+
 ```bash
 fly deploy
 ```
 
 **Fly.io configuration** (`fly.toml`):
+
 ```toml
 app = "polyladder"
 primary_region = "ams"  # Amsterdam (cheap, EU)
@@ -740,17 +771,20 @@ primary_region = "ams"  # Amsterdam (cheap, EU)
 ```
 
 **PostgreSQL on Fly.io**:
+
 ```bash
 fly postgres create --name polyladder-db --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 1
 fly postgres attach polyladder-db
 ```
 
 **Processes**:
+
 - API service (main process)
 - Refinement service (background process via supervisor)
 - Nginx (static files + reverse proxy)
 
 **Dockerfile.prod**:
+
 ```dockerfile
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -782,6 +816,7 @@ CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 ```
 
 **supervisord.conf**:
+
 ```ini
 [supervisord]
 nodaemon=true
@@ -804,6 +839,7 @@ autorestart=true
 ```
 
 **Environment variables** (set via Fly.io secrets):
+
 ```bash
 fly secrets set DATABASE_URL=<postgres-connection-string>
 fly secrets set JWT_SECRET=<random-secret>
@@ -812,25 +848,30 @@ fly secrets set JWT_SECRET=<random-secret>
 ### 8.3 Data Storage
 
 **Database**: Fly Postgres (managed)
+
 - Automatic backups
 - Connection string injected as `DATABASE_URL`
 
 **Audio files** (future): Fly Volumes
+
 - Persistent storage attached to VM
 - Mounted at `/data/audio`
 
 ### 8.4 Scaling
 
 **Initial (MVP)**:
+
 - 1 VM (shared-cpu-1x, 256MB)
 - Scale to zero when idle (save costs)
 
 **Growth**:
+
 - Increase VM size (more RAM/CPU)
 - Add more regions (closer to users)
 - Separate Refinement Service to dedicated VM
 
 **Database**:
+
 - Start with shared-cpu-1x (256MB RAM, 1GB storage)
 - Scale vertically as data grows
 
@@ -843,18 +884,21 @@ fly secrets set JWT_SECRET=<random-secret>
 The architecture is **deliberately portable**. Migration to another provider requires minimal changes.
 
 **Standard technologies used**:
+
 - PostgreSQL (supported everywhere)
 - Docker containers (run anywhere)
 - Standard HTTP/HTTPS
 - No Fly.io-specific features in application code
 
 **What's configurable via environment variables**:
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Secret for JWT signing
 - `PORT` - HTTP port
 - `NODE_ENV` - production/development
 
 **No vendor lock-in**:
+
 - No Fly.io SDK usage in code
 - No proprietary APIs
 - Database is standard PostgreSQL (dump/restore works)
@@ -864,6 +908,7 @@ The architecture is **deliberately portable**. Migration to another provider req
 **To migrate from Fly.io to DigitalOcean/Hetzner/Railway/etc:**
 
 1. **Export database**:
+
    ```bash
    pg_dump $DATABASE_URL > backup.sql
    ```
@@ -871,11 +916,13 @@ The architecture is **deliberately portable**. Migration to another provider req
 2. **Create new PostgreSQL instance** on target provider
 
 3. **Import database**:
+
    ```bash
    psql $NEW_DATABASE_URL < backup.sql
    ```
 
 4. **Build Docker image**:
+
    ```bash
    docker build -f docker/Dockerfile.prod -t polyladder:latest .
    ```
@@ -893,6 +940,7 @@ The architecture is **deliberately portable**. Migration to another provider req
 ### 9.3 Multi-Cloud Strategy (Future)
 
 If needed, the app can run on multiple providers simultaneously:
+
 - Load balancer in front
 - Shared PostgreSQL (or read replicas)
 - Docker images deployed to multiple regions
@@ -906,12 +954,14 @@ If needed, the app can run on multiple providers simultaneously:
 **Context**: The system requires audio playback for pronunciation examples and recording for dictation/pronunciation practice.
 
 **Requirements**:
+
 - Play audio files (MP3, OGG, or WAV)
 - Record from microphone
 - Basic waveform visualization (optional, nice to have)
 - Works in web browsers
 
 **Candidates** (to be evaluated later):
+
 - Web Audio API (native browser, no library needed)
 - Howler.js (playback only, mature)
 - RecordRTC (recording, works with Web Audio API)
@@ -924,6 +974,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Context**: Audio files for pronunciation need to be stored and served.
 
 **Options**:
+
 1. **Fly Volumes** - persistent storage on Fly.io (~$0.15/GB/month)
 2. **S3-compatible storage** - Backblaze B2 ($0.005/GB/month), AWS S3 ($0.023/GB/month)
 3. **Supabase Storage** - 1GB free, then $0.021/GB/month
@@ -931,6 +982,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision deferred until**: Audio features are implemented.
 
 **Factors to consider**:
+
 - Cost (S3-compatible likely cheaper at scale)
 - Portability (S3 API is standard, works everywhere)
 - CDN (faster delivery to users)
@@ -940,6 +992,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Context**: Refinement Service generates content using LLMs.
 
 **Options**:
+
 1. Direct API calls (OpenAI, Anthropic, etc.) - requires API keys, recurring cost
 2. Local models (Ollama, llama.cpp) - no API costs, but need GPU/more RAM
 3. Hybrid: local for drafts, cloud for refinement
@@ -955,6 +1008,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Cloud-hosted web application, not desktop Electron app.
 
 **Rationale**:
+
 - **Shared knowledge base**: No reason to duplicate the same linguistic data on every device. One central database serves all users.
 - **Content Refinement Service**: Runs continuously on server, grows knowledge base for everyone. Can't do this reliably on user devices.
 - **Easier updates**: Deploy once, all users get updates immediately. No "please update your app" friction.
@@ -962,6 +1016,7 @@ If needed, the app can run on multiple providers simultaneously:
 - **Lower barrier to entry**: No installation required. Just open browser.
 
 **Trade-offs accepted**:
+
 - Requires internet connection (acceptable for language learning)
 - Hosting costs (mitigated by cost-effective Fly.io)
 
@@ -970,6 +1025,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Use PostgreSQL for multi-user cloud deployment.
 
 **Rationale**:
+
 - **Multi-user support**: SQLite is designed for single-user scenarios. PostgreSQL handles concurrent users natively.
 - **ACID guarantees**: Robust transactions even under concurrent load.
 - **Standard and portable**: Supported by every cloud provider.
@@ -983,6 +1039,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Use pnpm workspaces for monorepo.
 
 **Rationale**:
+
 - Shared TypeScript types across packages
 - Atomic commits across related changes
 - Simplified dependency management
@@ -995,6 +1052,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Use Fastify for API.
 
 **Rationale**:
+
 - Better TypeScript support out of the box
 - Schema-based validation (aligns with Zod)
 - Faster performance
@@ -1007,6 +1065,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Use JWT for authentication.
 
 **Rationale**:
+
 - **Stateless**: No server-side session storage needed. Simplifies scaling.
 - **Portable**: Token is self-contained. Works with load balancers, multiple servers.
 - **Standard**: Industry-standard approach for SPAs.
@@ -1018,6 +1077,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Start with Fly.io.
 
 **Rationale**:
+
 - **Cost-effective**: ~$2-5/month for MVP (scale to zero when idle)
 - **Simple deployment**: `fly deploy` and done
 - **Good enough**: PostgreSQL, Docker, all basics covered
@@ -1030,6 +1090,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Linguistic knowledge base is shared among all users, not duplicated per user.
 
 **Rationale**:
+
 - **Efficiency**: No reason to store "Hello = Ciao = Olá" separately for each user.
 - **Consistency**: All users learn from the same high-quality approved data.
 - **Lower storage costs**: One copy vs thousands.
@@ -1042,6 +1103,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Decision**: Use Docker for deployment.
 
 **Rationale**:
+
 - **Portability**: Same container runs on Fly.io, DigitalOcean, Hetzner, anywhere.
 - **Consistency**: Development environment matches production.
 - **Standard**: Industry-standard containerization.
@@ -1057,6 +1119,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: User learning data is personal and sensitive.
 
 **Mitigation**:
+
 - User data is private, isolated by `user_id`.
 - HTTPS enforced (SSL termination at nginx/Fly.io edge).
 - Passwords hashed with bcrypt (never stored in plaintext).
@@ -1067,6 +1130,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Unauthorized access to user accounts.
 
 **Mitigation**:
+
 - Password strength validation (minimum 8 chars, complexity rules).
 - JWT expires after 7 days (user must re-login).
 - JWT signed with secret (can't be forged).
@@ -1077,6 +1141,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Regular users accessing operator endpoints.
 
 **Mitigation**:
+
 - Role-based access control (`users.role` field).
 - Middleware checks `role === 'operator'` for `/operational/*` endpoints.
 - Unauthorized access returns 403 Forbidden.
@@ -1086,6 +1151,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: LLM-generated content could include malicious code.
 
 **Mitigation**:
+
 - All generated content is treated as data, never executed.
 - Content stored as strings in database.
 - UI renders as text or sanitized HTML (React escapes by default).
@@ -1095,6 +1161,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: User input or generated content could manipulate SQL queries.
 
 **Mitigation**:
+
 - Use parameterized queries exclusively.
 - Never concatenate strings into SQL.
 - pg library supports prepared statements.
@@ -1104,6 +1171,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Malicious scripts injected into UI.
 
 **Mitigation**:
+
 - React escapes all dynamic content by default.
 - Use `dangerouslySetInnerHTML` only when absolutely necessary (and sanitize input).
 - Content Security Policy headers in nginx.
@@ -1113,6 +1181,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Attacker tricks user into making unwanted requests.
 
 **Mitigation**:
+
 - JWT in `Authorization` header (not cookies, so CSRF doesn't apply).
 - SameSite cookie policy if cookies are used in future.
 
@@ -1121,6 +1190,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Refinement Service or API could consume excessive resources.
 
 **Mitigation**:
+
 - Refinement Service includes rate limiting, backoff, max iteration limits.
 - API has request rate limiting (Fastify plugin).
 - Fly.io auto-scaling handles traffic spikes.
@@ -1130,6 +1200,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Threat**: Data loss from server failure or human error.
 
 **Mitigation**:
+
 - Fly Postgres automatic daily backups (retained for 7 days).
 - Manual backup script: `pg_dump $DATABASE_URL > backup_$(date +%Y%m%d).sql`
 - Store backups off-server (S3, Backblaze B2).
@@ -1141,6 +1212,7 @@ If needed, the app can run on multiple providers simultaneously:
 ### 13.1 Database Indexing
 
 **Critical indexes**:
+
 - `users.email` (unique index for login)
 - `approved_meanings.id` (primary key)
 - `approved_utterances.meaning_id` (foreign key)
@@ -1159,6 +1231,7 @@ If needed, the app can run on multiple providers simultaneously:
 ### 13.3 Frontend Performance
 
 **Strategy**:
+
 - Code splitting (React.lazy for routes)
 - Lazy load components
 - Optimize images (WebP format)
@@ -1168,6 +1241,7 @@ If needed, the app can run on multiple providers simultaneously:
 ### 13.4 Database Connection Pooling
 
 **Strategy**:
+
 - Use pg connection pool (max 10 connections initially)
 - Adjust pool size based on load
 - Monitor connection usage
@@ -1177,6 +1251,7 @@ If needed, the app can run on multiple providers simultaneously:
 **Target**: Process at least 100 items per minute.
 
 **Strategy**:
+
 - Batch database writes (insert multiple rows at once)
 - Parallel LLM calls where possible (rate limit aware)
 - Efficient validation (fail fast on first gate failure)
@@ -1194,11 +1269,13 @@ If needed, the app can run on multiple providers simultaneously:
 ### 14.1 Quick Start
 
 **Prerequisites**:
+
 - Docker & Docker Compose installed
 - Node.js 20.x LTS installed
 - pnpm installed (`corepack enable pnpm`)
 
 **Start development environment**:
+
 ```bash
 # Clone repository
 git clone <repo-url>
@@ -1212,6 +1289,7 @@ pnpm dev
 ```
 
 **Access**:
+
 - Frontend: http://localhost:5173
 - API: http://localhost:3000
 - PostgreSQL: localhost:5432 (user: dev, password: dev, database: polyladder)
@@ -1219,6 +1297,7 @@ pnpm dev
 ### 14.2 Docker Compose Configuration
 
 **docker-compose.yml** (development):
+
 ```yaml
 version: '3.8'
 services:
@@ -1229,11 +1308,11 @@ services:
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: dev
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dev"]
+      test: ['CMD-SHELL', 'pg_isready -U dev']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -1254,8 +1333,8 @@ services:
       NODE_ENV: development
       LOG_LEVEL: debug
     ports:
-      - "3000:3000"
-      - "9229:9229"  # Node.js debugger
+      - '3000:3000'
+      - '9229:9229' # Node.js debugger
     command: pnpm --filter @polyladder/api dev
     depends_on:
       db:
@@ -1284,6 +1363,7 @@ volumes:
 ```
 
 **Dockerfile.dev**:
+
 ```dockerfile
 FROM node:20-alpine AS development
 
@@ -1316,6 +1396,7 @@ CMD ["pnpm", "dev"]
 Vite hot reload works out of the box. No additional configuration needed.
 
 **Run frontend standalone** (without Docker):
+
 ```bash
 pnpm --filter @polyladder/web dev
 ```
@@ -1325,6 +1406,7 @@ Frontend will auto-reload on file changes in `packages/web/src/`.
 #### 14.3.2 Backend Hot Reload (nodemon)
 
 **packages/api/package.json**:
+
 ```json
 {
   "scripts": {
@@ -1339,6 +1421,7 @@ Frontend will auto-reload on file changes in `packages/web/src/`.
 ```
 
 **nodemon.json** (in packages/api/):
+
 ```json
 {
   "watch": ["src", "../core/src", "../db/src"],
@@ -1355,6 +1438,7 @@ Changes to TypeScript files in `api/`, `core/`, or `db/` will trigger API restar
 #### 14.4.1 VSCode/Cursor Debugger Setup
 
 **.vscode/launch.json**:
+
 ```json
 {
   "version": "0.2.0",
@@ -1386,6 +1470,7 @@ Changes to TypeScript files in `api/`, `core/`, or `db/` will trigger API restar
 ```
 
 **Usage**:
+
 1. Start services: `pnpm dev`
 2. Set breakpoints in VSCode
 3. Run debugger: F5 or "Attach to API (Docker)"
@@ -1405,6 +1490,7 @@ Alternative to VSCode debugger:
 #### 14.5.1 Direct PostgreSQL Connection
 
 **Using psql**:
+
 ```bash
 # Connect from host
 psql postgres://dev:dev@localhost:5432/polyladder
@@ -1414,6 +1500,7 @@ docker-compose exec db psql -U dev polyladder
 ```
 
 **Common queries**:
+
 ```sql
 -- List all tables
 \dt
@@ -1435,12 +1522,14 @@ SELECT
 #### 14.5.2 GUI Tools
 
 **Recommended tools**:
+
 - **pgAdmin**: http://localhost:5432 (separate install)
 - **DBeaver**: Universal database tool
 - **TablePlus**: macOS/Windows GUI
 - **Postico**: macOS only
 
 **Connection details**:
+
 - Host: localhost
 - Port: 5432
 - Database: polyladder
@@ -1485,16 +1574,19 @@ docker-compose logs --since 2023-01-01T00:00:00 api
 API logs are structured JSON (via pino). Use `pino-pretty` for human-readable output.
 
 **Install pino-pretty**:
+
 ```bash
 pnpm add -D pino-pretty
 ```
 
 **View pretty logs**:
+
 ```bash
 docker-compose logs -f api | pnpm exec pino-pretty
 ```
 
 **Example log output**:
+
 ```
 [2025-01-15 10:30:45.123] INFO (api/1): Server listening on port 3000
 [2025-01-15 10:30:50.456] INFO (api/1): POST /api/v1/auth/login
@@ -1532,6 +1624,7 @@ pnpm test --coverage
 Integration tests use Docker Compose to spin up real PostgreSQL.
 
 **Run integration tests**:
+
 ```bash
 # Start test database
 docker-compose -f docker-compose.test.yml up -d
@@ -1565,11 +1658,13 @@ pnpm exec playwright test --debug tests/auth.spec.ts
 ### 14.8 Testing Production Build Locally
 
 **Build production Docker image**:
+
 ```bash
 docker build -f docker/Dockerfile.prod -t polyladder:local .
 ```
 
 **Run production image locally**:
+
 ```bash
 # Start PostgreSQL first
 docker-compose up -d db
@@ -1583,6 +1678,7 @@ docker run -p 8080:8080 \
 ```
 
 **Access**:
+
 - Application: http://localhost:8080
 
 This is **identical** to what runs on Fly.io, but running locally for testing.
@@ -1590,6 +1686,7 @@ This is **identical** to what runs on Fly.io, but running locally for testing.
 ### 14.9 Resetting Development Environment
 
 **Clear all data and restart**:
+
 ```bash
 # Stop all services
 docker-compose down
@@ -1602,6 +1699,7 @@ pnpm dev
 ```
 
 **Reset only database**:
+
 ```bash
 # Connect to DB
 docker-compose exec db psql -U dev polyladder
@@ -1632,6 +1730,7 @@ pnpm --filter @polyladder/db migrate up
 #### 14.10.2 Seed Development Data
 
 **packages/db/src/seeds/dev-data.ts**:
+
 ```typescript
 export async function seedDevData(db: Database) {
   // Create test user
@@ -1651,6 +1750,7 @@ export async function seedDevData(db: Database) {
 ```
 
 **Run seed**:
+
 ```bash
 pnpm --filter @polyladder/db seed
 ```
@@ -1658,6 +1758,7 @@ pnpm --filter @polyladder/db seed
 #### 14.10.3 Inspect JWT Tokens
 
 **Decode JWT** (without verification):
+
 ```bash
 # Install jwt-cli
 npm install -g jwt-cli
@@ -1667,6 +1768,7 @@ jwt decode <your-jwt-token>
 ```
 
 **Example output**:
+
 ```json
 {
   "user_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -1680,11 +1782,13 @@ jwt decode <your-jwt-token>
 
 **API Response Times**:
 Pino logs include `responseTime` field. Filter slow requests:
+
 ```bash
 docker-compose logs api | grep '"responseTime":[0-9]\{3,\}'
 ```
 
 **Database Query Performance**:
+
 ```sql
 -- Enable query timing in PostgreSQL
 \timing
@@ -1700,6 +1804,7 @@ EXPLAIN ANALYZE SELECT * FROM approved_meanings WHERE level = 'A1';
 **Error**: `Error starting userland proxy: listen tcp 0.0.0.0:5432: bind: address already in use`
 
 **Solution**:
+
 ```bash
 # Find process using port
 lsof -i :5432  # macOS/Linux
@@ -1715,6 +1820,7 @@ ports:
 **Error**: `Error: connect ECONNREFUSED 127.0.0.1:5432`
 
 **Solution**:
+
 ```bash
 # Check if PostgreSQL is running
 docker-compose ps
@@ -1732,12 +1838,14 @@ docker-compose up -d db && docker-compose logs -f db
 #### 14.11.3 Hot Reload Not Working
 
 **Frontend**: Clear Vite cache
+
 ```bash
 rm -rf packages/web/node_modules/.vite
 pnpm --filter @polyladder/web dev
 ```
 
 **Backend**: Check nodemon is watching correct files
+
 ```bash
 # Add verbose logging
 nodemon --watch src --verbose --exec ts-node src/index.ts
@@ -1746,17 +1854,19 @@ nodemon --watch src --verbose --exec ts-node src/index.ts
 #### 14.11.4 Debugger Won't Attach
 
 **Check inspector is running**:
+
 ```bash
 # Should see "Debugger listening on ws://..."
 docker-compose logs api | grep Debugger
 ```
 
 **Ensure port is exposed**:
+
 ```yaml
 # docker-compose.yml
 api:
   ports:
-    - "9229:9229"  # Must be present
+    - '9229:9229' # Must be present
 ```
 
 **Firewall blocking connection**: Allow port 9229 in firewall settings.
@@ -1764,23 +1874,27 @@ api:
 ### 14.12 Development Workflow Best Practices
 
 1. **Always run tests before committing**:
+
    ```bash
    pnpm test && pnpm lint
    ```
 
 2. **Use conventional commits**:
+
    ```bash
    git commit -m "feat(api): add user vocabulary endpoint"
    git commit -m "fix(core): correct lifecycle state transition"
    ```
 
 3. **Keep Docker images updated**:
+
    ```bash
    docker-compose pull
    docker-compose build --no-cache
    ```
 
 4. **Monitor logs during development**:
+
    ```bash
    # In separate terminal
    docker-compose logs -f api refinement
@@ -1806,6 +1920,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.2 Phase 0: Foundation & Infrastructure
 
 **F000: Project Setup & Development Environment**
+
 - Initialize monorepo with pnpm workspaces
 - TypeScript configuration (base + per-package)
 - ESLint, Prettier, Git hooks
@@ -1813,13 +1928,15 @@ Features are organized into phases. Each phase groups related features that buil
 - Package structure (`core`, `db`, `api`, `refinement-service`, `web`)
 
 **F001: Database Schema & Migrations**
+
 - PostgreSQL schema design
 - Migration framework setup (node-pg-migrate)
-- Initial tables: users, approved_*, pipeline_*, user_*
+- Initial tables: users, approved*\*, pipeline*_, user\__
 - Database seeding for development
 - Connection pooling configuration
 
 **F002: Core Domain Model & Types**
+
 - TypeScript types for all domain entities
 - User, Meaning, Utterance, Exercise, Grammar Rule
 - Lifecycle state enums (DRAFT, CANDIDATE, VALIDATED, APPROVED)
@@ -1827,6 +1944,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Validation schemas (Zod)
 
 **F003: Docker Development Environment**
+
 - Dockerfile for API + Refinement Service
 - docker-compose.yml for local development
 - PostgreSQL container configuration
@@ -1838,6 +1956,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.3 Phase 1: Authentication & User Management
 
 **F004: User Registration & Login**
+
 - User model in database
 - Password hashing (bcrypt)
 - Registration endpoint (POST /api/v1/auth/register)
@@ -1846,6 +1965,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Input validation (email format, password strength)
 
 **F005: Role-Based Authorization**
+
 - Role field in users table (learner/operator)
 - Authorization middleware for Fastify
 - Operator-only route protection
@@ -1853,6 +1973,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Authorization error handling (403 Forbidden)
 
 **F006: Session Management**
+
 - JWT verification middleware
 - Token expiration handling (7 days)
 - Get current user endpoint (GET /api/v1/auth/me)
@@ -1864,6 +1985,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.4 Phase 2: Data Governance Core
 
 **F007: Lifecycle State Machine Implementation**
+
 - State transition logic (DRAFT→CANDIDATE→VALIDATED→APPROVED)
 - Promotion rules and constraints
 - State validation (no backward transitions)
@@ -1871,13 +1993,15 @@ Features are organized into phases. Each phase groups related features that buil
 - Atomic state transitions (database transactions)
 
 **F008: Immutability Engine**
-- Write-once logic for approved_* tables
+
+- Write-once logic for approved\_\* tables
 - Deprecation mechanism (not deletion)
 - Audit log for approved data
 - Immutability constraint enforcement
 - Violation detection and prevention
 
 **F009: Approval Event System**
+
 - Approval event recording (who, when, what)
 - Traceability: every approved item → approval event
 - Automatic vs manual approval modes
@@ -1889,6 +2013,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.5 Phase 3: Quality Assurance System
 
 **F010: Schema Validation Engine**
+
 - JSON schema validation for all data types
 - Required fields enforcement
 - Type checking (string, number, enum)
@@ -1896,6 +2021,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Validation error messages
 
 **F011: Quality Gates Implementation (Part 1)**
+
 - Duplication detection gate
 - Language standard enforcement gate (US English, PT-PT, etc.)
 - Orthography consistency gate
@@ -1903,6 +2029,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Gate failure recording
 
 **F012: Quality Gates Implementation (Part 2)**
+
 - CEFR level consistency checker
 - Prerequisite consistency validation
 - Content safety filtering (profanity, unsafe content)
@@ -1910,6 +2037,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Pass/fail determination
 
 **F013: Validation Failure Recording & Reporting**
+
 - Detailed failure logs (which gate, why)
 - Failure storage in validation_failures table
 - Retry mechanism
@@ -1918,41 +2046,66 @@ Features are organized into phases. Each phase groups related features that buil
 
 ---
 
-### 15.6 Phase 4: Content Refinement Service
+### 15.6 Phase 4: Content Refinement Service (REVISED)
 
-**F014: Service Loop Architecture**
-- Background service process
-- Main loop (check work → do work → checkpoint → repeat)
-- Graceful startup and shutdown
-- State persistence in service_state table
-- Resumability after crash/restart
+**⚠️ ARCHITECTURAL CHANGE**: Content is not generated by LLM from scratch. Instead, content comes from real teaching materials (PDF textbooks) and LLM transforms raw extracted text into structured format. See `docs/REVISED_CONTENT_PIPELINE.md` for full details.
 
-**F015: Work Planner & Priority System**
-- Determine "what to do next" based on DB state
-- Priority rules (orthography first, then meanings, etc.)
-- Gap detection (what's missing)
-- Work queue management
-- Avoid duplicate work
+**F014: Curriculum Structure Management**
 
-**F016: Data Source Integration Framework**
-- Pluggable source adapters
-- LLM integration (OpenAI, Anthropic)
-- External resource parsers
-- Rule-based generators
-- DRAFT creation from any source
+- Pre-created CEFR levels (A0-C2) database seeding
+- Operator UI: define topics per level (name, description, order, prerequisites)
+- Topic management: add, edit, reorder topics
+- Prerequisites configuration (topic X requires topic Y)
+- Database schema: `curriculum_levels`, `curriculum_topics` tables
+- Topic validation (no circular dependencies)
+- Bulk import topics from template (JSON/CSV)
+- Per-language topic library (Spanish, Italian, Portuguese, Slovenian)
 
-**F017: Automated Promotion Pipeline**
-- DRAFT → CANDIDATE normalization
-- CANDIDATE → VALIDATED validation (run quality gates)
-- VALIDATED → APPROVED promotion (configurable: auto or manual)
-- Pipeline error handling
-- Throughput metrics
+**F015: Document Processing Pipeline**
+
+- Document upload UI (PDF textbooks, grammar guides, corpus documents)
+- File storage integration (Fly Volumes or S3-compatible)
+- Document metadata management (language, level, source type, description)
+- PDF text extraction engine (pdf-parse, pdfjs-dist)
+- Structure detection: identify chapters, vocabulary, grammar, dialogues, exercises
+- Content chunking: split by semantic boundaries (paragraphs, sections)
+- Database schema: `document_sources`, `raw_content_chunks` tables
+- Processing status tracking (pending → extracting → chunked → ready)
+- Document library UI (browse, reprocess, delete documents)
+- OCR support for scanned PDFs (tesseract.js)
+
+**F016: Content Transformation Engine**
+
+- Semantic mapping: raw chunks → curriculum topics (operator-defined)
+- LLM-based topic classification ("Which topic does this chunk belong to?")
+- Confidence scoring and operator confirmation UI
+- Database schema: `content_topic_mappings` table
+- LLM transformation: raw text → structured format (NOT generation!)
+- Transformation prompts: include raw text + topic context + document metadata
+- DRAFT creation with source traceability (document_id, chunk_id, topic_id)
+- Batch processing: transform multiple chunks efficiently
+- Enhanced pipeline: DRAFT → CANDIDATE → VALIDATED with source tracking
+- Cost optimization: transformation vs generation (90% savings)
+
+**F017: Operator Feedback & Iteration System**
+
+- Rejection with detailed comments (operator explains corrections needed)
+- Database schema: `operator_feedback` table
+- Feedback UI: rejection dialog with text input
+- Retry mechanism: reprocess rejected items with feedback context
+- Feedback-aware LLM prompts: include previous rejection reasons
+- Iterative improvement tracking (version history per item)
+- Feedback analytics: common rejection patterns
+- Bulk retry operations
+- Quality improvement metrics (approval rate over time)
+- Operator feedback library (reusable correction templates)
 
 ---
 
 ### 15.7 Phase 5: API Layer
 
 **F018: API Infrastructure**
+
 - Fastify server setup
 - CORS configuration
 - Request logging (pino)
@@ -1961,6 +2114,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Health check endpoint (GET /health)
 
 **F019: Authentication Endpoints**
+
 - POST /api/v1/auth/register implementation
 - POST /api/v1/auth/login implementation
 - GET /api/v1/auth/me implementation
@@ -1968,6 +2122,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Auth error responses
 
 **F020: Operational Endpoints**
+
 - GET /api/v1/operational/health - Pipeline metrics
 - GET /api/v1/operational/candidates - Browse candidates
 - GET /api/v1/operational/validated - Browse validated items
@@ -1976,6 +2131,7 @@ Features are organized into phases. Each phase groups related features that buil
 - GET /api/v1/operational/failures - Validation failures
 
 **F021: Learning Endpoints**
+
 - GET /api/v1/learning/curriculum - User curriculum
 - GET /api/v1/learning/vocabulary - User vocabulary state
 - POST /api/v1/learning/progress - Record progress
@@ -1988,6 +2144,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.8 Phase 6: Frontend Foundation
 
 **F022: React Application Setup**
+
 - Vite + React project initialization
 - React Router setup
 - TanStack Query configuration
@@ -1995,6 +2152,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Folder structure (components, pages, hooks, api)
 
 **F023: Authentication UI**
+
 - Registration page (/register)
 - Login page (/login)
 - Auth context (React Context for user state)
@@ -2003,6 +2161,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Auth error handling (401 → redirect to login)
 
 **F024: Protected Routes & Navigation**
+
 - Protected route wrapper (requires authentication)
 - Role-based route protection (operator routes)
 - Main navigation (header, sidebar)
@@ -2014,6 +2173,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.9 Phase 7: Operational UI
 
 **F025: Data Health Dashboard**
+
 - Counts by lifecycle state (DRAFT, CANDIDATE, VALIDATED, APPROVED)
 - Pipeline flow visualization
 - Health indicators (green/yellow/red)
@@ -2021,6 +2181,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Refinement service status
 
 **F026: Candidate Inspection & Approval Interface**
+
 - Browse validated items (paginated table)
 - Item detail view (content, metadata, validation results)
 - Approve button (calls API)
@@ -2028,6 +2189,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Bulk operations (approve/reject multiple)
 
 **F027: Failure Investigation Tools**
+
 - View failed validations (paginated list)
 - Failure details (which gate, error message)
 - Retry button
@@ -2035,6 +2197,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Failure trends chart
 
 **F028: Approved Corpus Explorer**
+
 - Search approved data (by language, level, type)
 - Browse approved meanings, utterances, exercises
 - Export capabilities (JSON, CSV)
@@ -2045,24 +2208,28 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.10 Phase 8: Learning Application - Foundation
 
 **F029: User Onboarding Flow**
+
 - Welcome screen (first-time users)
 - Base language selection
 - Explanation of parallel learning
 - Onboarding completion flag in user record
 
 **F030: Language Selection & Management**
+
 - Select languages to learn (multi-select)
 - Save in user_preferences table
 - Language selection screen (/setup)
 - Change languages later (settings)
 
 **F031: Orthography Gate System**
+
 - Mandatory prerequisite enforcement
 - Per-language orthography completion tracking
 - Block access to vocabulary/grammar until orthography done
 - Orthography gate UI indicator
 
 **F032: Curriculum Graph Engine**
+
 - DAG representation of concepts
 - Prerequisite resolution
 - "What can I learn next" logic
@@ -2074,6 +2241,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.11 Phase 9: Learning Application - Orthography & Phonetics
 
 **F033: Orthography Learning Module**
+
 - Graphemes & phonemes presentation
 - Reading drills (minimum 30 per language)
 - Audio playback for phonetics
@@ -2081,6 +2249,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Completion tracking
 
 **F034: Orthography Practice Exercises**
+
 - Recognition drills (match grapheme to phoneme)
 - Reading aloud with recording
 - Dictation (audio → text input)
@@ -2092,12 +2261,14 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.12 Phase 10: Learning Application - Vocabulary System
 
 **F035: Word State Tracking (Unknown → Learning → Known)**
+
 - Per-word, per-language state in user_vocabulary table
 - State transitions based on performance
 - Vocabulary size metrics (count by state)
 - Word introduction logic
 
 **F036: Contextual Vocabulary Introduction**
+
 - Words introduced through example sentences
 - Context tracking (which words appear where)
 - Varied exposure enforcement
@@ -2108,12 +2279,14 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.13 Phase 11: Learning Application - Grammar Lessons
 
 **F037: Grammar Lesson Structure**
+
 - Theory presentation (in base language)
 - Examples across studied languages
 - Comparative presentation (similarities/differences)
 - Grammar concept as prerequisite for exercises
 
 **F038: Grammar Practice Exercises**
+
 - Rule application exercises
 - Grammar-focused cloze
 - Transformation drills
@@ -2124,42 +2297,49 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.14 Phase 12: Learning Application - Practice Modes
 
 **F039: Recall Practice Mode**
+
 - Prompt in one language → answer in another
 - Random source/target language rotation
 - Word/phrase/sentence levels
 - Immediate feedback
 
 **F040: Recognition Practice Mode (Multiple Choice)**
+
 - Present options, identify correct one
 - Passive knowledge testing
 - Distractor generation (incorrect options)
 - Performance tracking
 
 **F041: Cloze Exercises**
+
 - Sentence with missing element
 - Context-based gap filling
 - Grammar & vocabulary variants
 - Hint system (optional)
 
 **F042: Dictation Practice**
+
 - Audio playback
 - Transcription input
 - Automatic correction (fuzzy match)
 - Orthography & listening combo
 
 **F043: Translation Practice (Between Studied Languages)**
+
 - NO base language intermediary
 - Direct associations (IT→PT, ES→IT, etc.)
 - Random language pair rotation
 - Gradual difficulty increase
 
 **F044: Production Practice (Audio Recording)**
+
 - Learner speaks & records
 - Compare to reference pronunciation
 - Playback comparison
 - Pronunciation feedback (future: speech recognition)
 
 **F045: Reading Comprehension**
+
 - Level-appropriate texts
 - Content questions
 - Vocabulary in context
@@ -2170,6 +2350,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.15 Phase 13: Learning Application - Spaced Repetition System
 
 **F046: SRS Algorithm Implementation**
+
 - Scheduling based on difficulty, time, performance
 - SM-2 or similar algorithm
 - Due date calculation
@@ -2177,6 +2358,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Applies to vocabulary, grammar, sentences
 
 **F047: Review Session Management**
+
 - Daily review queue (items due today)
 - Due items presentation
 - Performance tracking for rescheduling
@@ -2187,24 +2369,28 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.16 Phase 14: Learning Application - Parallel Learning Features
 
 **F048: Comparative Grammar Presentation**
+
 - Side-by-side rule comparison (ES/IT/PT past tense, etc.)
 - Explicit similarity/difference highlighting
 - Tabular comparison views
 - Cross-language grammar insights
 
 **F049: Language Mixing in Practice Sessions**
+
 - Deliberate randomization across languages
 - Prevent fixed pathways through base language
 - Random language pair selection
 - Mixed exercise sessions
 
 **F050: Interference Detection & Remediation**
+
 - Detect confusion patterns (similar words/structures)
 - Track errors by language pair
 - Generate targeted exercises for specific confusions
 - Interference heatmap visualization
 
 **F051: Focus Mode**
+
 - Optional single-language practice
 - For exam prep or high-confusion periods
 - Toggle between parallel & focus mode
@@ -2215,30 +2401,35 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.17 Phase 15: Learning Application - Progress Tracking
 
 **F052: Vocabulary Progress Dashboard**
+
 - Per-language word counts (Unknown/Learning/Known)
 - Breakdown by domain & frequency band
 - Visualization (charts, graphs)
 - Historical trends
 
 **F053: Grammar Coverage Tracking**
+
 - Completed vs remaining topics
 - Per-language grammar progress
 - Coverage percentage
 - Next recommended grammar topic
 
 **F054: CEFR Level Assessment**
+
 - Automatic level mapping (vocab + grammar + performance)
 - Per-language level indicators
 - Level-up notifications
 - Estimated time to next level
 
 **F055: Weakness Identification System**
+
 - Highlight struggle areas (grammar, domain, language pair)
 - Actionable recommendations
 - Weakness trends over time
 - Targeted practice suggestions
 
 **F056: Study Statistics & Trends**
+
 - Time spent (daily, weekly, total)
 - Exercises completed
 - Accuracy trends
@@ -2250,6 +2441,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.18 Phase 16: Deployment & Production Readiness
 
 **F057: Production Docker Configuration**
+
 - Multi-stage Dockerfile (builder + runtime)
 - Nginx configuration
 - Supervisord setup (nginx + API + refinement)
@@ -2257,6 +2449,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Health checks
 
 **F058: Fly.io Deployment Setup**
+
 - fly.toml configuration
 - Fly Postgres setup
 - Secrets management (DATABASE_URL, JWT_SECRET)
@@ -2264,6 +2457,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Domain configuration (custom domain)
 
 **F059: Database Backup & Restore**
+
 - Automated daily backups (Fly Postgres)
 - Manual backup script (pg_dump)
 - Off-site backup storage (S3/B2)
@@ -2271,6 +2465,7 @@ Features are organized into phases. Each phase groups related features that buil
 - Backup testing
 
 **F060: Monitoring & Logging**
+
 - Structured logging (pino)
 - Error tracking (Sentry or similar)
 - Performance monitoring (response times)
@@ -2282,6 +2477,7 @@ Features are organized into phases. Each phase groups related features that buil
 ### 15.19 Feature Implementation Notes
 
 **Completion Criteria**: Each feature is considered complete when:
+
 - Implementation is done and tested (unit + integration tests)
 - Documentation is updated (if needed)
 - Code is reviewed and merged to main
