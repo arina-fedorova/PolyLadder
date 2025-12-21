@@ -6,16 +6,8 @@ import { FeedbackService } from '../../services/feedback.service';
 
 const CreateFeedbackSchema = Type.Object({
   itemId: Type.String({ format: 'uuid' }),
-  itemType: Type.Union([
-    Type.Literal('draft'),
-    Type.Literal('candidate'),
-    Type.Literal('mapping'),
-  ]),
-  action: Type.Union([
-    Type.Literal('reject'),
-    Type.Literal('revise'),
-    Type.Literal('flag'),
-  ]),
+  itemType: Type.Union([Type.Literal('draft'), Type.Literal('candidate'), Type.Literal('mapping')]),
+  action: Type.Union([Type.Literal('reject'), Type.Literal('revise'), Type.Literal('flag')]),
   category: Type.Union([
     Type.Literal('incorrect_content'),
     Type.Literal('wrong_level'),
@@ -49,11 +41,7 @@ const CreateTemplateSchema = Type.Object({
 
 const BulkRejectSchema = Type.Object({
   itemIds: Type.Array(Type.String({ format: 'uuid' })),
-  itemType: Type.Union([
-    Type.Literal('draft'),
-    Type.Literal('candidate'),
-    Type.Literal('mapping'),
-  ]),
+  itemType: Type.Union([Type.Literal('draft'), Type.Literal('candidate'), Type.Literal('mapping')]),
   category: Type.String(),
   comment: Type.String(),
 });
@@ -95,7 +83,7 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const input = request.body as CreateFeedbackInput;
+      const input = request.body;
 
       const feedbackId = await feedbackService.createFeedback({
         itemId: input.itemId,
@@ -252,7 +240,7 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const input = request.body as CreateTemplateInput;
+      const input = request.body;
 
       const templateId = await feedbackService.createTemplate({
         name: input.name,
@@ -373,11 +361,11 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { itemIds, itemType, category, comment } = request.body as BulkRejectInput;
+      const { itemIds, itemType, category, comment } = request.body;
 
       let rejected = 0;
       const errors: string[] = [];
-      
+
       for (const itemId of itemIds) {
         try {
           await feedbackService.createFeedback({
@@ -396,8 +384,11 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      return reply.send({ rejected, total: itemIds.length, errors: errors.length > 0 ? errors : undefined });
+      return reply.send({
+        rejected,
+        total: itemIds.length,
+        errors: errors.length > 0 ? errors : undefined,
+      });
     }
   );
 };
-
