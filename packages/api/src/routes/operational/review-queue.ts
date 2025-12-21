@@ -109,34 +109,36 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const countUnionParts = filteredTables.map(
-        (t) => `SELECT COUNT(*) as count FROM validated_${t.name}`
-      );
-      const countQuery = `SELECT SUM(count::int) as total FROM (${countUnionParts.join(' UNION ALL ')}) counts`;
-      const countResult = await fastify.db.query<{ total: string }>(countQuery);
-      const total = parseInt(countResult.rows[0]?.total ?? '0', 10);
+      const dataTypes = filteredTables.map((t) => t.dataType);
+      const dataTypesPlaceholder = dataTypes.map((_, i) => `$${i + 1}`).join(', ');
 
-      const unionParts = filteredTables.map(
-        (t) => `
-          SELECT 
-            v.id,
-            '${t.dataType}' as data_type,
-            '${t.contentType}' as content_type,
-            v.language_code,
-            COALESCE(l.name, v.language_code) as language_name,
-            v.cefr_level,
-            v.validated_at,
-            v.content,
-            v.validation_results
-          FROM validated_${t.name} v
-          LEFT JOIN languages l ON v.language_code = l.code
-        `
-      );
+      const countQuery = `
+        SELECT COUNT(*)::int as total
+        FROM validated v
+        WHERE v.data_type IN (${dataTypesPlaceholder})
+      `;
+      const countResult = await fastify.db.query<{ total: number }>(countQuery, dataTypes);
+      const total = countResult.rows[0]?.total ?? 0;
 
       const itemsQuery = `
-        SELECT * FROM (${unionParts.join(' UNION ALL ')}) combined
-        ORDER BY validated_at DESC
-        LIMIT $1 OFFSET $2
+        SELECT 
+          v.id,
+          v.data_type::text as data_type,
+          CASE 
+            WHEN v.data_type IN ('meaning', 'utterance') THEN 'vocabulary'
+            WHEN v.data_type = 'rule' THEN 'grammar'
+            WHEN v.data_type = 'exercise' THEN 'orthography'
+          END as content_type,
+          COALESCE((v.validated_data->>'language')::text, 'EN') as language_code,
+          COALESCE((v.validated_data->>'language')::text, 'EN') as language_name,
+          COALESCE((v.validated_data->>'level')::text, 'A1') as cefr_level,
+          v.created_at as validated_at,
+          v.validated_data as content,
+          v.validation_results
+        FROM validated v
+        WHERE v.data_type IN (${dataTypesPlaceholder})
+        ORDER BY v.created_at DESC
+        LIMIT $${dataTypes.length + 1} OFFSET $${dataTypes.length + 2}
       `;
 
       const itemsResult = await fastify.db.query<{
@@ -153,7 +155,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           passed: boolean;
           score?: number;
         }>;
-      }>(itemsQuery, [pageSize, offset]);
+      }>(itemsQuery, [...dataTypes, pageSize, offset]);
 
       const response = itemsResult.rows.map((row) => ({
         id: row.id,

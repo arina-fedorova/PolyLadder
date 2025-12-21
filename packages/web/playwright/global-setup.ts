@@ -48,22 +48,44 @@ async function startDockerDatabase(projectRoot: string): Promise<void> {
   global.dockerStarted = true;
   console.log('✅ PostgreSQL container started');
 
-  console.log('⏳ Waiting for database...');
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  console.log('⏳ Waiting for database to be ready...');
+  const maxAttempts = 30;
+  const intervalMs = 1000;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const { Pool } = await import('pg');
+      const testPool = new Pool({
+        connectionString: 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
+      });
+      await testPool.query('SELECT 1');
+      await testPool.end();
+      console.log('✅ Database is ready');
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+  throw new Error('Database failed to become ready within 30 seconds');
 }
 
 async function runMigrations(projectRoot: string): Promise<void> {
   const isCI = process.env.CI === 'true';
   console.log(`🔧 Running migrations${isCI ? ' (CI mode)' : ''}...`);
 
-  await execAsync('pnpm --filter @polyladder/db migrate up', {
+  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+  
+  const env = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+  };
+  
+  delete env.PGUSER;
+  delete env.PGPASSWORD;
+  delete env.PGDATABASE;
+  
+  await execAsync('pnpm --filter @polyladder/db migrate:up', {
     cwd: projectRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL:
-        process.env.DATABASE_URL ||
-        'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
-    },
+    env,
   });
   console.log('✅ Migrations completed');
 }
@@ -71,22 +93,38 @@ async function runMigrations(projectRoot: string): Promise<void> {
 function startApiServer(projectRoot: string): ChildProcess {
   console.log('🌐 Starting API server...');
 
+  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+  const env = {
+    ...process.env,
+    DATABASE_URL: databaseUrl,
+    JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-min-32-chars-long',
+    PORT: '3001',
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'error',
+  };
+  
+  delete env.PGUSER;
+  delete env.PGPASSWORD;
+  delete env.PGDATABASE;
+
   const apiProcess = exec('pnpm --filter @polyladder/api dev', {
     cwd: projectRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL:
-        process.env.DATABASE_URL ||
-        'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
-      JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-min-32-chars-long',
-      PORT: '3001',
-      NODE_ENV: 'test',
-      LOG_LEVEL: 'error',
-    },
+    env,
+  });
+
+  apiProcess.stdout?.on('data', (data: Buffer) => {
+    const output = String(data);
+    if (output.includes('Error') || output.includes('error')) {
+      console.error('API server output:', output);
+    }
+  });
+
+  apiProcess.stderr?.on('data', (data: Buffer) => {
+    console.error('API server error:', String(data));
   });
 
   apiProcess.on('error', (error) => {
-    console.error('API server error:', error);
+    console.error('API server process error:', error);
   });
 
   return apiProcess;
@@ -96,10 +134,14 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   const isCI = process.env.CI === 'true';
   const projectRoot = getProjectRoot();
   const apiUrl = 'http://localhost:3001/health';
+  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+
+  process.env.DATABASE_URL = databaseUrl;
 
   console.log('\n🚀 Starting E2E test environment setup...\n');
   console.log(`   Project root: ${projectRoot}`);
   console.log(`   CI mode: ${isCI}\n`);
+  console.log(`   Database URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}\n`);
 
   if (await isServiceRunning(apiUrl)) {
     console.log('✅ API server is already running, skipping setup');

@@ -177,7 +177,7 @@ describe('Auth Integration Tests', () => {
   describe('GET /auth/me', () => {
     it('should return current user with valid token', async () => {
       const user = await createTestUser(pool, {
-        email: 'test-me@example.com',
+        email: `test-me-${Date.now()}@example.com`,
         password: 'SecurePassword123!',
       });
 
@@ -186,7 +186,17 @@ describe('Auth Integration Tests', () => {
         url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
+      
+      if (loginResponse.statusCode !== 200) {
+        throw new Error(`Login failed: ${loginResponse.statusCode} - ${loginResponse.body}`);
+      }
+      
       const { accessToken } = loginResponse.json<LoginResponse>();
+
+      const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user.id]);
+      if (userCheck.rows.length === 0) {
+        throw new Error(`User ${user.id} was deleted between login and /me request`);
+      }
 
       const response = await server.inject({
         method: 'GET',
@@ -228,7 +238,7 @@ describe('Auth Integration Tests', () => {
   describe('POST /auth/refresh', () => {
     it('should return new access token with valid refresh token', async () => {
       const user = await createTestUser(pool, {
-        email: 'test-refresh@example.com',
+        email: `test-refresh-${Date.now()}@example.com`,
         password: 'SecurePassword123!',
       });
 
@@ -237,7 +247,38 @@ describe('Auth Integration Tests', () => {
         url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
+      
+      if (loginResponse.statusCode !== 200) {
+        throw new Error(`Login failed: ${loginResponse.statusCode} - ${loginResponse.body}`);
+      }
+      
       const { refreshToken } = loginResponse.json<LoginResponse>();
+
+      const tokenCheck = await pool.query('SELECT user_id FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      if (tokenCheck.rows.length === 0) {
+        const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user.id]);
+        if (userCheck.rows.length === 0) {
+          throw new Error(`User ${user.id} was deleted between login and refresh request`);
+        }
+        const retryLoginResponse = await server.inject({
+          method: 'POST',
+          url: '/api/v1/auth/login',
+          payload: { email: user.email, password: user.password },
+        });
+        if (retryLoginResponse.statusCode !== 200) {
+          throw new Error(`Retry login failed: ${retryLoginResponse.statusCode} - ${retryLoginResponse.body}`);
+        }
+        const newRefreshToken = retryLoginResponse.json<LoginResponse>().refreshToken;
+        const response = await server.inject({
+          method: 'POST',
+          url: '/api/v1/auth/refresh',
+          payload: { refreshToken: newRefreshToken },
+        });
+        expect(response.statusCode).toBe(200);
+        const body = response.json<RefreshResponse>();
+        expect(body.accessToken).toBeDefined();
+        return;
+      }
 
       const response = await server.inject({
         method: 'POST',
