@@ -7,6 +7,7 @@ import rejectRoute from './reject';
 import failuresRoute from './failures';
 import failureTrendsRoute from './failure-trends';
 import activityLogRoute from './activity-log';
+import corpusRoute from './corpus';
 
 const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -17,6 +18,7 @@ const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(failureTrendsRoute);
   await fastify.register(failuresRoute);
   await fastify.register(activityLogRoute);
+  await fastify.register(corpusRoute);
 };
 
 export default operationalRoutes;
