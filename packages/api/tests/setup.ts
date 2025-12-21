@@ -10,7 +10,7 @@ function getTestDatabaseUrl(): string {
   return (
     process.env.TEST_DATABASE_URL ||
     process.env.DATABASE_URL ||
-    'postgresql://postgres:postgres@localhost:5432/polyladder_test'
+    'postgresql://test:test@localhost:5433/polyladder_test'
   );
 }
 
@@ -74,6 +74,10 @@ export async function cleanupTestData(): Promise<void> {
   const pool = getTestPool();
 
   const tables = [
+    'retry_queue',
+    'item_versions',
+    'operator_feedback',
+    'feedback_templates',
     'refresh_tokens',
     'approval_events',
     'review_queue',
@@ -94,7 +98,7 @@ export async function cleanupTestData(): Promise<void> {
   }
 
   try {
-    await pool.query('DELETE FROM users WHERE email LIKE $1', ['test-%']);
+    await pool.query('DELETE FROM users');
   } catch {
     // Table might not exist yet, ignore
   }

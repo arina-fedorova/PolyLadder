@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { CheckCircle, XCircle, Eye, Filter } from 'lucide-react';
 import { ItemDetailModal } from '@/components/operational/ItemDetailModal';
+import { FeedbackDialog } from '@/components/operational/FeedbackDialog';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 
 interface ValidatedItem {
@@ -34,6 +35,7 @@ export function ReviewQueuePage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [detailModalItem, setDetailModalItem] = useState<ValidatedItem | null>(null);
+  const [feedbackItem, setFeedbackItem] = useState<{ id: string; type: 'draft' | 'candidate' | 'mapping' } | null>(null);
 
   const pageSize = 20;
 
@@ -181,11 +183,10 @@ export function ReviewQueuePage() {
   };
 
   const handleReject = (itemId: string) => {
-    const reason = prompt('Reason for rejection (required):');
-    if (reason && reason.trim()) {
-      rejectMutation.mutate({ itemId, reason: reason.trim() });
-      selectedItems.delete(itemId);
-      setSelectedItems(new Set(selectedItems));
+    const item = data?.items.find((i) => i.id === itemId);
+    if (item) {
+      const itemType: 'draft' | 'candidate' | 'mapping' = item.dataType === 'meaning' || item.dataType === 'utterance' ? 'candidate' : 'draft';
+      setFeedbackItem({ id: itemId, type: itemType });
     }
   };
 
@@ -396,7 +397,8 @@ export function ReviewQueuePage() {
                       onClick={() => handleReject(item.id)}
                       disabled={rejectMutation.isPending}
                       className="text-red-600 hover:text-red-700 disabled:opacity-50"
-                      aria-label="Reject"
+                      aria-label="Provide Feedback"
+                      title="Provide Feedback"
                     >
                       <XCircle className="w-5 h-5" />
                     </button>
@@ -444,6 +446,20 @@ export function ReviewQueuePage() {
           onReject={() => {
             handleReject(detailModalItem.id);
             setDetailModalItem(null);
+          }}
+        />
+      )}
+
+      {feedbackItem && (
+        <FeedbackDialog
+          itemId={feedbackItem.id}
+          itemType={feedbackItem.type}
+          onClose={() => setFeedbackItem(null)}
+          onSubmit={() => {
+            setFeedbackItem(null);
+            void queryClient.invalidateQueries(['review-queue']);
+            selectedItems.delete(feedbackItem.id);
+            setSelectedItems(new Set(selectedItems));
           }}
         />
       )}

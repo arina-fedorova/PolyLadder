@@ -5,10 +5,9 @@ let pool: Pool | null = null;
 
 export function getE2EPool(): Pool {
   if (!pool) {
+    const databaseUrl = process.env.DATABASE_URL || 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
     pool = new Pool({
-      connectionString:
-        process.env.DATABASE_URL ||
-        'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
+      connectionString: databaseUrl,
     });
   }
   return pool;
@@ -18,18 +17,32 @@ export async function cleanupTestData(): Promise<void> {
   const p = getE2EPool();
 
   // Delete in correct order due to foreign key constraints
-  await p.query('DELETE FROM user_exercise_results');
-  await p.query('DELETE FROM user_languages');
-  await p.query('DELETE FROM user_vocabulary');
-  await p.query('DELETE FROM approval_events');
-  await p.query('DELETE FROM review_queue');
-  await p.query('DELETE FROM quality_gate_results');
-  await p.query('DELETE FROM pipeline_failures');
-  await p.query('DELETE FROM refresh_tokens');
-  await p.query('DELETE FROM users');
-  await p.query('DELETE FROM validated');
-  await p.query('DELETE FROM candidates');
-  await p.query('DELETE FROM drafts');
+  const tables = [
+    'retry_queue',
+    'item_versions',
+    'operator_feedback',
+    'feedback_templates',
+    'user_exercise_results',
+    'user_languages',
+    'user_vocabulary',
+    'approval_events',
+    'review_queue',
+    'quality_gate_results',
+    'pipeline_failures',
+    'refresh_tokens',
+    'users',
+    'validated',
+    'candidates',
+    'drafts',
+  ];
+
+  for (const table of tables) {
+    try {
+      await p.query(`DELETE FROM ${table}`);
+    } catch {
+      // Table might not exist yet, ignore
+    }
+  }
 }
 
 export async function createTestUser(data: {
