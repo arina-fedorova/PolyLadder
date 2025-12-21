@@ -8,6 +8,7 @@ import { RegisterPage } from '@/pages/public/RegisterPage';
 import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
+import { FailuresPage } from '@/pages/operator/FailuresPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -86,6 +87,17 @@ export function App() {
               <ProtectedRoute requiredRole="operator">
                 <MainLayout showSidebar>
                   <ReviewQueuePage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/failures"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout showSidebar>
+                  <FailuresPage />
                 </MainLayout>
               </ProtectedRoute>
             }

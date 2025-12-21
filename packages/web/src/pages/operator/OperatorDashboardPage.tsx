@@ -6,6 +6,7 @@ import { StateCountCards } from '@/components/operational/StateCountCards';
 import { PipelineFlowChart } from '@/components/operational/PipelineFlowChart';
 import { ActivityLog } from '@/components/operational/ActivityLog';
 import { ServiceStatus } from '@/components/operational/ServiceStatus';
+import { FailureTrendsChart } from '@/components/operational/FailureTrendsChart';
 
 interface PipelineHealth {
   summary: {
@@ -141,6 +142,8 @@ function DashboardContent() {
       </div>
 
       <ServiceStatus service={health.refinementService} />
+
+      <FailureTrendsChart />
 
       <div className="card">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
