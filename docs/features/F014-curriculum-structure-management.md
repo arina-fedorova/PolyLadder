@@ -15,12 +15,12 @@ Operator-defined curriculum structure that organizes learning content by topics,
 
 ## Success Criteria
 
-- [ ] CEFR levels (A0-C2) seeded in database for each language
-- [ ] Operator UI to define topics per level
-- [ ] Topics have: name, description, order, prerequisites
-- [ ] Prerequisites validation (no circular dependencies)
-- [ ] Bulk import topics from JSON/CSV templates
-- [ ] Per-language topic libraries maintained
+- [x] CEFR levels (A0-C2) seeded in database for each language
+- [x] Operator UI to define topics per level
+- [x] Topics have: name, description, order, prerequisites
+- [x] Prerequisites validation (no circular dependencies)
+- [x] Bulk import topics from JSON/CSV templates
+- [x] Per-language topic libraries maintained
 
 ---
 

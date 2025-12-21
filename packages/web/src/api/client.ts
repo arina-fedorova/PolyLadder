@@ -86,4 +86,31 @@ apiClient.interceptors.response.use(
   }
 );
 
-export default apiClient;
+const api = {
+  get: async <T>(url: string): Promise<T> => {
+    const response = await apiClient.get<T>(url);
+    return response.data;
+  },
+  post: async <T>(url: string, data: unknown): Promise<T> => {
+    const response = await apiClient.post<T>(url, data);
+    return response.data;
+  },
+  put: async <T>(url: string, data: unknown): Promise<T> => {
+    const response = await apiClient.put<T>(url, data);
+    return response.data;
+  },
+  delete: async <T>(url: string): Promise<T> => {
+    const response = await apiClient.delete<T>(url);
+    return response.data;
+  },
+  upload: async <T>(url: string, formData: FormData): Promise<T> => {
+    const response = await apiClient.post<T>(url, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+};
+
+export default api;

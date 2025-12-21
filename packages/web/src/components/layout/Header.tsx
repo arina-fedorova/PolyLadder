@@ -80,6 +80,12 @@ export function Header() {
                 >
                   Curriculum
                 </Link>
+                <Link
+                  to="/operator/documents"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Documents
+                </Link>
               </>
             )}
           </nav>
@@ -185,6 +191,20 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Corpus
+                </Link>
+                <Link
+                  to="/operator/curriculum"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Curriculum
+                </Link>
+                <Link
+                  to="/operator/documents"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Documents
                 </Link>
               </>
             )}
