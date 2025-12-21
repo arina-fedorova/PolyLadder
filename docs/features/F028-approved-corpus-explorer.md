@@ -3,7 +3,8 @@
 **Feature Code**: F028
 **Created**: 2025-12-17
 **Phase**: 7 - Operational UI
-**Status**: Not Started
+**Status**: Completed
+**PR**: #31
 
 ---
 
@@ -13,12 +14,12 @@ Operators need read-only access to the approved corpus for content audits, quali
 
 ## Success Criteria
 
-- [ ] Search approved data with filters (language, CEFR level, content type, text search)
-- [ ] Browse approved vocabulary, grammar, orthography, and curriculum items
-- [ ] Export capabilities (JSON, CSV) with bulk selection
-- [ ] Statistics dashboard showing counts by language, level, and content type
-- [ ] Detail view for inspecting individual items
-- [ ] Performance optimized for large corpus (10,000+ items)
+- [x] Search approved data with filters (language, CEFR level, content type, text search)
+- [x] Browse approved vocabulary, grammar, orthography, and curriculum items
+- [x] Export capabilities (JSON, CSV) with bulk selection
+- [x] Statistics dashboard showing counts by language, level, and content type
+- [x] Detail view for inspecting individual items
+- [x] Performance optimized for large corpus (10,000+ items)
 
 ---
 
@@ -652,7 +653,9 @@ export default async function corpusRoutes(fastify: FastifyInstance) {
       querystring: CorpusSearchSchema,
     },
     handler: async (request, reply) => {
-      const { page, pageSize, contentType, language, cefrLevel, search } = request.query as z.infer<typeof CorpusSearchSchema>;
+      const { page, pageSize, contentType, language, cefrLevel, search } = request.query as z.infer<
+        typeof CorpusSearchSchema
+      >;
       const offset = (page - 1) * pageSize;
 
       // Build filter conditions
@@ -806,7 +809,7 @@ export default async function corpusRoutes(fastify: FastifyInstance) {
       const result = await fastify.pg.query(query);
 
       return reply.code(200).send({
-        languages: result.rows.map(row => row.language),
+        languages: result.rows.map((row) => row.language),
       });
     },
   });
@@ -825,10 +828,7 @@ export default async function corpusRoutes(fastify: FastifyInstance) {
 
       const table = `approved_${contentType === 'curriculum' ? 'curriculum_lessons' : contentType === 'grammar' ? 'grammar_lessons' : contentType}`;
 
-      const result = await fastify.pg.query(
-        `SELECT * FROM ${table} WHERE id = $1`,
-        [id]
-      );
+      const result = await fastify.pg.query(`SELECT * FROM ${table} WHERE id = $1`, [id]);
 
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Item not found' });
@@ -883,10 +883,10 @@ export default async function corpusRoutes(fastify: FastifyInstance) {
         }
 
         const headers = Object.keys(items[0]).join(',');
-        const rows = items.map(item =>
-          Object.values(item).map(val =>
-            typeof val === 'object' ? JSON.stringify(val) : String(val)
-          ).join(',')
+        const rows = items.map((item) =>
+          Object.values(item)
+            .map((val) => (typeof val === 'object' ? JSON.stringify(val) : String(val)))
+            .join(',')
         );
 
         const csv = [headers, ...rows].join('\n');
@@ -1124,29 +1124,25 @@ export default async function corpusStatisticsRoutes(fastify: FastifyInstance) {
         ORDER BY language ASC
       `;
 
-      const [
-        byContentTypeResult,
-        byLanguageResult,
-        byCefrLevelResult,
-        byLanguageAndLevelResult,
-      ] = await Promise.all([
-        fastify.pg.query(byContentTypeQuery),
-        fastify.pg.query(byLanguageQuery),
-        fastify.pg.query(byCefrLevelQuery),
-        fastify.pg.query(byLanguageAndLevelQuery),
-      ]);
+      const [byContentTypeResult, byLanguageResult, byCefrLevelResult, byLanguageAndLevelResult] =
+        await Promise.all([
+          fastify.pg.query(byContentTypeQuery),
+          fastify.pg.query(byLanguageQuery),
+          fastify.pg.query(byCefrLevelQuery),
+          fastify.pg.query(byLanguageAndLevelQuery),
+        ]);
 
       // Transform results
       const byContentType = Object.fromEntries(
-        byContentTypeResult.rows.map(row => [row.content_type, parseInt(row.count, 10)])
+        byContentTypeResult.rows.map((row) => [row.content_type, parseInt(row.count, 10)])
       );
 
       const byLanguage = Object.fromEntries(
-        byLanguageResult.rows.map(row => [row.language, parseInt(row.count, 10)])
+        byLanguageResult.rows.map((row) => [row.language, parseInt(row.count, 10)])
       );
 
       const byCefrLevel = Object.fromEntries(
-        byCefrLevelResult.rows.map(row => [row.cefr_level, parseInt(row.count, 10)])
+        byCefrLevelResult.rows.map((row) => [row.cefr_level, parseInt(row.count, 10)])
       );
 
       const totalItems = Object.values(byContentType).reduce((sum, count) => sum + count, 0);
@@ -1156,7 +1152,7 @@ export default async function corpusStatisticsRoutes(fastify: FastifyInstance) {
         byContentType,
         byLanguage,
         byCefrLevel,
-        byLanguageAndLevel: byLanguageAndLevelResult.rows.map(row => ({
+        byLanguageAndLevel: byLanguageAndLevelResult.rows.map((row) => ({
           language: row.language,
           A0: parseInt(row.A0, 10),
           A1: parseInt(row.A1, 10),
@@ -1263,6 +1259,7 @@ await app.register(corpusStatisticsRoutes);
 **Context**: The search functionality uses ILIKE for text search across multiple fields. For large corpora (>50,000 items), this may become slow.
 
 **Options**:
+
 1. **Keep ILIKE** (current approach)
    - Pros: Simple, no additional setup
    - Cons: Slow for large datasets
@@ -1284,6 +1281,7 @@ await app.register(corpusStatisticsRoutes);
 **Context**: Current implementation limits exports to 1000 items to prevent memory issues and long response times.
 
 **Options**:
+
 1. **Keep 1000-item limit** with warning message
    - Pros: Prevents server overload
    - Cons: Users may need multiple exports for full corpus
@@ -1305,6 +1303,7 @@ await app.register(corpusStatisticsRoutes);
 **Context**: The corpus explorer shows the current approved corpus. If items are updated or removed, there's no historical view.
 
 **Options**:
+
 1. **No versioning** (current state only)
    - Pros: Simpler implementation
    - Cons: Can't audit changes over time
@@ -1324,14 +1323,17 @@ await app.register(corpusStatisticsRoutes);
 ## Dependencies
 
 **Blocks**:
+
 - None (terminal for Phase 7 - Operational UI)
 
 **Depends on**:
+
 - F020: Operational Endpoints (API infrastructure)
 - F024: Protected Routes & Navigation (routing, layout)
 - F025: Data Health Dashboard (dashboard integration)
 
 **Optional**:
+
 - Recharts library for visualization
 - Full-text search setup (PostgreSQL tsvector or Elasticsearch)
 
@@ -1340,6 +1342,7 @@ await app.register(corpusStatisticsRoutes);
 ## Notes
 
 ### Implementation Priority
+
 1. Start with corpus search endpoint and page (Tasks 1, 3)
 2. Add item detail modal (Task 2)
 3. Implement export functionality (Task 3 extension)
@@ -1347,6 +1350,7 @@ await app.register(corpusStatisticsRoutes);
 5. Integrate into existing UI (Task 6)
 
 ### Performance Considerations
+
 - Add database indexes on `approved_*` tables:
   - `(language, cefr_level)` for filtering
   - `(approved_at)` for sorting
@@ -1355,11 +1359,13 @@ await app.register(corpusStatisticsRoutes);
 - Use pagination with large page sizes (50-200) for efficiency
 
 ### Security Considerations
+
 - Operator role required for all endpoints
 - Sanitize search input to prevent SQL injection (use parameterized queries)
 - Limit export size to prevent DoS attacks
 
 ### UX Enhancements (Future)
+
 - Saved search filters (persist in localStorage)
 - Column sorting in results table
 - Quick filters (e.g., "Recently approved", "High-frequency words")

@@ -68,6 +68,12 @@ export function Header() {
                 >
                   Failures
                 </Link>
+                <Link
+                  to="/operator/corpus"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Corpus
+                </Link>
               </>
             )}
           </nav>
@@ -166,6 +172,13 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Failures
+                </Link>
+                <Link
+                  to="/operator/corpus"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Corpus
                 </Link>
               </>
             )}

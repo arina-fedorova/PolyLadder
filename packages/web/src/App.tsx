@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
 import { FailuresPage } from '@/pages/operator/FailuresPage';
+import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -98,6 +99,17 @@ export function App() {
               <ProtectedRoute requiredRole="operator">
                 <MainLayout showSidebar>
                   <FailuresPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/corpus"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout showSidebar>
+                  <CorpusExplorerPage />
                 </MainLayout>
               </ProtectedRoute>
             }
