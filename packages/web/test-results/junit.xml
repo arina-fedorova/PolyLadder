@@ -1,100 +1,96 @@
-<testsuites id="" name="" tests="41" failures="0" skipped="0" errors="0" time="106.118293">
-<testsuite name="auth\login.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="5" failures="0" skipped="0" time="4.517" errors="0">
-<testcase name="Login Page › should display login form" classname="auth\login.spec.ts" time="0.584">
+<testsuites id="" name="" tests="39" failures="0" skipped="0" errors="0" time="94.78631">
+<testsuite name="auth\login.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="5" failures="0" skipped="0" time="4.945" errors="0">
+<testcase name="Login Page › should display login form" classname="auth\login.spec.ts" time="0.634">
 </testcase>
-<testcase name="Login Page › should navigate to register page when clicking sign up link" classname="auth\login.spec.ts" time="0.51">
+<testcase name="Login Page › should navigate to register page when clicking sign up link" classname="auth\login.spec.ts" time="0.485">
 </testcase>
-<testcase name="Login Page › should show error for invalid credentials" classname="auth\login.spec.ts" time="0.895">
+<testcase name="Login Page › should show error for invalid credentials" classname="auth\login.spec.ts" time="0.886">
 </testcase>
-<testcase name="Login Page › should successfully login with valid credentials" classname="auth\login.spec.ts" time="1.5">
+<testcase name="Login Page › should successfully login with valid credentials" classname="auth\login.spec.ts" time="1.47">
 </testcase>
-<testcase name="Login Page › should successfully login as operator" classname="auth\login.spec.ts" time="1.028">
-</testcase>
-</testsuite>
-<testsuite name="auth\register.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="7" failures="0" skipped="0" time="6.796" errors="0">
-<testcase name="Register Page › should display registration form" classname="auth\register.spec.ts" time="0.542">
-</testcase>
-<testcase name="Register Page › should navigate to login page when clicking sign in link" classname="auth\register.spec.ts" time="0.504">
-</testcase>
-<testcase name="Register Page › should show password requirements hint" classname="auth\register.spec.ts" time="0.477">
-</testcase>
-<testcase name="Register Page › should successfully register with valid data" classname="auth\register.spec.ts" time="1.397">
-</testcase>
-<testcase name="Register Page › should successfully register as operator" classname="auth\register.spec.ts" time="1.496">
-</testcase>
-<testcase name="Register Page › should show error when email already exists" classname="auth\register.spec.ts" time="0.967">
-</testcase>
-<testcase name="Register Page › should register with Spanish base language" classname="auth\register.spec.ts" time="1.413">
+<testcase name="Login Page › should successfully login as operator" classname="auth\login.spec.ts" time="1.47">
 </testcase>
 </testsuite>
-<testsuite name="navigation\header.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="5" failures="0" skipped="0" time="7.754" errors="0">
-<testcase name="Header Navigation › should display user email in header after login" classname="navigation\header.spec.ts" time="0.954">
+<testsuite name="auth\register.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="7" failures="0" skipped="0" time="6.762" errors="0">
+<testcase name="Register Page › should display registration form" classname="auth\register.spec.ts" time="0.535">
 </testcase>
-<testcase name="Header Navigation › should show learner navigation links for learner" classname="navigation\header.spec.ts" time="1.468">
+<testcase name="Register Page › should navigate to login page when clicking sign in link" classname="auth\register.spec.ts" time="0.489">
 </testcase>
-<testcase name="Header Navigation › should show operator navigation links for operator" classname="navigation\header.spec.ts" time="1.655">
+<testcase name="Register Page › should show password requirements hint" classname="auth\register.spec.ts" time="0.469">
 </testcase>
-<testcase name="Header Navigation › should logout and redirect to login page" classname="navigation\header.spec.ts" time="1.947">
+<testcase name="Register Page › should successfully register with valid data" classname="auth\register.spec.ts" time="1.43">
 </testcase>
-<testcase name="Header Navigation › should show user role in dropdown menu" classname="navigation\header.spec.ts" time="1.73">
+<testcase name="Register Page › should successfully register as operator" classname="auth\register.spec.ts" time="1.42">
 </testcase>
-</testsuite>
-<testsuite name="navigation\protected-routes.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="4" failures="0" skipped="0" time="13.074" errors="0">
-<testcase name="Protected Routes › should redirect to login when accessing protected route without auth" classname="navigation\protected-routes.spec.ts" time="0.49">
+<testcase name="Register Page › should show error when email already exists" classname="auth\register.spec.ts" time="0.973">
 </testcase>
-<testcase name="Protected Routes › should access dashboard after login" classname="navigation\protected-routes.spec.ts" time="1.468">
-</testcase>
-<testcase name="Protected Routes › should show 403 when learner tries to access operator route" classname="navigation\protected-routes.spec.ts" time="1.424">
-</testcase>
-<testcase name="Protected Routes › should allow operator to access operator routes" classname="navigation\protected-routes.spec.ts" time="9.692">
+<testcase name="Register Page › should register with Spanish base language" classname="auth\register.spec.ts" time="1.446">
 </testcase>
 </testsuite>
-<testsuite name="operational\corpus.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="6" failures="0" skipped="0" time="8.526" errors="0">
-<testcase name="Corpus Explorer › should deny access to learner" classname="operational\corpus.spec.ts" time="1.805">
+<testsuite name="navigation\header.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="5" failures="0" skipped="0" time="7.402" errors="0">
+<testcase name="Header Navigation › should display user email in header after login" classname="navigation\header.spec.ts" time="1.453">
 </testcase>
-<testcase name="Corpus Explorer › should allow operator to access corpus explorer" classname="operational\corpus.spec.ts" time="1.139">
+<testcase name="Header Navigation › should show learner navigation links for learner" classname="navigation\header.spec.ts" time="1.449">
 </testcase>
-<testcase name="Corpus Explorer › should display search and filters" classname="operational\corpus.spec.ts" time="1.136">
+<testcase name="Header Navigation › should show operator navigation links for operator" classname="navigation\header.spec.ts" time="1.443">
 </testcase>
-<testcase name="Corpus Explorer › should show empty state when no items" classname="operational\corpus.spec.ts" time="1.607">
+<testcase name="Header Navigation › should logout and redirect to login page" classname="navigation\header.spec.ts" time="1.604">
 </testcase>
-<testcase name="Corpus Explorer › should display corpus link in header for operator" classname="operational\corpus.spec.ts" time="0.915">
-</testcase>
-<testcase name="Corpus Explorer › should toggle statistics panel" classname="operational\corpus.spec.ts" time="1.924">
+<testcase name="Header Navigation › should show user role in dropdown menu" classname="navigation\header.spec.ts" time="1.453">
 </testcase>
 </testsuite>
-<testsuite name="operational\dashboard.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="4" failures="0" skipped="0" time="14.3" errors="0">
-<testcase name="Operator Dashboard › should deny access to learner" classname="operational\dashboard.spec.ts" time="1.066">
+<testsuite name="navigation\protected-routes.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="4" failures="0" skipped="0" time="5.321" errors="0">
+<testcase name="Protected Routes › should redirect to login when accessing protected route without auth" classname="navigation\protected-routes.spec.ts" time="0.456">
 </testcase>
-<testcase name="Operator Dashboard › should allow operator to access dashboard" classname="operational\dashboard.spec.ts" time="8.991">
+<testcase name="Protected Routes › should access dashboard after login" classname="navigation\protected-routes.spec.ts" time="1.497">
 </testcase>
-<testcase name="Operator Dashboard › should display header navigation for operator" classname="operational\dashboard.spec.ts" time="2.152">
+<testcase name="Protected Routes › should show 403 when learner tries to access operator route" classname="navigation\protected-routes.spec.ts" time="1.598">
 </testcase>
-<testcase name="Operator Dashboard › should display sidebar for operator" classname="operational\dashboard.spec.ts" time="2.091">
-</testcase>
-</testsuite>
-<testsuite name="operational\failures.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="5" failures="0" skipped="0" time="6.485" errors="0">
-<testcase name="Failures Page › should deny access to learner" classname="operational\failures.spec.ts" time="1.571">
-</testcase>
-<testcase name="Failures Page › should allow operator to access failures page" classname="operational\failures.spec.ts" time="1.172">
-</testcase>
-<testcase name="Failures Page › should display filters" classname="operational\failures.spec.ts" time="1.603">
-</testcase>
-<testcase name="Failures Page › should show empty state when no failures" classname="operational\failures.spec.ts" time="1.202">
-</testcase>
-<testcase name="Failures Page › should display failures link in header for operator" classname="operational\failures.spec.ts" time="0.937">
+<testcase name="Protected Routes › should allow operator to access operator routes" classname="navigation\protected-routes.spec.ts" time="1.77">
 </testcase>
 </testsuite>
-<testsuite name="operational\review-queue.spec.ts" timestamp="2025-12-21T08:43:04.449Z" hostname="chromium" tests="5" failures="0" skipped="0" time="39.916" errors="0">
-<testcase name="Review Queue › should deny access to learner" classname="operational\review-queue.spec.ts" time="1.63">
+<testsuite name="operational\corpus.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="6" failures="0" skipped="0" time="8.361" errors="0">
+<testcase name="Corpus Explorer › should deny access to learner" classname="operational\corpus.spec.ts" time="1.127">
 </testcase>
-<testcase name="Review Queue › should allow operator to access review queue" classname="operational\review-queue.spec.ts" time="9.579">
+<testcase name="Corpus Explorer › should allow operator to access corpus explorer" classname="operational\corpus.spec.ts" time="1.6">
 </testcase>
-<testcase name="Review Queue › should display content type filter" classname="operational\review-queue.spec.ts" time="9.601">
+<testcase name="Corpus Explorer › should display search and filters" classname="operational\corpus.spec.ts" time="1.616">
 </testcase>
-<testcase name="Review Queue › should display table headers" classname="operational\review-queue.spec.ts" time="9.573">
+<testcase name="Corpus Explorer › should show empty state when no items" classname="operational\corpus.spec.ts" time="1.248">
 </testcase>
-<testcase name="Review Queue › should display sidebar navigation" classname="operational\review-queue.spec.ts" time="9.533">
+<testcase name="Corpus Explorer › should display corpus link in header for operator" classname="operational\corpus.spec.ts" time="0.956">
+</testcase>
+<testcase name="Corpus Explorer › should toggle statistics panel" classname="operational\corpus.spec.ts" time="1.814">
+</testcase>
+</testsuite>
+<testsuite name="operational\dashboard.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="3" failures="0" skipped="0" time="5.911" errors="0">
+<testcase name="Operator Dashboard › should deny access to learner" classname="operational\dashboard.spec.ts" time="1.562">
+</testcase>
+<testcase name="Operator Dashboard › should allow operator to access dashboard" classname="operational\dashboard.spec.ts" time="2.194">
+</testcase>
+<testcase name="Operator Dashboard › should display header navigation for operator" classname="operational\dashboard.spec.ts" time="2.155">
+</testcase>
+</testsuite>
+<testsuite name="operational\failures.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="5" failures="0" skipped="0" time="7.427" errors="0">
+<testcase name="Failures Page › should deny access to learner" classname="operational\failures.spec.ts" time="1.111">
+</testcase>
+<testcase name="Failures Page › should allow operator to access failures page" classname="operational\failures.spec.ts" time="1.613">
+</testcase>
+<testcase name="Failures Page › should display filters" classname="operational\failures.spec.ts" time="1.646">
+</testcase>
+<testcase name="Failures Page › should show empty state when no failures" classname="operational\failures.spec.ts" time="1.603">
+</testcase>
+<testcase name="Failures Page › should display failures link in header for operator" classname="operational\failures.spec.ts" time="1.454">
+</testcase>
+</testsuite>
+<testsuite name="operational\review-queue.spec.ts" timestamp="2025-12-21T11:10:55.938Z" hostname="chromium" tests="4" failures="0" skipped="0" time="29.292" errors="0">
+<testcase name="Review Queue › should deny access to learner" classname="operational\review-queue.spec.ts" time="1.096">
+</testcase>
+<testcase name="Review Queue › should allow operator to access review queue" classname="operational\review-queue.spec.ts" time="9.041">
+</testcase>
+<testcase name="Review Queue › should display content type filter" classname="operational\review-queue.spec.ts" time="9.579">
+</testcase>
+<testcase name="Review Queue › should display table headers" classname="operational\review-queue.spec.ts" time="9.576">
 </testcase>
 </testsuite>
 </testsuites>
