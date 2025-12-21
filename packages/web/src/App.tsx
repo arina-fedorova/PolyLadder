@@ -64,7 +64,7 @@ export function App() {
             path="/operator/dashboard"
             element={
               <ProtectedRoute requiredRole="operator">
-                <MainLayout showSidebar>
+                <MainLayout>
                   <OperatorDashboardPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -75,7 +75,7 @@ export function App() {
             path="/operator/pipeline"
             element={
               <ProtectedRoute requiredRole="operator">
-                <MainLayout showSidebar>
+                <MainLayout>
                   <OperatorDashboardPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -86,7 +86,7 @@ export function App() {
             path="/operator/review-queue"
             element={
               <ProtectedRoute requiredRole="operator">
-                <MainLayout showSidebar>
+                <MainLayout>
                   <ReviewQueuePage />
                 </MainLayout>
               </ProtectedRoute>
@@ -97,7 +97,7 @@ export function App() {
             path="/operator/failures"
             element={
               <ProtectedRoute requiredRole="operator">
-                <MainLayout showSidebar>
+                <MainLayout>
                   <FailuresPage />
                 </MainLayout>
               </ProtectedRoute>
@@ -108,7 +108,7 @@ export function App() {
             path="/operator/corpus"
             element={
               <ProtectedRoute requiredRole="operator">
-                <MainLayout showSidebar>
+                <MainLayout>
                   <CorpusExplorerPage />
                 </MainLayout>
               </ProtectedRoute>

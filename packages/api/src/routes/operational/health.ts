@@ -70,11 +70,43 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const totals = {
-        draft: 0,
-        candidate: 0,
-        validated: 0,
-        approved: 0,
+      const draftResult = await fastify.db.query<{ data_type: string; count: string }>(
+        `SELECT data_type, COUNT(*) as count FROM drafts GROUP BY data_type`
+      );
+
+      const candidateResult = await fastify.db.query<{ data_type: string; count: string }>(
+        `SELECT d.data_type, COUNT(*) as count 
+         FROM candidates c 
+         JOIN drafts d ON c.draft_id = d.id 
+         GROUP BY d.data_type`
+      );
+
+      const validatedResult = await fastify.db.query<{ data_type: string; count: string }>(
+        `SELECT d.data_type, COUNT(*) as count 
+         FROM validated v 
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id 
+         GROUP BY d.data_type`
+      );
+
+      const approvedMeanings = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM approved_meanings`
+      );
+      const approvedUtterances = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM approved_utterances`
+      );
+      const approvedRules = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM approved_rules`
+      );
+      const approvedExercises = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM approved_exercises`
+      );
+
+      const typeMapping: Record<string, keyof PipelineHealth['byContentType']> = {
+        meaning: 'vocabulary',
+        utterance: 'vocabulary',
+        rule: 'grammar',
+        exercise: 'orthography',
       };
 
       const byContentType: PipelineHealth['byContentType'] = {
@@ -83,47 +115,48 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
         orthography: { draft: 0, candidate: 0, validated: 0, approved: 0 },
       };
 
-      const tableMapping: Record<string, keyof typeof byContentType> = {
-        meanings: 'vocabulary',
-        utterances: 'vocabulary',
-        rules: 'grammar',
-        exercises: 'orthography',
-      };
+      const totals = { draft: 0, candidate: 0, validated: 0, approved: 0 };
 
-      const tables = ['meanings', 'utterances', 'rules', 'exercises'];
-
-      for (const tableName of tables) {
-        const draftResult = await fastify.db.query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM draft_${tableName}`
-        );
-        const candidateResult = await fastify.db.query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM candidate_${tableName}`
-        );
-        const validatedResult = await fastify.db.query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM validated_${tableName}`
-        );
-        const approvedResult = await fastify.db.query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM approved_${tableName}`
-        );
-
-        const stats = {
-          draft: parseInt(draftResult.rows[0]?.count ?? '0', 10),
-          candidate: parseInt(candidateResult.rows[0]?.count ?? '0', 10),
-          validated: parseInt(validatedResult.rows[0]?.count ?? '0', 10),
-          approved: parseInt(approvedResult.rows[0]?.count ?? '0', 10),
-        };
-
-        const contentType = tableMapping[tableName];
-        byContentType[contentType].draft += stats.draft;
-        byContentType[contentType].candidate += stats.candidate;
-        byContentType[contentType].validated += stats.validated;
-        byContentType[contentType].approved += stats.approved;
-
-        totals.draft += stats.draft;
-        totals.candidate += stats.candidate;
-        totals.validated += stats.validated;
-        totals.approved += stats.approved;
+      for (const row of draftResult.rows) {
+        const contentType = typeMapping[row.data_type];
+        if (contentType) {
+          const count = parseInt(row.count, 10);
+          byContentType[contentType].draft += count;
+          totals.draft += count;
+        }
       }
+
+      for (const row of candidateResult.rows) {
+        const contentType = typeMapping[row.data_type];
+        if (contentType) {
+          const count = parseInt(row.count, 10);
+          byContentType[contentType].candidate += count;
+          totals.candidate += count;
+        }
+      }
+
+      for (const row of validatedResult.rows) {
+        const contentType = typeMapping[row.data_type];
+        if (contentType) {
+          const count = parseInt(row.count, 10);
+          byContentType[contentType].validated += count;
+          totals.validated += count;
+        }
+      }
+
+      const approvedMeaningsCount = parseInt(approvedMeanings.rows[0]?.count ?? '0', 10);
+      const approvedUtterancesCount = parseInt(approvedUtterances.rows[0]?.count ?? '0', 10);
+      const approvedRulesCount = parseInt(approvedRules.rows[0]?.count ?? '0', 10);
+      const approvedExercisesCount = parseInt(approvedExercises.rows[0]?.count ?? '0', 10);
+
+      byContentType.vocabulary.approved = approvedMeaningsCount + approvedUtterancesCount;
+      byContentType.grammar.approved = approvedRulesCount;
+      byContentType.orthography.approved = approvedExercisesCount;
+      totals.approved =
+        approvedMeaningsCount +
+        approvedUtterancesCount +
+        approvedRulesCount +
+        approvedExercisesCount;
 
       const failuresResult = await fastify.db.query<{ count: string }>(
         `SELECT COUNT(*) as count
@@ -133,11 +166,9 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
 
       const metricsResult = await fastify.db.query<{
         items_processed: string;
-        items_approved: string;
       }>(
         `SELECT 
-           COALESCE(SUM(items_processed), 0) as items_processed,
-           COALESCE(SUM(items_approved), 0) as items_approved
+           COALESCE(SUM(items_processed), 0) as items_processed
          FROM pipeline_metrics
          WHERE recorded_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'`
       );
@@ -148,25 +179,19 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
          WHERE service_name = 'refinement_service'`
       );
 
-      const stuckItemsResult = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count
-         FROM (
-           SELECT id, updated_at FROM draft_meanings
-           UNION ALL SELECT id, updated_at FROM draft_utterances
-           UNION ALL SELECT id, updated_at FROM draft_rules
-           UNION ALL SELECT id, updated_at FROM draft_exercises
-           UNION ALL SELECT id, updated_at FROM candidate_meanings
-           UNION ALL SELECT id, updated_at FROM candidate_utterances
-           UNION ALL SELECT id, updated_at FROM candidate_rules
-           UNION ALL SELECT id, updated_at FROM candidate_exercises
-         ) AS all_items
-         WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '7 days'`
+      const stuckDrafts = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM drafts WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '7 days'`
+      );
+      const stuckCandidates = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM candidates WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '7 days'`
       );
 
       const lastCheckpoint = serviceResult.rows[0]?.last_checkpoint ?? null;
       const itemsProcessedToday = parseInt(metricsResult.rows[0]?.items_processed ?? '0', 10);
       const failedCount = parseInt(failuresResult.rows[0]?.count ?? '0', 10);
-      const stuckItems = parseInt(stuckItemsResult.rows[0]?.count ?? '0', 10);
+      const stuckItems =
+        parseInt(stuckDrafts.rows[0]?.count ?? '0', 10) +
+        parseInt(stuckCandidates.rows[0]?.count ?? '0', 10);
 
       let serviceStatus: 'running' | 'stopped' | 'error' = 'stopped';
       if (lastCheckpoint) {
