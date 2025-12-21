@@ -10,12 +10,14 @@ export function up(pgm: MigrationBuilder): void {
       default: pgm.func('gen_random_uuid()'),
     },
     language: {
-      type: 'language_enum',
+      type: 'varchar(2)',
       notNull: true,
+      check: "language IN ('EN', 'IT', 'PT', 'SL', 'ES')",
     },
     cefr_level: {
-      type: 'cefr_level_enum',
+      type: 'varchar(2)',
       notNull: true,
+      check: "cefr_level IN ('A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2')",
     },
     name: {
       type: 'varchar(100)',
