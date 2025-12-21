@@ -30,6 +30,20 @@ const FailuresResponseSchema = Type.Object({
   offset: Type.Number(),
 });
 
+const RetryResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  message: Type.String(),
+});
+
+const BulkRetryBodySchema = Type.Object({
+  failureIds: Type.Array(Type.String()),
+});
+
+const BulkRetryResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  retriedCount: Type.Number(),
+});
+
 interface FailureRow {
   id: string;
   item_id: string;
@@ -121,6 +135,143 @@ const failuresRoute: FastifyPluginAsync = async function (fastify) {
         total,
         limit,
         offset,
+      });
+    }
+  );
+
+  fastify.post<{ Params: { id: string } }>(
+    '/failures/:id/retry',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        params: Type.Object({
+          id: Type.String(),
+        }),
+        response: {
+          200: RetryResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
+      const { id } = request.params;
+
+      const failureResult = await fastify.db.query<FailureRow>(
+        `SELECT id, item_id, data_type, state FROM pipeline_failures WHERE id = $1`,
+        [id]
+      );
+
+      if (failureResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: 'Failure not found',
+            requestId: request.id,
+            code: 'NOT_FOUND',
+          },
+        });
+      }
+
+      const failure = failureResult.rows[0];
+
+      const tableMap: Record<string, string> = {
+        meaning: 'candidate_meanings',
+        utterance: 'candidate_utterances',
+        rule: 'candidate_rules',
+        exercise: 'candidate_exercises',
+      };
+
+      const tableName = tableMap[failure.data_type];
+      if (tableName) {
+        await fastify.db.query(
+          `UPDATE ${tableName} SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [failure.item_id]
+        );
+      }
+
+      await fastify.db.query(`DELETE FROM pipeline_failures WHERE id = $1`, [id]);
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Item queued for revalidation',
+      });
+    }
+  );
+
+  fastify.post<{ Body: Static<typeof BulkRetryBodySchema> }>(
+    '/failures/bulk-retry',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        body: BulkRetryBodySchema,
+        response: {
+          200: BulkRetryResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
+      const { failureIds } = request.body;
+
+      if (failureIds.length === 0) {
+        return reply.status(200).send({
+          success: true,
+          retriedCount: 0,
+        });
+      }
+
+      const failuresResult = await fastify.db.query<FailureRow>(
+        `SELECT id, item_id, data_type FROM pipeline_failures WHERE id = ANY($1)`,
+        [failureIds]
+      );
+
+      const tableMap: Record<string, string> = {
+        meaning: 'candidate_meanings',
+        utterance: 'candidate_utterances',
+        rule: 'candidate_rules',
+        exercise: 'candidate_exercises',
+      };
+
+      for (const failure of failuresResult.rows) {
+        const tableName = tableMap[failure.data_type];
+        if (tableName) {
+          await fastify.db.query(
+            `UPDATE ${tableName} SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+            [failure.item_id]
+          );
+        }
+      }
+
+      await fastify.db.query(`DELETE FROM pipeline_failures WHERE id = ANY($1)`, [failureIds]);
+
+      return reply.status(200).send({
+        success: true,
+        retriedCount: failuresResult.rows.length,
       });
     }
   );

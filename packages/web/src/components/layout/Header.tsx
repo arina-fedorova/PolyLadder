@@ -62,6 +62,12 @@ export function Header() {
                 >
                   Review Queue
                 </Link>
+                <Link
+                  to="/operator/failures"
+                  className="text-red-600 hover:text-red-700 transition-colors"
+                >
+                  Failures
+                </Link>
               </>
             )}
           </nav>
@@ -153,6 +159,13 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Review Queue
+                </Link>
+                <Link
+                  to="/operator/failures"
+                  className="block px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Failures
                 </Link>
               </>
             )}
