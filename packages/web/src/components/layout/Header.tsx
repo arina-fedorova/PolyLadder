@@ -74,6 +74,12 @@ export function Header() {
                 >
                   Corpus
                 </Link>
+                <Link
+                  to="/operator/curriculum"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Curriculum
+                </Link>
               </>
             )}
           </nav>
