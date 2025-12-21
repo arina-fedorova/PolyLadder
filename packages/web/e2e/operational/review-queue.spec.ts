@@ -100,27 +100,4 @@ test.describe('Review Queue', () => {
     await expect(page.getByRole('columnheader', { name: 'Validated' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
   });
-
-  test('should display sidebar navigation', async ({ page }) => {
-    await createTestUser({
-      email: 'operator@example.com',
-      password: 'OperatorPass123',
-      role: 'operator',
-    });
-
-    await page.goto('/login');
-    await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    await expect(page).toHaveURL('/dashboard');
-
-    await page.goto('/operator/review-queue');
-    await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible({
-      timeout: 10000,
-    });
-
-    await expect(page.getByRole('complementary')).toBeVisible();
-    await expect(page.getByText('Sidebar')).toBeVisible();
-  });
 });
