@@ -10,6 +10,7 @@ import activityLogRoute from './activity-log';
 import corpusRoute from './corpus';
 import { curriculumRoutes } from './curriculum';
 import { documentRoutes } from './documents';
+import { mappingRoutes } from './mappings';
 
 const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -23,6 +24,7 @@ const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(corpusRoute);
   await fastify.register(curriculumRoutes);
   await fastify.register(documentRoutes);
+  await fastify.register(mappingRoutes);
 };
 
 export default operationalRoutes;

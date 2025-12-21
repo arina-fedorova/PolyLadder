@@ -86,6 +86,12 @@ export function Header() {
                 >
                   Documents
                 </Link>
+                <Link
+                  to="/operator/mappings"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Mappings
+                </Link>
               </>
             )}
           </nav>
@@ -205,6 +211,13 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Documents
+                </Link>
+                <Link
+                  to="/operator/mappings"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Mappings
                 </Link>
               </>
             )}

@@ -12,6 +12,7 @@ import { FailuresPage } from '@/pages/operator/FailuresPage';
 import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
 import { DocumentLibraryPage } from '@/pages/operator/DocumentLibraryPage';
+import { MappingReviewPage } from '@/pages/operator/MappingReviewPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -134,6 +135,17 @@ export function App() {
               <ProtectedRoute requiredRole="operator">
                 <MainLayout>
                   <DocumentLibraryPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/mappings"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout>
+                  <MappingReviewPage />
                 </MainLayout>
               </ProtectedRoute>
             }
