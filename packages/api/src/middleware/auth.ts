@@ -52,8 +52,12 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
     };
   } catch (error) {
     await reply.status(401).send({
-      error: 'Unauthorized',
-      message: error instanceof Error ? error.message : 'Invalid token',
+      error: {
+        statusCode: 401,
+        message: error instanceof Error ? error.message : 'Invalid token',
+        requestId: request.id,
+        code: 'UNAUTHORIZED',
+      },
     });
   }
 }

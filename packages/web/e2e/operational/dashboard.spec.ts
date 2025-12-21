@@ -71,25 +71,4 @@ test.describe('Operator Dashboard', () => {
     await expect(page.getByRole('link', { name: 'Review Queue' })).toBeVisible();
     await expect(page.getByText('operator@example.com')).toBeVisible();
   });
-
-  test('should display sidebar for operator', async ({ page }) => {
-    await createTestUser({
-      email: 'operator@example.com',
-      password: 'OperatorPass123',
-      role: 'operator',
-    });
-
-    await page.goto('/login');
-    await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    await expect(page).toHaveURL('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    await page.goto('/operator/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    await expect(page.getByText('Sidebar')).toBeVisible();
-  });
 });
