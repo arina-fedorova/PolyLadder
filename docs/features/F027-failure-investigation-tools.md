@@ -3,7 +3,8 @@
 **Feature Code**: F027
 **Created**: 2025-12-17
 **Phase**: 7 - Operational UI
-**Status**: Not Started
+**Status**: Completed
+**PR**: #30
 
 ---
 
@@ -13,12 +14,12 @@ Operators need comprehensive tools to investigate validation failures, identify 
 
 ## Success Criteria
 
-- [ ] Paginated list of failed validations with filtering
-- [ ] Failure details showing gate name, error message, and validation context
-- [ ] Retry button to reprocess failed items
-- [ ] Fix and resubmit option to edit content inline
-- [ ] Failure trends chart showing patterns over time
-- [ ] Bulk retry operations for similar failures
+- [x] Paginated list of failed validations with filtering
+- [x] Failure details showing gate name, error message, and validation context
+- [x] Retry button to reprocess failed items
+- [ ] Fix and resubmit option to edit content inline (deferred to future)
+- [x] Failure trends chart showing patterns over time
+- [x] Bulk retry operations for similar failures
 
 ---
 
@@ -634,21 +635,23 @@ export default async function failuresRoutes(fastify: FastifyInstance) {
       querystring: FailuresQuerySchema,
       response: {
         200: z.object({
-          failures: z.array(z.object({
-            id: z.string(),
-            contentType: z.enum(['vocabulary', 'grammar', 'orthography', 'curriculum']),
-            itemId: z.string(),
-            gateName: z.string(),
-            errorMessage: z.string(),
-            attemptNumber: z.number(),
-            failedAt: z.string(),
-            canRetry: z.boolean(),
-            metadata: z.object({
-              wordText: z.string().optional(),
-              topic: z.string().optional(),
-              character: z.string().optional(),
-            }),
-          })),
+          failures: z.array(
+            z.object({
+              id: z.string(),
+              contentType: z.enum(['vocabulary', 'grammar', 'orthography', 'curriculum']),
+              itemId: z.string(),
+              gateName: z.string(),
+              errorMessage: z.string(),
+              attemptNumber: z.number(),
+              failedAt: z.string(),
+              canRetry: z.boolean(),
+              metadata: z.object({
+                wordText: z.string().optional(),
+                topic: z.string().optional(),
+                character: z.string().optional(),
+              }),
+            })
+          ),
           total: z.number(),
           page: z.number(),
           pageSize: z.number(),
@@ -656,7 +659,9 @@ export default async function failuresRoutes(fastify: FastifyInstance) {
       },
     },
     handler: async (request, reply) => {
-      const { page, pageSize, contentType, gateName, timeRange } = request.query as z.infer<typeof FailuresQuerySchema>;
+      const { page, pageSize, contentType, gateName, timeRange } = request.query as z.infer<
+        typeof FailuresQuerySchema
+      >;
       const offset = (page - 1) * pageSize;
 
       // Build time filter
@@ -1008,6 +1013,7 @@ export function FailureTrendsChart() {
 **Dependencies**: recharts library, TanStack Query, API client (F018)
 
 **Installation**:
+
 ```bash
 cd packages/web
 pnpm add recharts
@@ -1038,14 +1044,16 @@ export default async function failureTrendsRoutes(fastify: FastifyInstance) {
       querystring: TrendsQuerySchema,
       response: {
         200: z.object({
-          trends: z.array(z.object({
-            date: z.string(),
-            'schema-validation': z.number(),
-            'cefr-level-check': z.number(),
-            'content-completeness': z.number(),
-            'duplication-check': z.number(),
-            'dependency-validation': z.number(),
-          })),
+          trends: z.array(
+            z.object({
+              date: z.string(),
+              'schema-validation': z.number(),
+              'cefr-level-check': z.number(),
+              'content-completeness': z.number(),
+              'duplication-check': z.number(),
+              'dependency-validation': z.number(),
+            })
+          ),
           timeRange: z.enum(['7d', '30d', '90d']),
         }),
       },
@@ -1197,6 +1205,7 @@ await app.register(failureTrendsRoutes);
 **Context**: Validation failures accumulate over time. Should we keep all historical failures or implement a retention policy?
 
 **Options**:
+
 1. **Keep all failures indefinitely**
    - Pros: Complete audit trail, long-term trend analysis
    - Cons: Database growth, query performance degradation
@@ -1218,6 +1227,7 @@ await app.register(failureTrendsRoutes);
 **Context**: Operators may not notice sudden spikes in validation failures.
 
 **Options**:
+
 1. **Email alerts** when failure rate exceeds threshold (e.g., >50 failures/hour)
    - Requires email service integration (SendGrid, SES)
 2. **Slack/Discord webhooks** for real-time notifications
@@ -1236,6 +1246,7 @@ await app.register(failureTrendsRoutes);
 **Context**: The "Fix and Resubmit" button currently shows placeholder text. What should the editing UX be?
 
 **Options**:
+
 1. **Inline modal editor** - Edit JSON directly in modal
    - Pros: Fast, no page navigation
    - Cons: Risk of invalid JSON, poor UX for complex fields
@@ -1255,15 +1266,18 @@ await app.register(failureTrendsRoutes);
 ## Dependencies
 
 **Blocks**:
+
 - F028: Content Browser (completes Operational UI phase)
 
 **Depends on**:
+
 - F013: Quality Gates Part 3 (defines gate types and error formats)
 - F020: Operational Endpoints (API infrastructure)
 - F024: Protected Routes & Navigation (routing, layout)
 - F025: Data Health Dashboard (dashboard integration)
 
 **Optional**:
+
 - Email service integration for alerts
 - Recharts library for visualization
 
@@ -1272,22 +1286,26 @@ await app.register(failureTrendsRoutes);
 ## Notes
 
 ### Implementation Priority
+
 1. Start with FailuresPage and API endpoint (Tasks 1, 3)
 2. Add FailureDetailModal (Task 2)
 3. Implement trends visualization (Tasks 4, 5)
 4. Integrate into existing UI (Task 6)
 
 ### Performance Considerations
+
 - Add database index on `quality_gate_results(status, created_at)` for fast filtering
 - Consider pagination for very large failure lists (>1000 items)
 - Cache trends data for 1 minute to reduce query load
 
 ### Security Considerations
+
 - Operator role required for all endpoints
 - Prevent unauthorized retry attempts via direct API calls
 - Sanitize error messages before display (remove sensitive data)
 
 ### UX Enhancements (Future)
+
 - Keyboard shortcuts (R=retry selected, F=filter, X=clear selection)
 - Export failures as CSV for external analysis
 - Failure pattern detection (auto-group similar errors)
