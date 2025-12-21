@@ -29,7 +29,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve(); // Explicit async operation for linter
 
   fastify.get(
-    '/operational/curriculum/levels/:language',
+    '/curriculum/levels/:language',
     {
       preHandler: [authMiddleware],
     },
@@ -41,7 +41,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.get(
-    '/operational/curriculum/topics/:levelId',
+    '/curriculum/topics/:levelId',
     {
       preHandler: [authMiddleware],
     },
@@ -53,7 +53,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.post(
-    '/operational/curriculum/topics',
+    '/curriculum/topics',
     {
       preHandler: [authMiddleware],
     },
@@ -65,7 +65,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.put(
-    '/operational/curriculum/topics/:id',
+    '/curriculum/topics/:id',
     {
       preHandler: [authMiddleware],
     },
@@ -78,7 +78,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.delete(
-    '/operational/curriculum/topics/:id',
+    '/curriculum/topics/:id',
     {
       preHandler: [authMiddleware],
     },
@@ -90,7 +90,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.post(
-    '/operational/curriculum/topics/:levelId/reorder',
+    '/curriculum/topics/:levelId/reorder',
     {
       preHandler: [authMiddleware],
     },
@@ -103,7 +103,7 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.post(
-    '/operational/curriculum/topics/:levelId/import',
+    '/curriculum/topics/:levelId/import',
     {
       preHandler: [authMiddleware],
     },

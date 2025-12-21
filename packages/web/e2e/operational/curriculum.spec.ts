@@ -55,7 +55,10 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
+    await expect(page).toHaveURL('/dashboard');
+
     await page.goto('/operator/curriculum');
+    await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
 
     const languageSelect = page.locator('select').first();
     await expect(languageSelect).toBeVisible();
@@ -78,15 +81,18 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.goto('/operator/curriculum');
+    await expect(page).toHaveURL('/dashboard');
 
-    await expect(page.getByText('A0')).toBeVisible();
-    await expect(page.getByText('A1')).toBeVisible();
-    await expect(page.getByText('A2')).toBeVisible();
-    await expect(page.getByText('B1')).toBeVisible();
-    await expect(page.getByText('B2')).toBeVisible();
-    await expect(page.getByText('C1')).toBeVisible();
-    await expect(page.getByText('C2')).toBeVisible();
+    await page.goto('/operator/curriculum');
+    await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
+
+    await expect(page.getByRole('button', { name: /A0.*Beginner/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /A1.*Elementary/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /A2.*Pre-Intermediate/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /B1.*Intermediate/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /B2.*Upper-Intermediate/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /C1.*Advanced/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /C2.*Mastery/ })).toBeVisible();
   });
 
   test('should expand and collapse level sections', async ({ page }) => {
@@ -101,17 +107,20 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
+    await expect(page).toHaveURL('/dashboard');
+
     await page.goto('/operator/curriculum');
+    await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
 
     const levelButton = page.locator('button').filter({ hasText: 'A1' }).first();
     await levelButton.click();
 
-    await expect(page.getByText('Topics')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Topics' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Add Topic/ })).toBeVisible();
 
     await levelButton.click();
 
-    await expect(page.getByRole('button', { name: /Add Topic/ })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Topics' })).not.toBeVisible();
   });
 
   test('should show empty state when no topics defined', async ({ page }) => {
@@ -126,7 +135,10 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
+    await expect(page).toHaveURL('/dashboard');
+
     await page.goto('/operator/curriculum');
+    await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
 
     const levelButton = page.locator('button').filter({ hasText: 'A1' }).first();
     await levelButton.click();
@@ -146,7 +158,10 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
+    await expect(page).toHaveURL('/dashboard');
+
     await page.goto('/operator/curriculum');
+    await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
 
     const levelButton = page.locator('button').filter({ hasText: 'A1' }).first();
     await levelButton.click();
@@ -168,7 +183,7 @@ test.describe('Curriculum Page', () => {
     await page.getByLabel('Password').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.goto('/dashboard');
+    await expect(page).toHaveURL('/dashboard');
 
     await expect(page.getByRole('link', { name: 'Curriculum' })).toBeVisible();
 
