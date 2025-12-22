@@ -362,6 +362,7 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      const operatorId = request.user.userId;
       const { itemIds, itemType, category, comment } = request.body;
 
       let rejected = 0;
@@ -381,7 +382,7 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
             await feedbackService.createFeedback({
               itemId,
               itemType,
-              operatorId: request.user.userId,
+              operatorId,
               action: 'reject',
               category,
               comment,
