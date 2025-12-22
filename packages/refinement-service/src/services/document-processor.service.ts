@@ -119,13 +119,6 @@ export class DocumentProcessorService {
     return processed;
   }
 
-  private async updateStatus(documentId: string, status: string): Promise<void> {
-    await this.pool.query(`UPDATE document_sources SET status = $1 WHERE id = $2`, [
-      status,
-      documentId,
-    ]);
-  }
-
   private async updateStatusWithClient(
     client: PoolClient,
     documentId: string,
@@ -135,25 +128,6 @@ export class DocumentProcessorService {
       status,
       documentId,
     ]);
-  }
-
-  private async saveChunks(documentId: string, chunks: ContentChunk[]): Promise<void> {
-    const client = await this.pool.connect();
-
-    try {
-      await client.query('BEGIN');
-
-      for (const chunk of chunks) {
-        await this.insertChunk(client, documentId, chunk);
-      }
-
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
   }
 
   private async saveChunksWithClient(
