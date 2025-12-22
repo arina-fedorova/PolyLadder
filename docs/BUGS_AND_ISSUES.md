@@ -4,25 +4,7 @@
 
 ---
 
-### 2. Missing error handling in document processing
-
-**File**: `packages/refinement-service/src/services/document-processor.service.ts`
-
-**Issue**: Document processing may fail silently or leave documents in inconsistent state
-
-**Current Status**: Error handling exists (try-catch with status update to 'error'), but could be improved with retry logic
-
-**Risk**: Medium - documents may be stuck in processing state
-
-**Recommendation**: Add comprehensive retry logic and better error recovery
-
-**Priority**: Medium
-
-**Status**: ⚠️ Needs review (basic error handling exists)
-
----
-
-### 3. Missing validation for file uploads
+### 2. Missing validation for file uploads
 
 **File**: `packages/api/src/routes/operational/documents.ts`
 
@@ -46,7 +28,7 @@
 
 ## Low Issues / Improvements
 
-### 4. Missing caching for statistics
+### 3. Missing caching for statistics
 
 **Issue**: Statistics are recalculated on every request
 
@@ -60,9 +42,7 @@
 
 ---
 
----
-
-### 6. Missing environment variable examples
+### 4. Missing environment variable examples
 
 **Issue**: No `.env.example` files in packages to guide developers
 
@@ -78,7 +58,7 @@
 
 ## Documentation and Implementation Mismatches
 
-### 7. F014-F016: Content Pipeline - missing implementation verification
+### 5. F014-F016: Content Pipeline - missing implementation verification
 
 **Issue**: Need to verify that document processing, semantic mapping, and content transformation are fully implemented
 
