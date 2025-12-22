@@ -34,7 +34,43 @@ This script will:
 - Start the database
 - Run migrations
 
-#### Option 2: Manual Setup
+#### Option 2: Start Services for Manual Testing
+
+After initial setup, use these scripts to quickly start all services:
+
+**Windows (PowerShell):**
+
+```powershell
+# Start all services (API + Web) in separate windows
+.\scripts\start-manual-testing.ps1
+
+# Create test users (after API is running)
+.\scripts\create-test-users.ps1
+```
+
+**Linux/macOS:**
+
+```bash
+# Start all services (API + Web) in separate terminals
+chmod +x scripts/start-manual-testing.sh
+./scripts/start-manual-testing.sh
+
+# Create test users (after API is running)
+chmod +x scripts/create-test-users.sh
+./scripts/create-test-users.sh
+```
+
+These scripts will:
+
+- Check database status and start if needed
+- Verify migrations are up to date
+- Start API server in a separate window/terminal
+- Start Web application in a separate window/terminal
+- Create test users (operator@test.com and learner@test.com)
+
+#### Option 3: Manual Setup
+
+If you prefer to start services manually:
 
 1. **Clone repository and install dependencies:**
 
@@ -62,16 +98,25 @@ pnpm --filter @polyladder/db migrate:up
 
 ```bash
 # In a separate terminal
-cd packages/api
-pnpm dev
+pnpm --filter @polyladder/api dev
 ```
 
 5. **Start web application:**
 
 ```bash
 # In a separate terminal
-cd packages/web
-pnpm dev
+pnpm --filter @polyladder/web dev
+```
+
+6. **Create test users:**
+
+```bash
+# After API is running, create test users
+# Windows:
+.\scripts\create-test-users.ps1
+
+# Linux/macOS:
+./scripts/create-test-users.sh
 ```
 
 ### Environment Variables
@@ -392,16 +437,16 @@ Fill out the report after testing:
 
 ### General Information
 
-- Testing Date: ****\_\_\_****
-- Version: ****\_\_\_****
-- Tester: ****\_\_\_****
+- Testing Date: \***\*\_\_\_\*\***
+- Version: \***\*\_\_\_\*\***
+- Tester: \***\*\_\_\_\*\***
 
 ### Results
 
-- Total Tests: ****\_\_\_****
-- Passed: ****\_\_\_****
-- Failed: ****\_\_\_****
-- Skipped: ****\_\_\_****
+- Total Tests: \***\*\_\_\_\*\***
+- Passed: \***\*\_\_\_\*\***
+- Failed: \***\*\_\_\_\*\***
+- Skipped: \***\*\_\_\_\*\***
 
 ### Found Bugs
 
