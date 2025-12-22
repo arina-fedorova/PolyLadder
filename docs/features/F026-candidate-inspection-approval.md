@@ -44,6 +44,7 @@ import { ItemDetailModal } from '@/components/operational/ItemDetailModal';
 interface ValidatedItem {
   id: string;
   contentType: 'vocabulary' | 'grammar' | 'orthography';
+  dataType: 'meaning' | 'utterance' | 'rule' | 'exercise';
   languageCode: string;
   languageName: string;
   cefrLevel: string;
@@ -450,6 +451,7 @@ interface ItemDetailModalProps {
   item: {
     id: string;
     contentType: 'vocabulary' | 'grammar' | 'orthography';
+    dataType: 'meaning' | 'utterance' | 'rule' | 'exercise';
     languageCode: string;
     languageName: string;
     cefrLevel: string;
@@ -676,6 +678,7 @@ interface ReviewQueueResponse {
   items: Array<{
     id: string;
     contentType: 'vocabulary' | 'grammar' | 'orthography';
+    dataType: 'meaning' | 'utterance' | 'rule' | 'exercise';
     languageCode: string;
     languageName: string;
     cefrLevel: string;

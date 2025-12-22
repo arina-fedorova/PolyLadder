@@ -110,14 +110,13 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
       }
 
       const dataTypes = filteredTables.map((t) => t.dataType);
-      const dataTypesPlaceholder = dataTypes.map((_, i) => `$${i + 1}`).join(', ');
 
       const countQuery = `
         SELECT COUNT(*)::int as total
         FROM validated v
-        WHERE v.data_type IN (${dataTypesPlaceholder})
+        WHERE v.data_type = ANY($1::text[])
       `;
-      const countResult = await fastify.db.query<{ total: number }>(countQuery, dataTypes);
+      const countResult = await fastify.db.query<{ total: number }>(countQuery, [dataTypes]);
       const total = countResult.rows[0]?.total ?? 0;
 
       const itemsQuery = `
@@ -136,9 +135,9 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           v.validated_data as content,
           v.validation_results
         FROM validated v
-        WHERE v.data_type IN (${dataTypesPlaceholder})
+        WHERE v.data_type = ANY($1::text[])
         ORDER BY v.created_at DESC
-        LIMIT $${dataTypes.length + 1} OFFSET $${dataTypes.length + 2}
+        LIMIT $2 OFFSET $3
       `;
 
       const itemsResult = await fastify.db.query<{
@@ -155,7 +154,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           passed: boolean;
           score?: number;
         }>;
-      }>(itemsQuery, [...dataTypes, pageSize, offset]);
+      }>(itemsQuery, [dataTypes, pageSize, offset]);
 
       const response = itemsResult.rows.map((row) => ({
         id: row.id,

@@ -549,11 +549,12 @@ const corpusRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      if (itemIds.length > 1000) {
+      const MAX_EXPORT_ITEMS = 10000;
+      if (itemIds.length > MAX_EXPORT_ITEMS) {
         return reply.status(400).send({
           error: {
             statusCode: 400,
-            message: 'Export limit is 1000 items',
+            message: `Export limit is ${MAX_EXPORT_ITEMS} items. For larger exports, please use pagination or contact support.`,
             requestId: request.id,
             code: 'BAD_REQUEST',
           },
@@ -579,19 +580,74 @@ const corpusRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const result = await fastify.db.query(`SELECT * FROM ${tableName} WHERE id = ANY($1)`, [
-        itemIds,
-      ]);
+      const firstBatchResult = await fastify.db.query(
+        `SELECT * FROM ${tableName} WHERE id = ANY($1) LIMIT 1`,
+        [itemIds.slice(0, Math.min(500, itemIds.length))]
+      );
 
-      const items = result.rows;
+      if (firstBatchResult.rows.length === 0) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'No items found',
+            requestId: request.id,
+            code: 'BAD_REQUEST',
+          },
+        });
+      }
+
+      const BATCH_SIZE = 500;
+      const totalBatches = Math.ceil(itemIds.length / BATCH_SIZE);
 
       if (format === 'json') {
-        return reply
+        reply
           .header('Content-Type', 'application/json')
           .header('Content-Disposition', `attachment; filename="corpus-export-${Date.now()}.json"`)
-          .send(JSON.stringify(items, null, 2));
+          .header('Transfer-Encoding', 'chunked');
+
+        reply.raw.write('[\n');
+
+        let totalItemsWritten = 0;
+
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+          const batchStart = batchIndex * BATCH_SIZE;
+          const batchEnd = Math.min(batchStart + BATCH_SIZE, itemIds.length);
+          const batchIds = itemIds.slice(batchStart, batchEnd);
+
+          const result = await fastify.db.query(
+            `SELECT * FROM ${tableName} WHERE id = ANY($1) ORDER BY created_at`,
+            [batchIds]
+          );
+
+          for (let i = 0; i < result.rows.length; i++) {
+            const item = result.rows[i] as Record<string, unknown>;
+            totalItemsWritten++;
+            const isLast = totalItemsWritten === itemIds.length;
+            const json = JSON.stringify(item, null, 2);
+            const indented = json
+              .split('\n')
+              .map((line) => `  ${line}`)
+              .join('\n');
+            reply.raw.write(indented);
+            if (!isLast) {
+              reply.raw.write(',\n');
+            } else {
+              reply.raw.write('\n');
+            }
+          }
+        }
+
+        reply.raw.write(']\n');
+        reply.raw.end();
+        return;
       } else {
-        if (items.length === 0) {
+        reply
+          .header('Content-Type', 'text/csv')
+          .header('Content-Disposition', `attachment; filename="corpus-export-${Date.now()}.csv"`)
+          .header('Transfer-Encoding', 'chunked');
+
+        const firstItem = firstBatchResult.rows[0] as Record<string, unknown> | undefined;
+        if (!firstItem) {
           return reply.status(400).send({
             error: {
               statusCode: 400,
@@ -601,27 +657,36 @@ const corpusRoute: FastifyPluginAsync = async function (fastify) {
             },
           });
         }
-
-        const firstItem = items[0] as Record<string, unknown>;
         const headers = Object.keys(firstItem).join(',');
-        const rows = items.map((item) =>
-          Object.values(item as Record<string, unknown>)
-            .map((val: unknown) => {
-              if (val === null || val === undefined) return '';
-              if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
-              if (typeof val === 'string') return `"${val.replace(/"/g, '""')}"`;
-              if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-              return '';
-            })
-            .join(',')
-        );
+        reply.raw.write(`${headers}\n`);
 
-        const csv = [headers, ...rows].join('\n');
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+          const batchStart = batchIndex * BATCH_SIZE;
+          const batchEnd = Math.min(batchStart + BATCH_SIZE, itemIds.length);
+          const batchIds = itemIds.slice(batchStart, batchEnd);
 
-        return reply
-          .header('Content-Type', 'text/csv')
-          .header('Content-Disposition', `attachment; filename="corpus-export-${Date.now()}.csv"`)
-          .send(csv);
+          const result = await fastify.db.query(
+            `SELECT * FROM ${tableName} WHERE id = ANY($1) ORDER BY created_at`,
+            [batchIds]
+          );
+
+          for (const item of result.rows) {
+            const row = Object.values(item as Record<string, unknown>)
+              .map((val: unknown) => {
+                if (val === null || val === undefined) return '';
+                if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+                if (typeof val === 'string') return `"${val.replace(/"/g, '""')}"`;
+                if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+                return '';
+              })
+              .join(',');
+
+            reply.raw.write(`${row}\n`);
+          }
+        }
+
+        reply.raw.end();
+        return;
       }
     }
   );

@@ -3,6 +3,7 @@ import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, SuccessResponseSchema } from '../../schemas/common';
 import { FeedbackService } from '../../services/feedback.service';
+import { withTransaction } from '../../utils/db.utils';
 
 const CreateFeedbackSchema = Type.Object({
   itemId: Type.String({ format: 'uuid' }),
@@ -367,20 +368,32 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
       const errors: string[] = [];
 
       for (const itemId of itemIds) {
+        const client = await fastify.db.connect();
         try {
-          await feedbackService.createFeedback({
-            itemId,
-            itemType,
-            operatorId: request.user.userId,
-            action: 'reject',
-            category,
-            comment,
+          await withTransaction(client, async (txClient) => {
+            const lockKey = Math.abs(
+              itemId.split('').reduce((acc, char) => {
+                return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+              }, 0)
+            );
+            await txClient.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
+
+            await feedbackService.createFeedback({
+              itemId,
+              itemType,
+              operatorId: request.user.userId,
+              action: 'reject',
+              category,
+              comment,
+            });
           });
           rejected++;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           request.log.error({ itemId, error: errorMessage }, `Failed to reject ${itemId}`);
           errors.push(errorMessage);
+        } finally {
+          client.release();
         }
       }
 

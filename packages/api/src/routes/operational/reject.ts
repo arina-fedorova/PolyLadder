@@ -2,13 +2,19 @@ import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, SuccessResponseSchema } from '../../schemas/common';
+import { withTransaction } from '../../utils/db.utils';
 
 const RejectParamsSchema = Type.Object({
   id: Type.String(),
 });
 
 const RejectBodySchema = Type.Object({
-  dataType: Type.String(),
+  dataType: Type.Union([
+    Type.Literal('meaning'),
+    Type.Literal('utterance'),
+    Type.Literal('rule'),
+    Type.Literal('exercise'),
+  ]),
   reason: Type.String({ minLength: 10, maxLength: 500 }),
 });
 
@@ -61,7 +67,7 @@ const rejectRoute: FastifyPluginAsync = async function (fastify) {
         return reply.status(400).send({
           error: {
             statusCode: 400,
-            message: `Invalid data type: ${dataType}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
+            message: `Invalid data type: ${String(dataType)}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
             requestId: request.id,
             code: 'INVALID_DATA_TYPE',
           },
@@ -84,20 +90,40 @@ const rejectRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      await fastify.db.query(`DELETE FROM validated WHERE id = $1`, [id]);
+      const client = await fastify.db.connect();
 
-      await fastify.db.query(
-        `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes, created_at)
-         VALUES ($1, $2, $3, 'MANUAL', $4, CURRENT_TIMESTAMP)`,
-        [id, dataType, operatorId, reason]
-      );
+      try {
+        await withTransaction(client, async (txClient) => {
+          await txClient.query(`DELETE FROM validated WHERE id = $1`, [id]);
 
-      await fastify.db.query(
-        `UPDATE review_queue
-         SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'reject'
-         WHERE item_id = $1`,
-        [id]
-      );
+          await txClient.query(
+            `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes, created_at)
+             VALUES ($1, $2, $3, 'MANUAL', $4, CURRENT_TIMESTAMP)`,
+            [id, dataType, operatorId, reason]
+          );
+
+          await txClient.query(
+            `UPDATE review_queue
+             SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'reject'
+             WHERE item_id = $1`,
+            [id]
+          );
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Rejection failed';
+        request.log.error({ err: error, itemId: id, dataType }, 'Rejection failed');
+
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message,
+            requestId: request.id,
+            code: 'REJECTION_FAILED',
+          },
+        });
+      } finally {
+        client.release();
+      }
 
       request.log.info({ itemId: id, dataType, operatorId, reason }, 'Item rejected');
 
