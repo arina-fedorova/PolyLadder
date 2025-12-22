@@ -74,6 +74,85 @@ interface LogRow {
   created_at: string;
 }
 
+function validateFilename(filename: string): { valid: boolean; error?: string } {
+  if (!filename || filename.trim().length === 0) {
+    return { valid: false, error: 'Filename is required' };
+  }
+
+  if (filename.length > 255) {
+    return { valid: false, error: 'Filename is too long (max 255 characters)' };
+  }
+
+  const dangerousChars = /[<>:"|?*]/;
+  if (dangerousChars.test(filename)) {
+    return {
+      valid: false,
+      error: 'Filename contains invalid characters',
+    };
+  }
+
+  for (let i = 0; i < filename.length; i++) {
+    const charCode = filename.charCodeAt(i);
+    if (charCode >= 0 && charCode <= 31) {
+      return {
+        valid: false,
+        error: 'Filename contains invalid characters',
+      };
+    }
+  }
+
+  const pathTraversal = /\.\./;
+  if (pathTraversal.test(filename)) {
+    return { valid: false, error: 'Filename contains path traversal characters' };
+  }
+
+  const normalizedFilename = filename.split(/[/\\]/).pop() || filename;
+  if (normalizedFilename !== filename) {
+    return { valid: false, error: 'Filename contains path separators' };
+  }
+
+  return { valid: true };
+}
+
+function validateMagicBytes(buffer: Buffer, mimeType: string): { valid: boolean; error?: string } {
+  if (buffer.length < 4) {
+    return { valid: false, error: 'File is too small to validate' };
+  }
+
+  const pdfMagicBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+  const docxMagicBytes = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+
+  if (mimeType === 'application/pdf') {
+    const header = buffer.slice(0, 4);
+    if (!header.equals(pdfMagicBytes)) {
+      return {
+        valid: false,
+        error: 'File content does not match PDF format. Magic bytes validation failed.',
+      };
+    }
+  } else if (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    const header = buffer.slice(0, 4);
+    if (!header.equals(docxMagicBytes)) {
+      return {
+        valid: false,
+        error: 'File content does not match DOCX format. Magic bytes validation failed.',
+      };
+    }
+
+    const zipCentralDir = buffer.indexOf(Buffer.from('PK\x05\x06'));
+    if (zipCentralDir === -1) {
+      return {
+        valid: false,
+        error: 'File does not appear to be a valid ZIP archive (DOCX requirement)',
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export const documentRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(multipart, {
     limits: {
@@ -96,7 +175,17 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [authMiddleware],
     },
     async (request, reply) => {
-      const data = await request.file();
+      let data;
+      try {
+        data = await request.file();
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('multipart')) {
+          return reply.status(400).send({
+            error: { statusCode: 400, message: 'No file uploaded' },
+          });
+        }
+        throw error;
+      }
 
       if (!data) {
         return reply.status(400).send({
@@ -115,6 +204,43 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const buffer = await data.toBuffer();
+
+      if (buffer.length === 0) {
+        return reply.status(400).send({
+          error: { statusCode: 400, message: 'File is empty' },
+        });
+      }
+
+      const MIN_FILE_SIZE = 100;
+      if (buffer.length < MIN_FILE_SIZE) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: `File is too small. Minimum size is ${MIN_FILE_SIZE} bytes.`,
+          },
+        });
+      }
+
+      if (!data.filename) {
+        return reply.status(400).send({
+          error: { statusCode: 400, message: 'Filename is required' },
+        });
+      }
+
+      const receivedFilename = data.filename;
+      const filenameValidation = validateFilename(receivedFilename);
+      if (!filenameValidation.valid) {
+        return reply.status(400).send({
+          error: { statusCode: 400, message: filenameValidation.error },
+        });
+      }
+
+      const magicBytesValidation = validateMagicBytes(buffer, data.mimetype);
+      if (!magicBytesValidation.valid) {
+        return reply.status(400).send({
+          error: { statusCode: 400, message: magicBytesValidation.error },
+        });
+      }
 
       let metadata: z.infer<typeof UploadMetadataSchema> = {
         language: 'ES',

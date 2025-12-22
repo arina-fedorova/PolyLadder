@@ -4,28 +4,6 @@
 
 ---
 
-### 2. Missing validation for file uploads
-
-**File**: `packages/api/src/routes/operational/documents.ts`
-
-**Issue**: File upload endpoint may not validate file size, type, or content properly
-
-**Current Status**: Basic validation exists:
-
-- File type validation (PDF, DOCX only)
-- File size limit (50MB)
-- MIME type checking
-
-**Risk**: Low - basic validation exists, but could add content validation
-
-**Recommendation**: Add content validation (magic bytes check) and virus scanning for production
-
-**Priority**: Medium
-
-**Status**: ⚠️ Needs review (basic validation exists)
-
----
-
 ## Low Issues / Improvements
 
 ### 3. Missing caching for statistics
