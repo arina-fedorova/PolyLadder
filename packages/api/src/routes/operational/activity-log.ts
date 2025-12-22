@@ -62,54 +62,59 @@ const activityLogRoute: FastifyPluginAsync = async function (fastify) {
 
       const result = await fastify.db.query<{
         id: string;
-        data_type: string;
+        item_type: string;
         item_id: string;
-        from_state: string;
-        to_state: string;
+        operator_id: string | null;
+        approval_type: string;
+        notes: string | null;
+        created_at: Date;
         operator_email: string | null;
-        event_timestamp: Date;
-        action: string;
       }>(
         `SELECT 
-           id,
-           data_type,
-           item_id,
-           from_state,
-           to_state,
-           operator_email,
-           event_timestamp,
-           action
-         FROM approval_events
-         ORDER BY event_timestamp DESC
+           ae.id,
+           ae.item_type,
+           ae.item_id,
+           ae.operator_id,
+           ae.approval_type,
+           ae.notes,
+           ae.created_at,
+           u.email as operator_email
+         FROM approval_events ae
+         LEFT JOIN users u ON ae.operator_id = u.id
+         ORDER BY ae.created_at DESC
          LIMIT $1`,
         [limit]
       );
 
       const activities: ActivityLogEntry[] = result.rows.map((row) => {
         let itemType: 'vocabulary' | 'grammar' | 'orthography' = 'vocabulary';
-        if (row.data_type === 'meaning' || row.data_type === 'utterance') {
+        if (row.item_type === 'meaning' || row.item_type === 'utterance') {
           itemType = 'vocabulary';
-        } else if (row.data_type === 'rule') {
+        } else if (row.item_type === 'rule') {
           itemType = 'grammar';
-        } else if (row.data_type === 'exercise') {
+        } else if (row.item_type === 'exercise') {
           itemType = 'orthography';
         }
 
         let action: 'approved' | 'rejected' | 'auto-promoted' = 'auto-promoted';
-        if (row.action === 'approve') {
-          action = 'approved';
-        } else if (row.action === 'reject') {
-          action = 'rejected';
+        if (row.approval_type === 'MANUAL') {
+          if (row.notes && row.notes.length > 0) {
+            action = 'rejected';
+          } else {
+            action = 'approved';
+          }
+        } else if (row.approval_type === 'AUTOMATIC') {
+          action = 'auto-promoted';
         }
 
         return {
           id: row.id,
           itemType,
           itemId: row.item_id,
-          fromState: row.from_state,
-          toState: row.to_state,
+          fromState: 'VALIDATED',
+          toState: action === 'rejected' ? 'REJECTED' : 'APPROVED',
           operatorEmail: row.operator_email ?? undefined,
-          timestamp: new Date(row.event_timestamp).toISOString(),
+          timestamp: new Date(row.created_at).toISOString(),
           action,
         };
       });

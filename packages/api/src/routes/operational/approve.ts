@@ -28,6 +28,13 @@ function isValidDataType(name: string): name is ValidDataType {
   return VALID_DATA_TYPES.includes(name as ValidDataType);
 }
 
+const TABLE_MAP: Record<ValidDataType, string> = {
+  meaning: 'approved_meanings',
+  utterance: 'approved_utterances',
+  rule: 'approved_rules',
+  exercise: 'approved_exercises',
+};
+
 const approveRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
 
@@ -92,8 +99,7 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
           const item = itemResult.rows[0] as Record<string, unknown>;
           const validatedData = item.validated_data;
 
-          // Insert into approved table based on data type
-          const approvedTable = `approved_${dataType}`;
+          const approvedTable = TABLE_MAP[dataType];
           await txClient.query(
             `INSERT INTO ${approvedTable} SELECT * FROM jsonb_populate_record(null::${approvedTable}, $1::jsonb)`,
             [JSON.stringify(validatedData)]

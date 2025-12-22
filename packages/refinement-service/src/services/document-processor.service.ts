@@ -19,14 +19,17 @@ export class DocumentProcessorService {
 
   async processDocument(documentId: string, fileBuffer: Buffer): Promise<void> {
     const startTime = Date.now();
+    const client = await this.pool.connect();
 
     try {
-      await this.updateStatus(documentId, 'extracting');
+      await client.query('BEGIN');
+
+      await this.updateStatusWithClient(client, documentId, 'extracting');
       await this.logStep(documentId, 'start', 'success', 'Starting document processing');
 
       const extracted = await this.pdfExtractor.extractFromBuffer(fileBuffer);
 
-      await this.pool.query(`UPDATE document_sources SET total_pages = $1 WHERE id = $2`, [
+      await client.query(`UPDATE document_sources SET total_pages = $1 WHERE id = $2`, [
         extracted.totalPages,
         documentId,
       ]);
@@ -38,21 +41,24 @@ export class DocumentProcessorService {
         `Extracted ${extracted.totalPages} pages`
       );
 
-      await this.updateStatus(documentId, 'chunking');
+      await this.updateStatusWithClient(client, documentId, 'chunking');
 
       const chunks = this.chunker.chunkDocument(extracted.pages);
 
-      await this.saveChunks(documentId, chunks);
+      await this.saveChunksWithClient(client, documentId, chunks);
 
-      await this.pool.query(
+      await client.query(
         `UPDATE document_sources 
          SET status = 'ready', 
              total_chunks = $1, 
              processed_pages = $2,
-             processed_at = CURRENT_TIMESTAMP
+             processed_at = CURRENT_TIMESTAMP,
+             error_message = NULL
          WHERE id = $3`,
         [chunks.length, extracted.totalPages, documentId]
       );
+
+      await client.query('COMMIT');
 
       const duration = Date.now() - startTime;
       await this.logStep(
@@ -63,6 +69,10 @@ export class DocumentProcessorService {
         duration
       );
     } catch (error) {
+      await client.query('ROLLBACK');
+
+      await this.cleanupPartialProcessing(client, documentId);
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       await this.pool.query(
@@ -72,6 +82,8 @@ export class DocumentProcessorService {
 
       await this.logStep(documentId, 'error', 'error', errorMessage);
       throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -89,36 +101,50 @@ export class DocumentProcessorService {
         await this.processDocument(doc.id, fileBuffer);
         processed++;
       } catch (error) {
-        console.error(`Failed to process document ${doc.id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Failed to process document ${doc.id}:`, errorMessage);
+
+        await this.pool.query(
+          `UPDATE document_sources 
+           SET status = 'error', 
+               error_message = $1 
+           WHERE id = $2`,
+          [errorMessage, doc.id]
+        );
+
+        await this.logStep(doc.id, 'error', 'error', errorMessage);
       }
     }
 
     return processed;
   }
 
-  private async updateStatus(documentId: string, status: string): Promise<void> {
-    await this.pool.query(`UPDATE document_sources SET status = $1 WHERE id = $2`, [
+  private async updateStatusWithClient(
+    client: PoolClient,
+    documentId: string,
+    status: string
+  ): Promise<void> {
+    await client.query(`UPDATE document_sources SET status = $1 WHERE id = $2`, [
       status,
       documentId,
     ]);
   }
 
-  private async saveChunks(documentId: string, chunks: ContentChunk[]): Promise<void> {
-    const client = await this.pool.connect();
+  private async saveChunksWithClient(
+    client: PoolClient,
+    documentId: string,
+    chunks: ContentChunk[]
+  ): Promise<void> {
+    for (const chunk of chunks) {
+      await this.insertChunk(client, documentId, chunk);
+    }
+  }
 
+  private async cleanupPartialProcessing(client: PoolClient, documentId: string): Promise<void> {
     try {
-      await client.query('BEGIN');
-
-      for (const chunk of chunks) {
-        await this.insertChunk(client, documentId, chunk);
-      }
-
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+      await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
+    } catch (cleanupError) {
+      console.error(`Failed to cleanup chunks for document ${documentId}:`, cleanupError);
     }
   }
 

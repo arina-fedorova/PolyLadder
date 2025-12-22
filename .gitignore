@@ -34,3 +34,10 @@ coverage/
 *.db
 *.sqlite
 
+# TypeScript build info
+*.tsbuildinfo
+
+# Uploads
+uploads/
+**/uploads/
+
