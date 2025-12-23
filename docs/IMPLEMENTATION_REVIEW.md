@@ -225,15 +225,22 @@ Updated API endpoint `/approve/:id` in `packages/api/src/routes/operational/appr
 
 ---
 
-#### Issue 3.2: Logging Inconsistency
+#### Issue 3.2: Logging Inconsistency ✅ FIXED
 
 **Problem**:
 
-- API uses Fastify logger (Pino)
-- Refinement service uses custom Pino logger
-- Core uses console.warn
+- API services used console.error
+- Refinement service document-processor used console.error
+- Inconsistent logging across packages
 
-**Should**: Standardize on structured logging throughout.
+**Fix Applied** (2025-12-23):
+
+- Created `packages/api/src/utils/logger.ts` with Pino logger
+- Updated `curriculum.service.ts` to use structured logging
+- Updated `document-processor.service.ts` to use existing logger
+- All production code now uses structured logging (Pino)
+
+**Note**: Infrastructure/CLI files (db/connection.ts, db/seeds, db/init-dev-db.ts) still use console logging, which is acceptable for CLI tools.
 
 ---
 
