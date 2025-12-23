@@ -17,56 +17,19 @@ interface ApprovalEventRow {
   created_at: Date;
 }
 
-type LocalCreateApprovalParams = {
-  readonly itemId: string;
-  readonly itemType: string;
-  readonly operatorId?: string;
-  readonly approvalType: ApprovalType;
-  readonly notes?: string;
-};
-
-type LocalApprovalEventRecord = {
-  id: string;
-  itemId: string;
-  itemType: string;
-  operatorId?: string;
-  approvalType: ApprovalType;
-  notes?: string;
-  createdAt: Date;
-};
-
-function extractParams(params: CreateApprovalParams): LocalCreateApprovalParams {
-  const typedParams = params as unknown as LocalCreateApprovalParams;
-  const itemId: string = String(typedParams.itemId);
-  const itemType: string = String(typedParams.itemType);
-  const operatorId: string | undefined = typedParams.operatorId
-    ? String(typedParams.operatorId)
-    : undefined;
-  const approvalType: ApprovalType = typedParams.approvalType;
-  const notes: string | undefined = typedParams.notes ? String(typedParams.notes) : undefined;
-  return {
-    itemId,
-    itemType,
-    operatorId,
-    approvalType,
-    notes,
-  };
-}
-
 export function createApprovalEventRepository(pool: Pool | PoolClient): ApprovalEventRepository {
   return {
     async recordApproval(params: CreateApprovalParams): Promise<ApprovalEventRecord> {
-      const safeParams = extractParams(params);
       const result = await pool.query<ApprovalEventRow>(
         `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, item_id, item_type, operator_id, approval_type, notes, created_at`,
         [
-          safeParams.itemId,
-          safeParams.itemType,
-          safeParams.operatorId ?? null,
-          safeParams.approvalType,
-          safeParams.notes ?? null,
+          params.itemId,
+          params.itemType,
+          params.operatorId ?? null,
+          params.approvalType,
+          params.notes ?? null,
         ]
       );
 
@@ -75,7 +38,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         throw new Error('Failed to create approval event');
       }
 
-      const record: LocalApprovalEventRecord = {
+      const record: ApprovalEventRecord = {
         id: String(row.id),
         itemId: String(row.item_id),
         itemType: String(row.item_type),
@@ -84,7 +47,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ? String(row.notes) : undefined,
         createdAt: row.created_at,
       };
-      return record as ApprovalEventRecord;
+      return record;
     },
 
     async getApprovalEvent(itemId: string): Promise<ApprovalEventRecord | null> {
@@ -106,7 +69,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         return null;
       }
 
-      const record: LocalApprovalEventRecord = {
+      const record: ApprovalEventRecord = {
         id: String(row.id),
         itemId: String(row.item_id),
         itemType: String(row.item_type),
@@ -115,7 +78,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ? String(row.notes) : undefined,
         createdAt: row.created_at,
       };
-      return record as ApprovalEventRecord;
+      return record;
     },
 
     async getApprovalsByOperator(operatorId: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -128,8 +91,8 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [operatorId, limit]
       );
 
-      const records: LocalApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
-        const record: LocalApprovalEventRecord = {
+      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
+        const record: ApprovalEventRecord = {
           id: String(row.id),
           itemId: String(row.item_id),
           itemType: String(row.item_type),
@@ -140,7 +103,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         };
         return record;
       });
-      return records as ApprovalEventRecord[];
+      return records;
     },
 
     async getApprovalsByType(itemType: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -153,8 +116,8 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [itemType, limit]
       );
 
-      const records: LocalApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
-        const record: LocalApprovalEventRecord = {
+      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
+        const record: ApprovalEventRecord = {
           id: String(row.id),
           itemId: String(row.item_id),
           itemType: String(row.item_type),
@@ -165,7 +128,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         };
         return record;
       });
-      return records as ApprovalEventRecord[];
+      return records;
     },
 
     async getApprovalStats(): Promise<ApprovalStats> {
