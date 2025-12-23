@@ -237,7 +237,7 @@ async function start(): Promise<void> {
   const workPlanner = new WorkPlanner(workPlannerRepo);
 
   const contentProcessorRepo = createContentProcessorRepository(pool);
-  const contentProcessor = new ContentProcessor(contentProcessorRepo);
+  const contentProcessor = new ContentProcessor(contentProcessorRepo, pool);
 
   const pipelineRepo = createPipelineRepository(pool);
   const validationRepo = createValidationRepository(pool);

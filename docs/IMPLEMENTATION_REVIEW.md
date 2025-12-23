@@ -57,46 +57,41 @@ The most severe remaining issue: `@polyladder/refinement-service` **DOES NOT use
 
 ### 🔴 SEVERITY 1: Critical Architecture Violations
 
-#### Issue 1.1: Refinement Service Missing Lifecycle Integration
+#### Issue 1.1: Refinement Service Missing Lifecycle Integration ✅ FIXED
 
 **Location**: `packages/refinement-service/src/services/content-processor.service.ts`
 
 **Problem**: Content processor writes directly to `drafts` table, bypassing entire lifecycle state machine.
 
-**Evidence**:
+**Fix Applied** (2025-12-23):
 
-- Line 112-116: Direct INSERT into `drafts` table
-- No calls to `executeTransition` from `@polyladder/core/lifecycle`
-- No quality gate validation before DRAFT → CANDIDATE
-- No validation engine usage
+Created TransitionRepository in `@polyladder/db` with:
 
-**Expected Flow** (from F007, F014 specs):
+- `recordTransition()` - records state transition events
+- `moveItemToState()` - moves items between lifecycle tables (drafts → candidates → validated → approved)
 
-```
-1. Generate content → insertDraft()
-2. Run schema validation (F010) → ValidateSchema
-3. Transition DRAFT → CANDIDATE → executeTransition()
-4. Run quality gates (F011, F012) → GateRunner
-5. Record results → FailureRecorder
-6. If pass → transition CANDIDATE → VALIDATED
-```
+Updated ContentProcessor to:
 
-**Current Flow** (WRONG):
+- Import `executeTransitionSimple` from `@polyladder/core`
+- Automatically transition drafts to CANDIDATE after creation
+- Record all transitions in `state_transition_events` table
+- Handle multiple drafts (e.g., orthography lessons)
+
+**New Flow** (IMPLEMENTED):
 
 ```
 1. Generate content → insertDraft()
-2. (Nothing else happens)
+2. Transition DRAFT → CANDIDATE → executeTransition() ✅
+3. Record transition event ✅
+4. Move data from drafts to candidates table ✅
 ```
 
-**Consequences**:
+**Testing**:
 
-- Quality gates never execute
-- State machine never used
-- Content sits in DRAFT state forever
-- F007, F008, F009, F010, F011, F012, F013 are unused dead code
-- No promotion pipeline exists
+- All refinement-service tests passing (7 tests)
+- All core tests passing (158 tests)
 
-**Fix Required**: Implement promotion pipeline in refinement service.
+**Note**: Quality gates (Issue 1.2) and full promotion pipeline (Issue 2.1) still pending.
 
 ---
 

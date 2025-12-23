@@ -5,24 +5,51 @@ import { WorkItem, ContentType } from './work-planner.service';
 import { AnthropicAdapter } from '../sources/adapters/anthropic-adapter';
 import { RuleBasedAdapter } from '../sources/adapters/rule-based-adapter';
 import { logger } from '../utils/logger';
+import {
+  executeTransitionSimple,
+  LifecycleState,
+  type TransitionRepository,
+} from '@polyladder/core';
+import { recordTransition, moveItemToState } from '@polyladder/db';
 
 export interface ContentProcessorRepository {
   insertDraftMeaning(content: GeneratedContent): Promise<string>;
   insertDraftUtterance(content: GeneratedContent, meaningId: string): Promise<string>;
   insertDraftGrammarRule(content: GeneratedContent, category: string): Promise<string>;
   insertDraftExercise(content: GeneratedContent): Promise<string>;
-  insertOrthographyLessons(content: GeneratedContent): Promise<void>;
+  insertOrthographyLessons(content: GeneratedContent): Promise<string[]>;
   trackGenerationCost(content: GeneratedContent, workType: string): Promise<void>;
 }
 
 export class ContentProcessor {
   private sourceRegistry: SourceRegistry;
   private repository: ContentProcessorRepository;
+  private pool: Pool;
 
-  constructor(repository: ContentProcessorRepository) {
+  constructor(repository: ContentProcessorRepository, pool: Pool) {
     this.sourceRegistry = new SourceRegistry();
     this.repository = repository;
+    this.pool = pool;
     this.initializeSources();
+  }
+
+  private createTransitionRepository(): TransitionRepository {
+    const pool = this.pool;
+    return {
+      async recordTransition(params): Promise<import('@polyladder/core').StateTransition> {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        return await recordTransition(pool, params);
+      },
+      async moveItemToState(
+        itemId: string,
+        itemType: string,
+        fromState: import('@polyladder/core').LifecycleState,
+        toState: import('@polyladder/core').LifecycleState
+      ): Promise<void> {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        return await moveItemToState(pool, itemId, itemType, fromState, toState);
+      },
+    };
   }
 
   private initializeSources(): void {
@@ -58,10 +85,31 @@ export class ContentProcessor {
       metadata: workItem.metadata,
     });
 
-    await this.insertDraft(workItem, generated);
+    const draftIds = await this.insertDraft(workItem, generated);
 
     if (generated.sourceMetadata.cost && generated.sourceMetadata.cost > 0) {
       await this.repository.trackGenerationCost(generated, workItem.type);
+    }
+
+    // Transition each draft from DRAFT to CANDIDATE
+    const transitionRepo = this.createTransitionRepository();
+
+    for (const draftId of draftIds) {
+      try {
+        await executeTransitionSimple(transitionRepo, {
+          itemId: draftId,
+          itemType: this.getItemType(workItem.type),
+          fromState: LifecycleState.DRAFT,
+          toState: LifecycleState.CANDIDATE,
+        });
+
+        logger.info({ draftId, workItemId: workItem.id }, 'Transitioned to CANDIDATE');
+      } catch (error) {
+        logger.error(
+          { draftId, workItemId: workItem.id, error },
+          'Failed to transition to CANDIDATE'
+        );
+      }
     }
 
     logger.info(
@@ -69,32 +117,46 @@ export class ContentProcessor {
         workItemId: workItem.id,
         source: generated.sourceMetadata.sourceName,
         cost: generated.sourceMetadata.cost,
+        draftsCreated: draftIds.length,
       },
-      'DRAFT content created'
+      'DRAFT content created and transitioned'
     );
   }
 
-  private async insertDraft(workItem: WorkItem, generated: GeneratedContent): Promise<void> {
+  private getItemType(contentType: ContentType): string {
+    switch (contentType) {
+      case ContentType.MEANING:
+        return 'meaning';
+      case ContentType.UTTERANCE:
+        return 'utterance';
+      case ContentType.GRAMMAR_RULE:
+      case ContentType.ORTHOGRAPHY:
+        return 'rule';
+      case ContentType.EXERCISE:
+        return 'exercise';
+      default:
+        return 'unknown';
+    }
+  }
+
+  private async insertDraft(workItem: WorkItem, generated: GeneratedContent): Promise<string[]> {
     switch (workItem.type) {
       case ContentType.ORTHOGRAPHY:
-        await this.repository.insertOrthographyLessons(generated);
-        break;
+        return await this.repository.insertOrthographyLessons(generated);
       case ContentType.MEANING:
-        await this.repository.insertDraftMeaning(generated);
-        break;
+        return [await this.repository.insertDraftMeaning(generated)];
       case ContentType.UTTERANCE: {
         const meaningId = workItem.metadata.meaningId as string;
-        await this.repository.insertDraftUtterance(generated, meaningId);
-        break;
+        return [await this.repository.insertDraftUtterance(generated, meaningId)];
       }
       case ContentType.GRAMMAR_RULE: {
         const category = (workItem.metadata.category as string) ?? 'general';
-        await this.repository.insertDraftGrammarRule(generated, category);
-        break;
+        return [await this.repository.insertDraftGrammarRule(generated, category)];
       }
       case ContentType.EXERCISE:
-        await this.repository.insertDraftExercise(generated);
-        break;
+        return [await this.repository.insertDraftExercise(generated)];
+      default:
+        return [];
     }
   }
 
@@ -160,7 +222,7 @@ export function createContentProcessorRepository(pool: Pool): ContentProcessorRe
       return insertDraft('exercise', rawData, content.sourceMetadata.sourceName);
     },
 
-    async insertOrthographyLessons(content: GeneratedContent): Promise<void> {
+    async insertOrthographyLessons(content: GeneratedContent): Promise<string[]> {
       const data = content.data as {
         lessons: Array<{
           letter: string;
@@ -171,6 +233,7 @@ export function createContentProcessorRepository(pool: Pool): ContentProcessorRe
         }>;
       };
 
+      const ids: string[] = [];
       for (const lesson of data.lessons) {
         const rawData = {
           type: 'orthography',
@@ -179,8 +242,10 @@ export function createContentProcessorRepository(pool: Pool): ContentProcessorRe
           lesson,
           sourceMetadata: content.sourceMetadata,
         };
-        await insertDraft('rule', rawData, content.sourceMetadata.sourceName);
+        const id = await insertDraft('rule', rawData, content.sourceMetadata.sourceName);
+        ids.push(id);
       }
+      return ids;
     },
 
     async trackGenerationCost(content: GeneratedContent, workType: string): Promise<void> {
