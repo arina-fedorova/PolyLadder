@@ -58,6 +58,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build dependencies
+        run: |
+          pnpm --filter @polyladder/core build
+          pnpm --filter @polyladder/db build
+
       - name: Lint
         run: pnpm lint
 

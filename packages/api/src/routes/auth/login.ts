@@ -1,7 +1,13 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import {
+  verifyPassword,
+  needsRehash,
+  hashPassword,
+  generateToken,
+  UserRole,
+} from '@polyladder/core';
+import { findUserByEmail, updatePassword } from '@polyladder/db';
 import { getEnv } from '../../config/env';
 import { ErrorResponseSchema } from '../../schemas/common';
 
@@ -64,14 +70,9 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       try {
         await client.query('BEGIN');
 
-        const result = await client.query<{
-          id: string;
-          email: string;
-          password_hash: string;
-          role: string;
-        }>('SELECT id, email, password_hash, role FROM users WHERE email = $1 FOR UPDATE', [normalizedEmail]);
+        const user = await findUserByEmail(normalizedEmail);
 
-        if (result.rows.length === 0) {
+        if (!user) {
           await client.query('ROLLBACK');
           return reply.status(401).send({
             error: {
@@ -83,9 +84,7 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const user = result.rows[0];
-
-        const isValid = await bcrypt.compare(password, user.password_hash);
+        const isValid = await verifyPassword(password, user.passwordHash);
 
         if (!isValid) {
           await client.query('ROLLBACK');
@@ -99,15 +98,20 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const tokenPayload = { userId: user.id, role: user.role };
+        // Check if password needs rehashing
+        if (needsRehash(user.passwordHash)) {
+          const newHash = await hashPassword(password);
+          await updatePassword(user.id, newHash);
+        }
 
-        const accessToken = jwt.sign(tokenPayload, env.JWT_SECRET, {
-          expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions['expiresIn'],
-        });
+        const tokenPayload = {
+          userId: user.id,
+          role: user.role === 'learner' ? UserRole.LEARNER : UserRole.OPERATOR,
+        };
 
-        const refreshToken = jwt.sign(tokenPayload, env.JWT_SECRET, {
-          expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions['expiresIn'],
-        });
+        const accessToken = generateToken(tokenPayload, env.JWT_SECRET, env.JWT_ACCESS_EXPIRY);
+
+        const refreshToken = generateToken(tokenPayload, env.JWT_SECRET, env.JWT_REFRESH_EXPIRY);
 
         const refreshExpirySeconds = parseExpiry(env.JWT_REFRESH_EXPIRY);
         const refreshExpiresAt = new Date(Date.now() + refreshExpirySeconds * 1000);
@@ -131,7 +135,7 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
           user: {
             id: user.id,
             email: user.email,
-            role: user.role as 'learner' | 'operator',
+            role: user.role,
           },
         });
       } catch (error) {

@@ -1,6 +1,7 @@
 import { Pool, PoolClient } from 'pg';
 import { PDFExtractorService } from './pdf-extractor.service';
 import { ChunkerService, ContentChunk } from './chunker.service';
+import { logger } from '../utils/logger';
 
 export interface DocumentRow {
   id: string;
@@ -102,7 +103,7 @@ export class DocumentProcessorService {
         processed++;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`Failed to process document ${doc.id}:`, errorMessage);
+        logger.error({ documentId: doc.id, error: errorMessage }, 'Failed to process document');
 
         await this.pool.query(
           `UPDATE document_sources 
@@ -144,7 +145,7 @@ export class DocumentProcessorService {
     try {
       await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
     } catch (cleanupError) {
-      console.error(`Failed to cleanup chunks for document ${documentId}:`, cleanupError);
+      logger.error({ documentId, error: cleanupError }, 'Failed to cleanup chunks');
     }
   }
 

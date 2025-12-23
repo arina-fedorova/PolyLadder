@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg';
+import { logger } from '../utils/logger';
 
 export interface CurriculumLevel {
   id: string;
@@ -223,7 +224,7 @@ export class CurriculumService {
         await this.createTopic({ ...topic, levelId });
         imported++;
       } catch (error) {
-        console.error(`Failed to import topic: ${topic.name}`, error);
+        logger.error({ topicName: topic.name, error }, 'Failed to import topic');
       }
     }
 

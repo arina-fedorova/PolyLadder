@@ -15,6 +15,12 @@ import { createValidationRepository } from './pipeline/steps/validation.step';
 import { createApprovalRepository } from './pipeline/steps/approval.step';
 import { SemanticMapperService } from './services/semantic-mapper.service';
 import { ContentTransformerService } from './services/content-transformer.service';
+import { PromotionWorker } from './services/promotion-worker.service';
+import {
+  createCEFRConsistencyGate,
+  createOrthographyGate,
+  createContentSafetyGate,
+} from '@polyladder/core';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -104,6 +110,7 @@ async function mainLoop(
   workPlanner: WorkPlanner,
   contentProcessor: ContentProcessor,
   pipeline: PipelineOrchestrator,
+  promotionWorker: PromotionWorker,
   docContext: DocumentProcessingContext
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
@@ -141,6 +148,13 @@ async function mainLoop(
         await checkpoint.saveState(state);
         logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
         workDone = true;
+      }
+
+      // Process candidates through quality gates
+      const promoted = await promotionWorker.processBatch();
+      if (promoted > 0) {
+        workDone = true;
+        logger.info({ count: promoted }, 'Candidates promoted to VALIDATED');
       }
 
       await pipeline.processBatch();
@@ -237,7 +251,7 @@ async function start(): Promise<void> {
   const workPlanner = new WorkPlanner(workPlannerRepo);
 
   const contentProcessorRepo = createContentProcessorRepository(pool);
-  const contentProcessor = new ContentProcessor(contentProcessorRepo);
+  const contentProcessor = new ContentProcessor(contentProcessorRepo, pool);
 
   const pipelineRepo = createPipelineRepository(pool);
   const validationRepo = createValidationRepository(pool);
@@ -247,6 +261,18 @@ async function start(): Promise<void> {
     retryAttempts: 3,
     batchSize: 10,
   });
+
+  // Create quality gates for promotion worker
+  const qualityGates = [
+    createCEFRConsistencyGate(),
+    createOrthographyGate(),
+    createContentSafetyGate(),
+  ];
+  const promotionWorker = new PromotionWorker(pool, qualityGates);
+  logger.info(
+    { gateCount: qualityGates.length },
+    'Promotion worker initialized with quality gates'
+  );
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   let semanticMapper: SemanticMapperService | null = null;
@@ -275,7 +301,14 @@ async function start(): Promise<void> {
   });
 
   try {
-    await mainLoop(checkpoint, workPlanner, contentProcessor, pipeline, docContext);
+    await mainLoop(
+      checkpoint,
+      workPlanner,
+      contentProcessor,
+      pipeline,
+      promotionWorker,
+      docContext
+    );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.fatal({ error: err.message, stack: err.stack }, 'Fatal error in main loop');

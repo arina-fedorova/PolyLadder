@@ -1,25 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import jwt from 'jsonwebtoken';
-
-interface JWTPayload {
-  userId: string;
-  role: 'learner' | 'operator';
-}
-
-function verifyJWT(token: string, secret: string): JWTPayload {
-  try {
-    const decoded = jwt.verify(token, secret) as JWTPayload;
-    return decoded;
-  } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Token has expired');
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token');
-    }
-    throw error;
-  }
-}
+import { verifyToken } from '@polyladder/core';
 
 export async function authMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const authHeader = request.headers.authorization;
@@ -44,11 +24,23 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
       throw new Error('JWT_SECRET not configured');
     }
 
-    const payload = verifyJWT(token, jwtSecret);
+    const payload = verifyToken(token, jwtSecret);
+
+    if (!payload) {
+      await reply.status(401).send({
+        error: {
+          statusCode: 401,
+          message: 'Invalid token',
+          requestId: request.id,
+          code: 'UNAUTHORIZED',
+        },
+      });
+      return;
+    }
 
     request.user = {
       userId: payload.userId,
-      role: payload.role,
+      role: payload.role as 'learner' | 'operator',
     };
   } catch (error) {
     await reply.status(401).send({
@@ -77,11 +69,13 @@ export function optionalAuthMiddleware(request: FastifyRequest): void {
       return;
     }
 
-    const payload = verifyJWT(token, jwtSecret);
-    request.user = {
-      userId: payload.userId,
-      role: payload.role,
-    };
+    const payload = verifyToken(token, jwtSecret);
+    if (payload) {
+      request.user = {
+        userId: payload.userId,
+        role: payload.role as 'learner' | 'operator',
+      };
+    }
   } catch {
     // Invalid token - ignore
   }

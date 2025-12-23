@@ -3,6 +3,14 @@ import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, SuccessResponseSchema } from '../../schemas/common';
 import { withTransaction } from '../../utils/db.utils';
+import {
+  executeTransitionSimple,
+  LifecycleState,
+  recordApproval,
+  ApprovalType,
+  type TransitionRepository,
+} from '@polyladder/core';
+import { recordTransition, moveItemToState, createApprovalEventRepository } from '@polyladder/db';
 
 const ApproveParamsSchema = Type.Object({
   id: Type.String(),
@@ -20,20 +28,6 @@ const ApproveBodySchema = Type.Object({
 
 type ApproveParams = Static<typeof ApproveParamsSchema>;
 type ApproveBody = Static<typeof ApproveBodySchema>;
-
-const VALID_DATA_TYPES = ['meaning', 'utterance', 'rule', 'exercise'] as const;
-type ValidDataType = (typeof VALID_DATA_TYPES)[number];
-
-function isValidDataType(name: string): name is ValidDataType {
-  return VALID_DATA_TYPES.includes(name as ValidDataType);
-}
-
-const TABLE_MAP: Record<ValidDataType, string> = {
-  meaning: 'approved_meanings',
-  utterance: 'approved_utterances',
-  rule: 'approved_rules',
-  exercise: 'approved_exercises',
-};
 
 const approveRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
@@ -70,18 +64,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
       const { dataType, notes } = request.body;
       const operatorId = request.user.userId;
 
-      // TypeBox schema already validates dataType, but double-check for type safety
-      if (!isValidDataType(dataType)) {
-        return reply.status(400).send({
-          error: {
-            statusCode: 400,
-            message: `Invalid data type: ${String(dataType)}. Valid types: ${VALID_DATA_TYPES.join(', ')}`,
-            requestId: request.id,
-            code: 'INVALID_DATA_TYPE',
-          },
-        });
-      }
-
       const client = await fastify.db.connect();
 
       try {
@@ -96,23 +78,46 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
             throw new Error(`Item not found in validated table`);
           }
 
-          const item = itemResult.rows[0] as Record<string, unknown>;
-          const validatedData = item.validated_data;
+          // Create repositories for lifecycle transitions
+          const transitionRepo: TransitionRepository = {
+            async recordTransition(params) {
+              return await recordTransition(txClient, params);
+            },
+            async moveItemToState(
+              itemId: string,
+              itemType: string,
+              fromState: LifecycleState,
+              toState: LifecycleState
+            ) {
+              return await moveItemToState(txClient, itemId, itemType, fromState, toState);
+            },
+          };
 
-          const approvedTable = TABLE_MAP[dataType];
-          await txClient.query(
-            `INSERT INTO ${approvedTable} SELECT * FROM jsonb_populate_record(null::${approvedTable}, $1::jsonb)`,
-            [JSON.stringify(validatedData)]
-          );
+          const approvalEventRepo = createApprovalEventRepository(txClient);
 
-          await txClient.query(`DELETE FROM validated WHERE id = $1`, [id]);
+          // Execute VALIDATED → APPROVED transition
+          await executeTransitionSimple(transitionRepo, {
+            itemId: id,
+            itemType: dataType,
+            fromState: LifecycleState.VALIDATED,
+            toState: LifecycleState.APPROVED,
+            metadata: {
+              operatorId,
+              notes,
+            },
+          });
 
-          await txClient.query(
-            `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes, created_at)
-             VALUES ($1, $2, $3, 'MANUAL', $4, CURRENT_TIMESTAMP)`,
-            [id, dataType, operatorId, notes ?? null]
-          );
+          // Record approval event
 
+          await recordApproval(approvalEventRepo, {
+            itemId: id,
+            itemType: dataType,
+            operatorId,
+            approvalType: ApprovalType.MANUAL,
+            notes,
+          });
+
+          // Update review queue
           await txClient.query(
             `UPDATE review_queue
              SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approve'
