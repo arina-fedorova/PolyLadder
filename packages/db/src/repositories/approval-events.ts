@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import {
   ApprovalEventRepository,
   ApprovalEventRecord,
@@ -7,7 +7,7 @@ import {
   ApprovalType,
 } from '@polyladder/core';
 
-export function createApprovalEventRepository(pool: Pool): ApprovalEventRepository {
+export function createApprovalEventRepository(pool: Pool | PoolClient): ApprovalEventRepository {
   return {
     async recordApproval(params: CreateApprovalParams): Promise<ApprovalEventRecord> {
       const result = await pool.query<{
