@@ -78,8 +78,14 @@ export class PromotionWorker {
   }
 
   private async processCandidate(candidate: CandidateRecord): Promise<void> {
+    const normalizedData = candidate.normalizedData as Record<string, unknown>;
+    const text = this.extractTextFromNormalizedData(normalizedData);
+    const language = (normalizedData.language as string) ?? 'EN';
+
     const input: GateInput = {
-      content: candidate.normalizedData as Record<string, unknown>,
+      text,
+      language,
+      contentType: candidate.dataType,
       metadata: {
         candidateId: candidate.id,
         dataType: candidate.dataType,
@@ -119,6 +125,28 @@ export class PromotionWorker {
     }
   }
 
+  private extractTextFromNormalizedData(normalizedData: Record<string, unknown>): string {
+    if (typeof normalizedData.text === 'string') {
+      return normalizedData.text;
+    }
+    if (typeof normalizedData.content === 'string') {
+      return normalizedData.content;
+    }
+    if (typeof normalizedData.prompt === 'string') {
+      return normalizedData.prompt;
+    }
+    if (typeof normalizedData.title === 'string') {
+      return normalizedData.title;
+    }
+    if (typeof normalizedData.explanation === 'string') {
+      return normalizedData.explanation;
+    }
+    if (Array.isArray(normalizedData.examples) && normalizedData.examples.length > 0) {
+      return String(normalizedData.examples[0]);
+    }
+    return JSON.stringify(normalizedData);
+  }
+
   private async recordFailures(
     candidateId: string,
     results: import('@polyladder/core').QualityGateResult[]
@@ -129,7 +157,12 @@ export class PromotionWorker {
       await this.pool.query(
         `INSERT INTO validation_failures (candidate_id, gate_name, failure_reason, failure_details)
          VALUES ($1, $2, $3, $4)`,
-        [candidateId, result.gateName, result.message, JSON.stringify(result.details ?? {})]
+        [
+          candidateId,
+          result.gateName,
+          result.reason ?? 'Validation failed',
+          JSON.stringify(result.details ?? {}),
+        ]
       );
     }
   }
