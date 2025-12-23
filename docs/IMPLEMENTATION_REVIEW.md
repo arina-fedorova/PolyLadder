@@ -171,7 +171,7 @@ await approvalProcessor.approve(); // VALIDATED → APPROVED (operator)
 
 ### 🟠 SEVERITY 2: Integration Gaps
 
-#### Issue 2.1: Auth Middleware Not Using Core JWT Utils
+#### Issue 2.1: Auth Middleware Not Using Core JWT Utils ✅ FIXED
 
 **Location**: `packages/api/src/middleware/auth.ts`
 
