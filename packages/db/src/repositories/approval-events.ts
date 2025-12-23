@@ -36,11 +36,14 @@ type LocalApprovalEventRecord = {
 };
 
 function extractParams(params: CreateApprovalParams): LocalCreateApprovalParams {
-  const itemId: string = String(params.itemId);
-  const itemType: string = String(params.itemType);
-  const operatorId: string | undefined = params.operatorId ? String(params.operatorId) : undefined;
-  const approvalType: ApprovalType = params.approvalType;
-  const notes: string | undefined = params.notes ? String(params.notes) : undefined;
+  const typedParams = params as unknown as LocalCreateApprovalParams;
+  const itemId: string = String(typedParams.itemId);
+  const itemType: string = String(typedParams.itemType);
+  const operatorId: string | undefined = typedParams.operatorId
+    ? String(typedParams.operatorId)
+    : undefined;
+  const approvalType: ApprovalType = typedParams.approvalType;
+  const notes: string | undefined = typedParams.notes ? String(typedParams.notes) : undefined;
   return {
     itemId,
     itemType,
