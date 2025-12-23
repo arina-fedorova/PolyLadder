@@ -1,6 +1,12 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import { verifyPassword, needsRehash, hashPassword, generateToken } from '@polyladder/core';
+import {
+  verifyPassword,
+  needsRehash,
+  hashPassword,
+  generateToken,
+  UserRole,
+} from '@polyladder/core';
 import { findUserByEmail, updatePassword } from '@polyladder/db';
 import { getEnv } from '../../config/env';
 import { ErrorResponseSchema } from '../../schemas/common';
@@ -98,7 +104,10 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
           await updatePassword(user.id, newHash);
         }
 
-        const tokenPayload = { userId: user.id, role: user.role };
+        const tokenPayload = {
+          userId: user.id,
+          role: user.role === 'learner' ? UserRole.LEARNER : UserRole.OPERATOR,
+        };
 
         const accessToken = generateToken(tokenPayload, env.JWT_SECRET, env.JWT_ACCESS_EXPIRY);
 

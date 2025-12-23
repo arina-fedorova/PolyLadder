@@ -26,6 +26,18 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
 
     const payload = verifyToken(token, jwtSecret);
 
+    if (!payload) {
+      await reply.status(401).send({
+        error: {
+          statusCode: 401,
+          message: 'Invalid token',
+          requestId: request.id,
+          code: 'UNAUTHORIZED',
+        },
+      });
+      return;
+    }
+
     request.user = {
       userId: payload.userId,
       role: payload.role as 'learner' | 'operator',
@@ -58,10 +70,12 @@ export function optionalAuthMiddleware(request: FastifyRequest): void {
     }
 
     const payload = verifyToken(token, jwtSecret);
-    request.user = {
-      userId: payload.userId,
-      role: payload.role as 'learner' | 'operator',
-    };
+    if (payload) {
+      request.user = {
+        userId: payload.userId,
+        role: payload.role as 'learner' | 'operator',
+      };
+    }
   } catch {
     // Invalid token - ignore
   }
