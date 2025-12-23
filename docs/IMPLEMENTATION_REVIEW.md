@@ -162,21 +162,46 @@ await pipeline.processBatch(); // VALIDATED → APPROVED (operator) ✅
 
 ---
 
-#### Issue 2.2: Operator Approval Mechanism Incomplete
+#### Issue 2.2: Operator Approval Mechanism Incomplete ✅ FIXED
 
 **Spec**: F009 - Approval Event System
-**Status**: Core types exist, no usage
+**Status**: NOW IMPLEMENTED (2025-12-23)
 
-**Missing**:
+**Fix Applied**:
 
-- API endpoint to approve/reject items
-- Link approval_events to VALIDATED → APPROVED transition
-- Manual review queue implementation
+Created ApprovalEventRepository in `packages/db/src/repositories/approval-events.ts`:
 
-**Evidence**:
+- Implements `ApprovalEventRepository` interface from core
+- `recordApproval()` - records approval events
+- `getApprovalEvent()` - retrieves approval history
+- `getApprovalsByOperator()` - operator activity tracking
+- `getApprovalsByType()` - approval statistics by type
+- `getApprovalStats()` - overall approval statistics
 
-- `packages/api/src/routes/operational/approve.ts` exists but doesn't use `@polyladder/core`
-- No call to `recordApprovalEvent` from core
+Updated API endpoint `/approve/:id` in `packages/api/src/routes/operational/approve.ts`:
+
+- Now uses `executeTransitionSimple` for VALIDATED → APPROVED transition
+- Calls `recordApproval` from `@polyladder/core`
+- Creates TransitionRepository for lifecycle management
+- Uses createApprovalEventRepository from `@polyladder/db`
+- Maintains review queue updates
+
+**New Flow** (IMPLEMENTED):
+
+```typescript
+// Operator approves item via API:
+1. Check item exists in validated table
+2. Create TransitionRepository and ApprovalEventRepository
+3. Execute VALIDATED → APPROVED transition (moves data to approved_* tables) ✅
+4. Record approval event with operator ID ✅
+5. Update review queue ✅
+```
+
+**Testing**:
+
+- All 183 tests passing
+- Linter passes (no TypeScript errors)
+- Full lifecycle integration from DRAFT to APPROVED working
 
 ---
 
