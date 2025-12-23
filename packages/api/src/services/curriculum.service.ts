@@ -390,15 +390,20 @@ export class CurriculumService {
                   error: 'Prerequisite topic does not exist',
                 });
               } else if (topic.prerequisites && topic.prerequisites.length > 0) {
-                try {
-                  await this.validateNoCircularDeps(client, insertedTopic.id, topic.prerequisites);
-                  topicPrerequisitesMap.set(insertedTopic.id, topic.prerequisites);
-                } catch (error) {
-                  errors.push({
-                    index: originalIndex,
-                    name: topic.name,
-                    error: error instanceof Error ? error.message : String(error),
-                  });
+                const validPrereqs = topic.prerequisites.filter(
+                  (prereqId) => !invalidPrereqIds.includes(prereqId)
+                );
+                if (validPrereqs.length > 0) {
+                  try {
+                    await this.validateNoCircularDeps(client, insertedTopic.id, validPrereqs);
+                    topicPrerequisitesMap.set(insertedTopic.id, validPrereqs);
+                  } catch (error) {
+                    errors.push({
+                      index: originalIndex,
+                      name: topic.name,
+                      error: error instanceof Error ? error.message : String(error),
+                    });
+                  }
                 }
               }
             }
@@ -458,11 +463,37 @@ export class CurriculumService {
         }
 
         if (prereqPlaceholders.length > 0) {
-          await client.query(
-            `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
-             VALUES ${prereqPlaceholders.join(', ')}`,
-            prereqValues
-          );
+          try {
+            await client.query(
+              `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
+               VALUES ${prereqPlaceholders.join(', ')}`,
+              prereqValues
+            );
+          } catch (error) {
+            if (error instanceof Error && 'code' in error && error.code === '23503') {
+              const failedTopicIds = new Set<string>();
+              for (let i = 0; i < prereqValues.length; i += 2) {
+                failedTopicIds.add(prereqValues[i] as string);
+              }
+              for (let i = 0; i < insertedTopics.length; i++) {
+                const insertedTopic = insertedTopics[i];
+                const originalIndex = topicIndices[i];
+                const topic = topics[originalIndex];
+                if (failedTopicIds.has(insertedTopic.id)) {
+                  const existingError = errors.find((e) => e.index === originalIndex);
+                  if (!existingError) {
+                    errors.push({
+                      index: originalIndex,
+                      name: topic.name,
+                      error: 'Prerequisite topic does not exist',
+                    });
+                  }
+                }
+              }
+            } else {
+              throw error;
+            }
+          }
         }
       }
 

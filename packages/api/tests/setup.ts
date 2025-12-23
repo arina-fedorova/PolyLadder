@@ -101,7 +101,9 @@ export async function cleanupTestData(): Promise<void> {
   }
 
   try {
-    await pool.query('DELETE FROM users');
+    await pool.query(
+      "DELETE FROM users WHERE email NOT IN ('operator@test.com', 'learner@test.com')"
+    );
   } catch {
     // Table might not exist yet, ignore
   }
