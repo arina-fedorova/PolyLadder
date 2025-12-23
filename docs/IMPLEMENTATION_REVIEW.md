@@ -38,16 +38,18 @@
 
 ### ⚠️ Critical Issues Found
 
-**CRITICAL: Architecture Violation - Core Package Not Used**
+**CRITICAL: Refinement Service Missing Core Integration**
 
-The most severe issue: `@polyladder/api` and `@polyladder/refinement-service` **DO NOT import or use `@polyladder/core`** at all.
+The most severe remaining issue: `@polyladder/refinement-service` **DOES NOT use `@polyladder/core`** lifecycle and quality systems.
 
 **Evidence**:
 
-- `packages/api/src`: 0 imports from `@polyladder/core`
 - `packages/refinement-service/src`: 0 imports from `@polyladder/core`
+- Content sits in DRAFT state forever
+- Quality gates never execute
+- Promotion pipeline not implemented
 
-**Impact**: This violates the entire architecture. Business logic is duplicated instead of reused.
+**Impact**: Core features F007-F017 (lifecycle, quality gates, promotion) are unused dead code.
 
 ---
 
@@ -55,52 +57,7 @@ The most severe issue: `@polyladder/api` and `@polyladder/refinement-service` **
 
 ### 🔴 SEVERITY 1: Critical Architecture Violations
 
-#### Issue 1.1: API Routes Duplicate Core Logic ✅ FIXED
-
-**Location**: `packages/api/src/routes/auth/`
-
-**Problem**: API routes reimplement authentication logic instead of using core services.
-
-**Examples**:
-
-- `register.ts:34`: Defines own `SALT_ROUNDS = 12` instead of using `@polyladder/core/hashPassword`
-- `register.ts:69`: Calls `bcrypt.hash()` directly instead of core service
-- `login.ts:88`: Calls `bcrypt.compare()` directly instead of core service
-- `login.ts:104`: Calls `jwt.sign()` directly instead of `generateToken` from core
-- `auth.ts:9-22`: Duplicates `verifyJWT` logic that exists in `@polyladder/core/jwt`
-
-**Expected Architecture** (from F004, F005 specs):
-
-```typescript
-// packages/api/src/routes/auth/register.ts SHOULD BE:
-import { registerUser } from '@polyladder/core/services/auth';
-import { createUserRepository } from '@polyladder/db/repositories/users';
-
-const repo = createUserRepository(fastify.db);
-const result = await registerUser(body, env.JWT_SECRET, repo);
-```
-
-**Current Architecture** (WRONG):
-
-```typescript
-// packages/api/src/routes/auth/register.ts ACTUALLY IS:
-const passwordHash = await bcrypt.hash(password, SALT_ROUNDS); // Duplicated
-const result = await fastify.db.query(...); // Direct DB access
-```
-
-**Consequences**:
-
-- Password hashing logic exists in 2 places (core & API)
-- JWT generation logic exists in 2 places
-- If core changes SALT_ROUNDS from 10 to 12, API won't follow
-- Tests in core don't validate actual API behavior
-- Violates DRY principle
-
-**Fix Required**: Refactor all auth routes to use core services.
-
----
-
-#### Issue 1.2: Refinement Service Missing Lifecycle Integration
+#### Issue 1.1: Refinement Service Missing Lifecycle Integration
 
 **Location**: `packages/refinement-service/src/services/content-processor.service.ts`
 
@@ -143,7 +100,7 @@ const result = await fastify.db.query(...); // Direct DB access
 
 ---
 
-#### Issue 1.3: Missing Service Orchestration
+#### Issue 1.2: Missing Service Orchestration
 
 **Location**: `packages/refinement-service/src/main.ts`
 
@@ -169,82 +126,9 @@ await approvalProcessor.approve(); // VALIDATED → APPROVED (operator)
 
 ---
 
-### 🟠 SEVERITY 2: Integration Gaps
+### 🟠 SEVERITY 2: Missing Features
 
-#### Issue 2.1: Auth Middleware Not Using Core JWT Utils ✅ FIXED
-
-**Location**: `packages/api/src/middleware/auth.ts`
-
-**Problem**: Reimplements JWT verification instead of using core.
-
-```typescript
-// Line 9-22: Duplicates verifyToken from core/src/auth/jwt.ts
-function verifyJWT(token: string, secret: string): JWTPayload {
-  // ... exact same logic as core ...
-}
-```
-
-**Should be**:
-
-```typescript
-import { verifyToken } from '@polyladder/core/auth/jwt';
-const payload = verifyToken(token, jwtSecret);
-```
-
----
-
-#### Issue 2.2: No Repository Pattern in API ✅ FIXED
-
-**Location**: All API routes
-
-**Problem**: Direct database queries instead of using repository pattern.
-
-**Example** (`register.ts:54-56`):
-
-```typescript
-const existingUser = await fastify.db.query('SELECT id FROM users WHERE email = $1', [
-  normalizedEmail,
-]);
-```
-
-**Expected** (from F004 spec):
-
-```typescript
-import { UserRepository } from '@polyladder/core/services/auth';
-const repo = createUserRepository(fastify.db);
-const exists = await repo.emailExists(normalizedEmail);
-```
-
-**Impact**:
-
-- No abstraction layer
-- Cannot mock for testing
-- Violates dependency inversion
-
----
-
-#### Issue 2.3: Inconsistent Password Hashing Rounds ✅ FIXED
-
-**Problem**: Core uses 10 rounds, API uses 12 rounds.
-
-**Evidence**:
-
-- `packages/core/src/auth/password.ts:3`: ~~`const SALT_ROUNDS = 10;`~~ → **Fixed to 12**
-- `packages/api/src/routes/auth/register.ts:34`: `const SALT_ROUNDS = 12;`
-
-**Fix Applied** (2025-12-23):
-
-- Updated `packages/core/src/auth/password.ts` to use `SALT_ROUNDS = 12`
-- Now consistent across core and API
-- All 158 core tests passing
-
-**Consequence**: ~~Passwords hashed by API (12 rounds) won't match core's `needsRehash` logic (expects 10).~~ → **RESOLVED**
-
----
-
-### 🟡 SEVERITY 3: Missing Features
-
-#### Issue 3.1: Promotion Pipeline Not Implemented
+#### Issue 2.1: Promotion Pipeline Not Implemented
 
 **Spec**: F017 - Automated Promotion Pipeline
 **Status**: Marked as completed, but not implemented
@@ -265,7 +149,7 @@ const exists = await repo.emailExists(normalizedEmail);
 
 ---
 
-#### Issue 3.2: Operator Approval Mechanism Incomplete
+#### Issue 2.2: Operator Approval Mechanism Incomplete
 
 **Spec**: F009 - Approval Event System
 **Status**: Core types exist, no usage
@@ -283,9 +167,9 @@ const exists = await repo.emailExists(normalizedEmail);
 
 ---
 
-### 🔵 SEVERITY 4: Non-Critical Issues
+### 🔵 SEVERITY 3: Non-Critical Issues
 
-#### Issue 4.1: Test Coverage Gaps
+#### Issue 3.1: Test Coverage Gaps
 
 **Current**:
 
@@ -303,7 +187,7 @@ const exists = await repo.emailExists(normalizedEmail);
 
 ---
 
-#### Issue 4.2: Logging Inconsistency
+#### Issue 3.2: Logging Inconsistency
 
 **Problem**:
 
@@ -315,7 +199,7 @@ const exists = await repo.emailExists(normalizedEmail);
 
 ---
 
-#### Issue 4.3: Error Handling Variation
+#### Issue 3.3: Error Handling Variation
 
 **API** (`server.ts:102-148`): Centralized error handler ✅
 **Core**: Throws Error classes ✅
