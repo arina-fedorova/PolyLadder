@@ -32,7 +32,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
       );
 
       const row = result.rows[0];
-      return {
+      const record: ApprovalEventRecord = {
         id: row.id,
         itemId: row.item_id,
         itemType: row.item_type,
@@ -41,6 +41,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ?? undefined,
         createdAt: row.created_at,
       };
+      return record;
     },
 
     async getApprovalEvent(itemId: string): Promise<ApprovalEventRecord | null> {
@@ -66,7 +67,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
       }
 
       const row = result.rows[0];
-      return {
+      const record: ApprovalEventRecord = {
         id: row.id,
         itemId: row.item_id,
         itemType: row.item_type,
@@ -75,6 +76,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ?? undefined,
         createdAt: row.created_at,
       };
+      return record;
     },
 
     async getApprovalsByOperator(operatorId: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -95,7 +97,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [operatorId, limit]
       );
 
-      return result.rows.map((row) => ({
+      const records: ApprovalEventRecord[] = result.rows.map((row) => ({
         id: row.id,
         itemId: row.item_id,
         itemType: row.item_type,
@@ -104,6 +106,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ?? undefined,
         createdAt: row.created_at,
       }));
+      return records;
     },
 
     async getApprovalsByType(itemType: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -124,7 +127,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [itemType, limit]
       );
 
-      return result.rows.map((row) => ({
+      const records: ApprovalEventRecord[] = result.rows.map((row) => ({
         id: row.id,
         itemId: row.item_id,
         itemType: row.item_type,
@@ -133,6 +136,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         notes: row.notes ?? undefined,
         createdAt: row.created_at,
       }));
+      return records;
     },
 
     async getApprovalStats(): Promise<ApprovalStats> {
