@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import bcrypt from 'bcrypt';
+import { hashPassword } from '@polyladder/core';
+import { emailExists, createUser, type Language } from '@polyladder/db';
 import { ErrorResponseSchema } from '../../schemas/common';
 
 const RegisterRequestSchema = Type.Object({
@@ -31,8 +32,6 @@ const RegisterResponseSchema = Type.Object({
   role: Type.Union([Type.Literal('learner'), Type.Literal('operator')]),
 });
 
-const SALT_ROUNDS = 12;
-
 const registerRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
   fastify.post<{ Body: RegisterRequest }>(
@@ -51,11 +50,9 @@ const registerRoute: FastifyPluginAsync = async function (fastify) {
       const { email, password, role = 'learner', baseLanguage = 'EN' } = request.body;
       const normalizedEmail = email.toLowerCase();
 
-      const existingUser = await fastify.db.query('SELECT id FROM users WHERE email = $1', [
-        normalizedEmail,
-      ]);
+      const exists = await emailExists(normalizedEmail);
 
-      if (existingUser.rows.length > 0) {
+      if (exists) {
         return reply.status(409).send({
           error: {
             statusCode: 409,
@@ -66,23 +63,21 @@ const registerRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      const passwordHash = await hashPassword(password);
 
-      const result = await fastify.db.query<{ id: string; email: string; role: string }>(
-        `INSERT INTO users (email, password_hash, role, base_language, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         RETURNING id, email, role`,
-        [normalizedEmail, passwordHash, role, baseLanguage]
-      );
-
-      const user = result.rows[0];
+      const user = await createUser({
+        email: normalizedEmail,
+        passwordHash,
+        role: role,
+        baseLanguage: baseLanguage as Language,
+      });
 
       request.log.info({ userId: user.id, email: user.email }, 'User registered');
 
       return reply.status(201).send({
         userId: user.id,
         email: user.email,
-        role: user.role as 'learner' | 'operator',
+        role: user.role,
       });
     }
   );
