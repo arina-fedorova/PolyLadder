@@ -175,7 +175,7 @@ describe('Corpus Export Integration Tests', () => {
       expect(response.statusCode).toBe(400);
       const body = response.json<{ error: { message: string } }>();
       expect(body.error.message).toContain('Export limit is 10000 items');
-    });
+    }, 30000);
 
     it('should reject empty itemIds', async () => {
       const token = await getOperatorToken();

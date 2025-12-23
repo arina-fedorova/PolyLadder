@@ -75,7 +75,7 @@ describe('Curriculum Integration Tests', () => {
       const topics = [
         {
           levelId,
-          name: 'Basic Greetings',
+          name: `Basic Greetings ${Date.now()}`,
           description: 'Learn how to greet people',
           contentType: 'vocabulary' as const,
           sortOrder: 0,
@@ -83,7 +83,7 @@ describe('Curriculum Integration Tests', () => {
         },
         {
           levelId,
-          name: 'Numbers 1-10',
+          name: `Numbers 1-10 ${Date.now()}`,
           description: 'Learn numbers from 1 to 10',
           contentType: 'vocabulary' as const,
           sortOrder: 1,
@@ -91,7 +91,7 @@ describe('Curriculum Integration Tests', () => {
         },
         {
           levelId,
-          name: 'Present Tense',
+          name: `Present Tense ${Date.now()}`,
           description: 'Basic present tense grammar',
           contentType: 'grammar' as const,
           sortOrder: 2,
@@ -131,7 +131,7 @@ describe('Curriculum Integration Tests', () => {
 
       const firstTopic = {
         levelId,
-        name: 'Basic Greetings',
+        name: `Basic Greetings ${Date.now()}`,
         contentType: 'vocabulary' as const,
       };
 
@@ -147,16 +147,17 @@ describe('Curriculum Integration Tests', () => {
       expect(createFirstResponse.statusCode).toBe(201);
       const firstTopicId = createFirstResponse.json<{ topic: { id: string } }>().topic.id;
 
+      const timestamp = Date.now();
       const topics = [
         {
           levelId,
-          name: 'Advanced Greetings',
+          name: `Advanced Greetings ${timestamp}`,
           contentType: 'vocabulary' as const,
           prerequisites: [firstTopicId],
         },
         {
           levelId,
-          name: 'Formal Greetings',
+          name: `Formal Greetings ${timestamp}`,
           contentType: 'vocabulary' as const,
           prerequisites: [firstTopicId],
         },
@@ -187,21 +188,22 @@ describe('Curriculum Integration Tests', () => {
 
       const invalidTopicId = '00000000-0000-0000-0000-000000000000';
 
+      const timestamp = Date.now();
       const topics = [
         {
           levelId,
-          name: 'Valid Topic',
+          name: `Valid Topic ${timestamp}`,
           contentType: 'vocabulary' as const,
         },
         {
           levelId,
-          name: 'Topic with Invalid Prerequisite',
+          name: `Topic with Invalid Prerequisite ${timestamp}`,
           contentType: 'vocabulary' as const,
           prerequisites: [invalidTopicId],
         },
         {
           levelId,
-          name: 'Another Valid Topic',
+          name: `Another Valid Topic ${timestamp}`,
           contentType: 'grammar' as const,
         },
       ];
@@ -290,15 +292,16 @@ describe('Curriculum Integration Tests', () => {
       const token = await getOperatorToken();
       const levelId = await createTestLevel('EN', 'A1');
 
+      const timestamp = Date.now();
       const topics = [
         {
-          name: 'Imported Topic 1',
+          name: `Imported Topic 1 ${timestamp}`,
           description: 'First imported topic',
           contentType: 'vocabulary' as const,
           sortOrder: 0,
         },
         {
-          name: 'Imported Topic 2',
+          name: `Imported Topic 2 ${timestamp}`,
           description: 'Second imported topic',
           contentType: 'grammar' as const,
           sortOrder: 1,

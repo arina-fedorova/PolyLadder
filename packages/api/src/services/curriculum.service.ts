@@ -292,9 +292,7 @@ export class CurriculumService {
     }
   }
 
-  async bulkCreateTopics(
-    topics: CreateTopicInput[]
-  ): Promise<{
+  async bulkCreateTopics(topics: CreateTopicInput[]): Promise<{
     created: CurriculumTopic[];
     errors: Array<{ index: number; name: string; error: string }>;
   }> {
@@ -390,11 +388,34 @@ export class CurriculumService {
         }
 
         if (prereqPlaceholders.length > 0) {
-          await client.query(
-            `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
-             VALUES ${prereqPlaceholders.join(', ')}`,
-            prereqValues
-          );
+          try {
+            await client.query(
+              `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
+               VALUES ${prereqPlaceholders.join(', ')}`,
+              prereqValues
+            );
+          } catch (error) {
+            if (error instanceof Error && 'code' in error && error.code === '23503') {
+              const failedTopicIds = new Set<string>();
+              for (let i = 0; i < prereqValues.length; i += 2) {
+                failedTopicIds.add(prereqValues[i] as string);
+              }
+              for (let i = 0; i < insertedTopics.length; i++) {
+                const insertedTopic = insertedTopics[i];
+                const originalIndex = topicIndices[i];
+                const topic = topics[originalIndex];
+                if (failedTopicIds.has(insertedTopic.id)) {
+                  errors.push({
+                    index: originalIndex,
+                    name: topic.name,
+                    error: 'Prerequisite topic does not exist',
+                  });
+                }
+              }
+            } else {
+              throw error;
+            }
+          }
         }
       }
 

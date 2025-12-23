@@ -18,11 +18,18 @@ export function up(pgm: MigrationBuilder): void {
   const escapedLearnerHash = learnerPasswordHash.replace(/'/g, "''");
 
   pgm.sql(`
-    INSERT INTO users (email, password_hash, role, base_language, created_at, updated_at)
-    VALUES
-      ('operator@test.com', '${escapedOperatorHash}', 'operator', 'EN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-      ('learner@test.com', '${escapedLearnerHash}', 'learner', 'EN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    ON CONFLICT (email) DO NOTHING;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'operator@test.com') THEN
+        INSERT INTO users (email, password_hash, role, base_language, created_at, updated_at)
+        VALUES ('operator@test.com', '${escapedOperatorHash}', 'operator', 'EN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      END IF;
+      
+      IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'learner@test.com') THEN
+        INSERT INTO users (email, password_hash, role, base_language, created_at, updated_at)
+        VALUES ('learner@test.com', '${escapedLearnerHash}', 'learner', 'EN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      END IF;
+    END $$;
   `);
 }
 

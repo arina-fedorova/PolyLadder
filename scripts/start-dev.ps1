@@ -56,6 +56,13 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "⚠️  Migration failed, but continuing..." -ForegroundColor Yellow
 }
 
+# Seed dev users
+Write-Host "👤 Seeding dev users..." -ForegroundColor Cyan
+pnpm --filter @polyladder/db seed
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "⚠️  Seed failed, but continuing..." -ForegroundColor Yellow
+}
+
 # Start all services
 Write-Host "🚀 Starting all services (API, Refinement, Web)..." -ForegroundColor Cyan
 docker-compose -f docker/docker-compose.yml up -d

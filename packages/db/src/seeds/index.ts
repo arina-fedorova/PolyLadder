@@ -1,9 +1,12 @@
 import { seedDevelopmentData } from './dev-seed';
+import { seedDevUsers } from './dev-users';
+import { pool } from '../connection';
 import { close } from '../connection';
 
 async function main(): Promise<void> {
   try {
     await seedDevelopmentData();
+    await seedDevUsers(pool);
   } catch (error) {
     console.error('Error seeding data:', error);
     process.exit(1);

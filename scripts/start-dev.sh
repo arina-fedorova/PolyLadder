@@ -52,6 +52,10 @@ export DATABASE_URL="postgres://dev:dev@localhost:5432/polyladder"
 export NODE_ENV="development"
 pnpm --filter @polyladder/db migrate:up || echo "⚠️  Migration failed, but continuing..."
 
+# Seed dev users
+echo "👤 Seeding dev users..."
+pnpm --filter @polyladder/db seed || echo "⚠️  Seed failed, but continuing..."
+
 # Start all services
 echo "🚀 Starting all services (API, Refinement, Web)..."
 docker-compose -f docker/docker-compose.yml up -d
