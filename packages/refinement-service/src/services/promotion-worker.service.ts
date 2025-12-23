@@ -31,7 +31,6 @@ export class PromotionWorker {
     const pool = this.pool;
     return {
       async recordTransition(params): Promise<import('@polyladder/core').StateTransition> {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await recordTransition(pool, params);
       },
       async moveItemToState(
@@ -40,7 +39,6 @@ export class PromotionWorker {
         fromState: import('@polyladder/core').LifecycleState,
         toState: import('@polyladder/core').LifecycleState
       ): Promise<void> {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await moveItemToState(pool, itemId, itemType, fromState, toState);
       },
     };

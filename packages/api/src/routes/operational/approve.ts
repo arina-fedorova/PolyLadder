@@ -81,7 +81,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
           // Create repositories for lifecycle transitions
           const transitionRepo: TransitionRepository = {
             async recordTransition(params) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
               return await recordTransition(txClient, params);
             },
             async moveItemToState(
@@ -90,12 +89,10 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
               fromState: LifecycleState,
               toState: LifecycleState
             ) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
               return await moveItemToState(txClient, itemId, itemType, fromState, toState);
             },
           };
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
           const approvalEventRepo = createApprovalEventRepository(txClient);
 
           // Execute VALIDATED → APPROVED transition
@@ -111,7 +108,7 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
           });
 
           // Record approval event
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
           await recordApproval(approvalEventRepo, {
             itemId: id,
             itemType: dataType,
