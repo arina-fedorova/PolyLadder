@@ -343,24 +343,78 @@ export class CurriculumService {
 
       const flatValues = topicValues.flat();
 
-      const result = await client.query(
-        `INSERT INTO curriculum_topics 
-         (level_id, name, slug, description, content_type, sort_order, estimated_items)
-         VALUES ${placeholders}
-         RETURNING *`,
-        flatValues
-      );
+      let insertedTopics: Array<{ id: string; [key: string]: unknown }> = [];
+      const newTopicIndices: number[] = [];
 
-      const insertedTopics = result.rows as Array<{ id: string; [key: string]: unknown }>;
+      try {
+        const result = await client.query(
+          `INSERT INTO curriculum_topics 
+           (level_id, name, slug, description, content_type, sort_order, estimated_items)
+           VALUES ${placeholders}
+           RETURNING *`,
+          flatValues
+        );
+        insertedTopics = result.rows as Array<{ id: string; [key: string]: unknown }>;
+        newTopicIndices.push(...topicIndices);
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === '23505') {
+          for (let i = 0; i < topicValues.length; i++) {
+            const originalIndex = topicIndices[i];
+            const topic = topics[originalIndex];
+            try {
+              const slug = this.generateSlug(topic.name);
+              const result = await client.query(
+                `INSERT INTO curriculum_topics 
+                 (level_id, name, slug, description, content_type, sort_order, estimated_items)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 ON CONFLICT (level_id, slug) DO NOTHING
+                 RETURNING *`,
+                [
+                  topic.levelId,
+                  topic.name,
+                  slug,
+                  topic.description || null,
+                  topic.contentType,
+                  topic.sortOrder ?? 0,
+                  topic.estimatedItems ?? 0,
+                ]
+              );
+              if (result.rows.length > 0) {
+                insertedTopics.push(result.rows[0] as { id: string; [key: string]: unknown });
+                newTopicIndices.push(originalIndex);
+              } else {
+                errors.push({
+                  index: originalIndex,
+                  name: topic.name,
+                  error: 'Topic with this name already exists in this level',
+                });
+              }
+            } catch (insertError) {
+              errors.push({
+                index: originalIndex,
+                name: topic.name,
+                error: insertError instanceof Error ? insertError.message : String(insertError),
+              });
+            }
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      const finalTopicIndices = newTopicIndices.length > 0 ? newTopicIndices : topicIndices;
 
       const topicPrerequisitesMap = new Map<string, string[]>();
 
       if (insertedTopics.length > 0) {
         const allPrereqIds = new Set<string>();
+        const topicPrereqMap = new Map<number, string[]>();
+
         for (let i = 0; i < insertedTopics.length; i++) {
-          const originalIndex = topicIndices[i];
+          const originalIndex = finalTopicIndices[i];
           const topic = topics[originalIndex];
           if (topic.prerequisites && topic.prerequisites.length > 0) {
+            topicPrereqMap.set(i, topic.prerequisites);
             for (const prereqId of topic.prerequisites) {
               allPrereqIds.add(prereqId);
             }
@@ -375,75 +429,35 @@ export class CurriculumService {
           const existingIdsSet = new Set(existingPrereqIds.rows.map((r) => r.id));
           const invalidPrereqIds = Array.from(allPrereqIds).filter((id) => !existingIdsSet.has(id));
 
-          if (invalidPrereqIds.length > 0) {
-            for (let i = 0; i < insertedTopics.length; i++) {
-              const insertedTopic = insertedTopics[i];
-              const originalIndex = topicIndices[i];
-              const topic = topics[originalIndex];
-              if (
-                topic.prerequisites &&
-                topic.prerequisites.some((prereqId) => invalidPrereqIds.includes(prereqId))
-              ) {
-                errors.push({
-                  index: originalIndex,
-                  name: topic.name,
-                  error: 'Prerequisite topic does not exist',
-                });
-              } else if (topic.prerequisites && topic.prerequisites.length > 0) {
-                const validPrereqs = topic.prerequisites.filter(
-                  (prereqId) => !invalidPrereqIds.includes(prereqId)
-                );
-                if (validPrereqs.length > 0) {
-                  try {
-                    await this.validateNoCircularDeps(client, insertedTopic.id, validPrereqs);
-                    topicPrerequisitesMap.set(insertedTopic.id, validPrereqs);
-                  } catch (error) {
-                    errors.push({
-                      index: originalIndex,
-                      name: topic.name,
-                      error: error instanceof Error ? error.message : String(error),
-                    });
-                  }
-                }
-              }
-            }
-          } else {
-            for (let i = 0; i < insertedTopics.length; i++) {
-              const insertedTopic = insertedTopics[i];
-              const originalIndex = topicIndices[i];
-              const topic = topics[originalIndex];
-
-              try {
-                if (topic.prerequisites && topic.prerequisites.length > 0) {
-                  await this.validateNoCircularDeps(client, insertedTopic.id, topic.prerequisites);
-                  topicPrerequisitesMap.set(insertedTopic.id, topic.prerequisites);
-                }
-              } catch (error) {
-                errors.push({
-                  index: originalIndex,
-                  name: topic.name,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              }
-            }
-          }
-        } else {
           for (let i = 0; i < insertedTopics.length; i++) {
             const insertedTopic = insertedTopics[i];
-            const originalIndex = topicIndices[i];
-            const topic = topics[originalIndex];
+            const originalIndex = finalTopicIndices[i];
+            const prereqIds = topicPrereqMap.get(i);
 
-            try {
-              if (topic.prerequisites && topic.prerequisites.length > 0) {
-                await this.validateNoCircularDeps(client, insertedTopic.id, topic.prerequisites);
-                topicPrerequisitesMap.set(insertedTopic.id, topic.prerequisites);
+            if (prereqIds && prereqIds.length > 0) {
+              const invalidPrereqs = prereqIds.filter((id) => invalidPrereqIds.includes(id));
+              if (invalidPrereqs.length > 0) {
+                errors.push({
+                  index: originalIndex,
+                  name: topics[originalIndex].name,
+                  error: 'Prerequisite topic does not exist',
+                });
+                continue;
               }
-            } catch (error) {
-              errors.push({
-                index: originalIndex,
-                name: topic.name,
-                error: error instanceof Error ? error.message : String(error),
-              });
+
+              const validPrereqs = prereqIds.filter((id) => !invalidPrereqIds.includes(id));
+              if (validPrereqs.length > 0) {
+                try {
+                  await this.validateNoCircularDeps(client, insertedTopic.id, validPrereqs);
+                  topicPrerequisitesMap.set(insertedTopic.id, validPrereqs);
+                } catch (error) {
+                  errors.push({
+                    index: originalIndex,
+                    name: topics[originalIndex].name,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              }
             }
           }
         }
