@@ -20,17 +20,17 @@ interface ApprovalEventRow {
 export function createApprovalEventRepository(pool: Pool | PoolClient): ApprovalEventRepository {
   return {
     async recordApproval(params: CreateApprovalParams): Promise<ApprovalEventRecord> {
+      const itemId: string = params.itemId;
+      const itemType: string = params.itemType;
+      const operatorId: string | null = params.operatorId ?? null;
+      const approvalType: ApprovalType = params.approvalType;
+      const notes: string | null = params.notes ?? null;
+
       const result = await pool.query<ApprovalEventRow>(
         `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, item_id, item_type, operator_id, approval_type, notes, created_at`,
-        [
-          params.itemId,
-          params.itemType,
-          params.operatorId ?? null,
-          params.approvalType,
-          params.notes ?? null,
-        ]
+        [itemId, itemType, operatorId, approvalType, notes]
       );
 
       const row = result.rows[0];
@@ -64,7 +64,7 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         return null;
       }
 
-      const row = result.rows[0];
+      const row: ApprovalEventRow | undefined = result.rows[0];
       if (!row) {
         return null;
       }
@@ -91,15 +91,17 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [operatorId, limit]
       );
 
-      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => ({
-        id: row.id,
-        itemId: row.item_id,
-        itemType: row.item_type,
-        operatorId: row.operator_id ?? undefined,
-        approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ?? undefined,
-        createdAt: row.created_at,
-      }));
+      const records: ApprovalEventRecord[] = result.rows.map(
+        (row: ApprovalEventRow): ApprovalEventRecord => ({
+          id: row.id,
+          itemId: row.item_id,
+          itemType: row.item_type,
+          operatorId: row.operator_id ?? undefined,
+          approvalType: row.approval_type as ApprovalType,
+          notes: row.notes ?? undefined,
+          createdAt: row.created_at,
+        })
+      );
       return records;
     },
 
@@ -113,15 +115,17 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [itemType, limit]
       );
 
-      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => ({
-        id: row.id,
-        itemId: row.item_id,
-        itemType: row.item_type,
-        operatorId: row.operator_id ?? undefined,
-        approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ?? undefined,
-        createdAt: row.created_at,
-      }));
+      const records: ApprovalEventRecord[] = result.rows.map(
+        (row: ApprovalEventRow): ApprovalEventRecord => ({
+          id: row.id,
+          itemId: row.item_id,
+          itemType: row.item_type,
+          operatorId: row.operator_id ?? undefined,
+          approvalType: row.approval_type as ApprovalType,
+          notes: row.notes ?? undefined,
+          createdAt: row.created_at,
+        })
+      );
       return records;
     },
 
