@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import {
   executeTransitionSimple,
   LifecycleState,
+  type StateTransition,
   type TransitionRepository,
 } from '@polyladder/core';
 import { recordTransition, moveItemToState } from '@polyladder/db';
@@ -36,14 +37,14 @@ export class ContentProcessor {
   private createTransitionRepository(): TransitionRepository {
     const pool = this.pool;
     return {
-      async recordTransition(params): Promise<import('@polyladder/core').StateTransition> {
+      async recordTransition(params): Promise<StateTransition> {
         return await recordTransition(pool, params);
       },
       async moveItemToState(
         itemId: string,
         itemType: string,
-        fromState: import('@polyladder/core').LifecycleState,
-        toState: import('@polyladder/core').LifecycleState
+        fromState: LifecycleState,
+        toState: LifecycleState
       ): Promise<void> {
         return await moveItemToState(pool, itemId, itemType, fromState, toState);
       },

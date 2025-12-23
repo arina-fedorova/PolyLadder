@@ -39,12 +39,12 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
       }
 
       const record: ApprovalEventRecord = {
-        id: String(row.id),
-        itemId: String(row.item_id),
-        itemType: String(row.item_type),
-        operatorId: row.operator_id ? String(row.operator_id) : undefined,
+        id: row.id,
+        itemId: row.item_id,
+        itemType: row.item_type,
+        operatorId: row.operator_id ?? undefined,
         approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ? String(row.notes) : undefined,
+        notes: row.notes ?? undefined,
         createdAt: row.created_at,
       };
       return record;
@@ -70,12 +70,12 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
       }
 
       const record: ApprovalEventRecord = {
-        id: String(row.id),
-        itemId: String(row.item_id),
-        itemType: String(row.item_type),
-        operatorId: row.operator_id ? String(row.operator_id) : undefined,
+        id: row.id,
+        itemId: row.item_id,
+        itemType: row.item_type,
+        operatorId: row.operator_id ?? undefined,
         approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ? String(row.notes) : undefined,
+        notes: row.notes ?? undefined,
         createdAt: row.created_at,
       };
       return record;
