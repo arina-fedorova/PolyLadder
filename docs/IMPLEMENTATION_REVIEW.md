@@ -91,56 +91,74 @@ Updated ContentProcessor to:
 - All refinement-service tests passing (7 tests)
 - All core tests passing (158 tests)
 
-**Note**: Quality gates (Issue 1.2) and full promotion pipeline (Issue 2.1) still pending.
+**Note**: Quality gates and promotion pipeline now implemented (see Issues 1.2 and 2.1).
 
 ---
 
-#### Issue 1.2: Missing Service Orchestration
+#### Issue 1.2: Missing Service Orchestration ✅ FIXED
 
 **Location**: `packages/refinement-service/src/main.ts`
 
 **Problem**: Main loop only processes work items, doesn't promote through lifecycle.
 
-**Evidence**:
+**Fix Applied** (2025-12-23):
 
-- Line 77: `contentProcessor.process(workItem)` - only creates DRAFT
-- No second worker for CANDIDATE → VALIDATED promotion
-- No third worker for VALIDATED → APPROVED promotion
+Created PromotionWorker service in `packages/refinement-service/src/services/promotion-worker.service.ts`:
 
-**Expected** (from F014, F017 specs):
+- Integrates quality gates from `@polyladder/core`
+- Processes CANDIDATE → VALIDATED transitions
+- Runs quality gates using `runGatesByTier()`
+- Records validation failures in database
+- Integrated into main service loop
+
+Quality gates implemented:
+
+- ✅ CEFRConsistencyGate - validates CEFR level appropriateness
+- ✅ OrthographyGate - checks orthography consistency
+- ✅ ContentSafetyGate - filters inappropriate content
+- ⏳ DuplicationGate - requires DuplicationRepository (deferred)
+- ⏳ PrerequisiteValidationGate - requires PrerequisiteRepository (deferred)
+
+**New Flow** (IMPLEMENTED):
 
 ```typescript
-// Should have multiple processors:
-await draftProcessor.process(workItem); // Creates DRAFT
-await candidateProcessor.promote(); // DRAFT → CANDIDATE
-await validatedProcessor.validate(); // CANDIDATE → VALIDATED
-await approvalProcessor.approve(); // VALIDATED → APPROVED (operator)
+// Main loop now has three processors:
+await contentProcessor.process(workItem); // Creates DRAFT, transitions to CANDIDATE ✅
+await promotionWorker.processBatch(); // CANDIDATE → VALIDATED with quality gates ✅
+await pipeline.processBatch(); // VALIDATED → APPROVED (operator) ✅
 ```
 
-**Fix Required**: Implement automated promotion pipeline (F017).
+**Testing**:
+
+- All 183 tests passing
+- PromotionWorker runs quality gates on each candidate
+- Failed candidates have failures recorded in `validation_failures` table
+
+**Note**: Full approval mechanism (Issue 2.2) still pending.
 
 ---
 
 ### 🟠 SEVERITY 2: Missing Features
 
-#### Issue 2.1: Promotion Pipeline Not Implemented
+#### Issue 2.1: Promotion Pipeline Not Implemented ✅ FIXED
 
 **Spec**: F017 - Automated Promotion Pipeline
-**Status**: Marked as completed, but not implemented
+**Status**: NOW IMPLEMENTED (2025-12-23)
 
-**Missing**:
+**Implemented**:
 
-- No automatic DRAFT → CANDIDATE promotion
-- No CANDIDATE → VALIDATED validation worker
-- No quality gate execution in pipeline
-- Refinement service only creates DRAFTs
+- ✅ Automatic DRAFT → CANDIDATE promotion (Issue 1.1)
+- ✅ CANDIDATE → VALIDATED validation worker (PromotionWorker)
+- ✅ Quality gate execution in pipeline (runGatesByTier)
+- ✅ Failure recording (validation_failures table)
+- ✅ State transition auditing (state_transition_events table)
 
-**Required**:
+**Components**:
 
-- Background worker for each transition
-- Quality gate runner integration
-- Failure recording
-- State transition auditing
+- `PromotionWorker` - background worker for CANDIDATE→VALIDATED
+- Quality gates integrated from `@polyladder/core`
+- `TransitionRepository` for state management
+- Batch processing in main service loop
 
 ---
 
