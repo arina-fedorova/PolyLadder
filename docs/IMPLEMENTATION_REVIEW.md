@@ -244,13 +244,24 @@ Updated API endpoint `/approve/:id` in `packages/api/src/routes/operational/appr
 
 ---
 
-#### Issue 3.3: Error Handling Variation
+#### Issue 3.3: Error Handling Variation ✅ NO CHANGES NEEDED
 
-**API** (`server.ts:102-148`): Centralized error handler ✅
-**Core**: Throws Error classes ✅
-**Refinement Service** (`main.ts:90-96`): Try-catch with checkpoint ✅
+**Current State** (2025-12-23):
 
-All okay but inconsistent error formats.
+- **API** (`server.ts:102-148`): Centralized error handler with standardized HTTP error responses
+  ```typescript
+  { error: { statusCode, message, requestId, code?, details? } }
+  ```
+- **Core**: Custom typed Error classes (InvalidTransitionError, AuthorizationError, etc.) with context fields
+- **Refinement Service** (`main.ts:184-191`): Try-catch with checkpoint recovery and structured logging
+
+**Assessment**: Error handling is appropriate for each context:
+
+- API needs HTTP error responses with status codes
+- Core is a library that throws typed errors with context
+- Refinement service is a worker that needs to recover from errors and continue
+
+No standardization needed - the different formats serve different purposes.
 
 ---
 
