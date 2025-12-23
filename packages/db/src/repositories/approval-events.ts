@@ -17,22 +17,36 @@ interface ApprovalEventRow {
   created_at: Date;
 }
 
-type SafeCreateApprovalParams = {
+type LocalCreateApprovalParams = {
+  readonly itemId: string;
+  readonly itemType: string;
+  readonly operatorId?: string;
+  readonly approvalType: ApprovalType;
+  readonly notes?: string;
+};
+
+type LocalApprovalEventRecord = {
+  id: string;
   itemId: string;
   itemType: string;
   operatorId?: string;
   approvalType: ApprovalType;
   notes?: string;
+  createdAt: Date;
 };
 
-function extractParams(params: CreateApprovalParams): SafeCreateApprovalParams {
-  const approvalTypeValue = params.approvalType;
+function extractParams(params: CreateApprovalParams): LocalCreateApprovalParams {
+  const itemId: string = String(params.itemId);
+  const itemType: string = String(params.itemType);
+  const operatorId: string | undefined = params.operatorId ? String(params.operatorId) : undefined;
+  const approvalType: ApprovalType = params.approvalType;
+  const notes: string | undefined = params.notes ? String(params.notes) : undefined;
   return {
-    itemId: String(params.itemId),
-    itemType: String(params.itemType),
-    operatorId: params.operatorId ? String(params.operatorId) : undefined,
-    approvalType: approvalTypeValue,
-    notes: params.notes ? String(params.notes) : undefined,
+    itemId,
+    itemType,
+    operatorId,
+    approvalType,
+    notes,
   };
 }
 
@@ -58,16 +72,16 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         throw new Error('Failed to create approval event');
       }
 
-      const record: ApprovalEventRecord = {
-        id: row.id,
-        itemId: row.item_id,
-        itemType: row.item_type,
-        operatorId: row.operator_id ?? undefined,
+      const record: LocalApprovalEventRecord = {
+        id: String(row.id),
+        itemId: String(row.item_id),
+        itemType: String(row.item_type),
+        operatorId: row.operator_id ? String(row.operator_id) : undefined,
         approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ?? undefined,
+        notes: row.notes ? String(row.notes) : undefined,
         createdAt: row.created_at,
       };
-      return record;
+      return record as ApprovalEventRecord;
     },
 
     async getApprovalEvent(itemId: string): Promise<ApprovalEventRecord | null> {
@@ -89,16 +103,16 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         return null;
       }
 
-      const record: ApprovalEventRecord = {
-        id: row.id,
-        itemId: row.item_id,
-        itemType: row.item_type,
-        operatorId: row.operator_id ?? undefined,
+      const record: LocalApprovalEventRecord = {
+        id: String(row.id),
+        itemId: String(row.item_id),
+        itemType: String(row.item_type),
+        operatorId: row.operator_id ? String(row.operator_id) : undefined,
         approvalType: row.approval_type as ApprovalType,
-        notes: row.notes ?? undefined,
+        notes: row.notes ? String(row.notes) : undefined,
         createdAt: row.created_at,
       };
-      return record;
+      return record as ApprovalEventRecord;
     },
 
     async getApprovalsByOperator(operatorId: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -111,19 +125,19 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [operatorId, limit]
       );
 
-      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
-        const record: ApprovalEventRecord = {
-          id: row.id,
-          itemId: row.item_id,
-          itemType: row.item_type,
-          operatorId: row.operator_id ?? undefined,
+      const records: LocalApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
+        const record: LocalApprovalEventRecord = {
+          id: String(row.id),
+          itemId: String(row.item_id),
+          itemType: String(row.item_type),
+          operatorId: row.operator_id ? String(row.operator_id) : undefined,
           approvalType: row.approval_type as ApprovalType,
-          notes: row.notes ?? undefined,
+          notes: row.notes ? String(row.notes) : undefined,
           createdAt: row.created_at,
         };
         return record;
       });
-      return records;
+      return records as ApprovalEventRecord[];
     },
 
     async getApprovalsByType(itemType: string, limit = 100): Promise<ApprovalEventRecord[]> {
@@ -136,19 +150,19 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
         [itemType, limit]
       );
 
-      const records: ApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
-        const record: ApprovalEventRecord = {
-          id: row.id,
-          itemId: row.item_id,
-          itemType: row.item_type,
-          operatorId: row.operator_id ?? undefined,
+      const records: LocalApprovalEventRecord[] = result.rows.map((row: ApprovalEventRow) => {
+        const record: LocalApprovalEventRecord = {
+          id: String(row.id),
+          itemId: String(row.item_id),
+          itemType: String(row.item_type),
+          operatorId: row.operator_id ? String(row.operator_id) : undefined,
           approvalType: row.approval_type as ApprovalType,
-          notes: row.notes ?? undefined,
+          notes: row.notes ? String(row.notes) : undefined,
           createdAt: row.created_at,
         };
         return record;
       });
-      return records;
+      return records as ApprovalEventRecord[];
     },
 
     async getApprovalStats(): Promise<ApprovalStats> {
