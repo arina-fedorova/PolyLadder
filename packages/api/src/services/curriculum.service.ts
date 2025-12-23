@@ -92,21 +92,38 @@ export class CurriculumService {
     try {
       await client.query('BEGIN');
 
-      const result = await client.query(
-        `INSERT INTO curriculum_topics 
-         (level_id, name, slug, description, content_type, sort_order, estimated_items)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
-        [
-          input.levelId,
-          input.name,
-          slug,
-          input.description || null,
-          input.contentType,
-          input.sortOrder || 0,
-          input.estimatedItems || 0,
-        ]
-      );
+      let result;
+      try {
+        result = await client.query(
+          `INSERT INTO curriculum_topics 
+           (level_id, name, slug, description, content_type, sort_order, estimated_items)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+          [
+            input.levelId,
+            input.name,
+            slug,
+            input.description || null,
+            input.contentType,
+            input.sortOrder || 0,
+            input.estimatedItems || 0,
+          ]
+        );
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === '23505') {
+          const existing = await client.query(
+            `SELECT * FROM curriculum_topics WHERE level_id = $1 AND slug = $2`,
+            [input.levelId, slug]
+          );
+          if (existing.rows.length > 0) {
+            result = existing;
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       const topic = result.rows[0] as Record<string, unknown>;
 
@@ -485,20 +502,27 @@ export class CurriculumService {
             );
           } catch (error) {
             if (error instanceof Error && 'code' in error && error.code === '23503') {
+              const failedPrereqIds = new Set<string>();
+              for (let i = 1; i < prereqValues.length; i += 2) {
+                failedPrereqIds.add(prereqValues[i] as string);
+              }
               const failedTopicIds = new Set<string>();
               for (let i = 0; i < prereqValues.length; i += 2) {
-                failedTopicIds.add(prereqValues[i] as string);
+                const topicId = prereqValues[i] as string;
+                const prereqId = prereqValues[i + 1] as string;
+                if (failedPrereqIds.has(prereqId)) {
+                  failedTopicIds.add(topicId);
+                }
               }
               for (let i = 0; i < insertedTopics.length; i++) {
                 const insertedTopic = insertedTopics[i];
-                const originalIndex = topicIndices[i];
-                const topic = topics[originalIndex];
                 if (failedTopicIds.has(insertedTopic.id)) {
+                  const originalIndex = finalTopicIndices[i];
                   const existingError = errors.find((e) => e.index === originalIndex);
                   if (!existingError) {
                     errors.push({
                       index: originalIndex,
-                      name: topic.name,
+                      name: topics[originalIndex].name,
                       error: 'Prerequisite topic does not exist',
                     });
                   }
