@@ -49,6 +49,7 @@ fi
 # Run migrations
 echo "📦 Running database migrations..."
 export DATABASE_URL="postgres://dev:dev@localhost:5432/polyladder"
+export NODE_ENV="development"
 pnpm --filter @polyladder/db migrate:up || echo "⚠️  Migration failed, but continuing..."
 
 # Start all services

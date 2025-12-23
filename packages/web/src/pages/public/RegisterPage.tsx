@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AxiosError } from 'axios';
 
@@ -32,6 +33,8 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const { register: registerUser } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -110,14 +113,25 @@ export function RegisterPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
             </label>
-            <input
-              {...register('password')}
-              type="password"
-              id="password"
-              autoComplete="new-password"
-              className="input mt-1"
-              placeholder="••••••••"
-            />
+            <div className="relative mt-1">
+              <input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                autoComplete="new-password"
+                className="input pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 focus:outline-none z-10"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={0}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
             )}
@@ -130,14 +144,25 @@ export function RegisterPage() {
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
               Confirm Password
             </label>
-            <input
-              {...register('confirmPassword')}
-              type="password"
-              id="confirmPassword"
-              autoComplete="new-password"
-              className="input mt-1"
-              placeholder="••••••••"
-            />
+            <div className="relative mt-1">
+              <input
+                {...register('confirmPassword')}
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                autoComplete="new-password"
+                className="input pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 focus:outline-none z-10"
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                tabIndex={0}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
             {errors.confirmPassword && (
               <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
             )}

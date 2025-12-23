@@ -50,6 +50,7 @@ if ($attempt -eq $maxAttempts) {
 # Run migrations
 Write-Host "📦 Running database migrations..." -ForegroundColor Cyan
 $env:DATABASE_URL = "postgres://dev:dev@localhost:5432/polyladder"
+$env:NODE_ENV = "development"
 pnpm --filter @polyladder/db migrate:up
 if ($LASTEXITCODE -ne 0) {
     Write-Host "⚠️  Migration failed, but continuing..." -ForegroundColor Yellow

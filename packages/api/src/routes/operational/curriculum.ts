@@ -23,6 +23,10 @@ const ImportSchema = z.object({
   topics: z.array(CreateTopicSchema.omit({ levelId: true })),
 });
 
+const BulkCreateSchema = z.object({
+  topics: z.array(CreateTopicSchema).min(1).max(1000),
+});
+
 export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
   const curriculumService = new CurriculumService(fastify.db);
 
@@ -112,7 +116,34 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
       const { topics } = ImportSchema.parse(request.body);
       const topicsWithLevelId = topics.map((t) => ({ ...t, levelId }));
       const imported = await curriculumService.importTopicsFromJSON(levelId, topicsWithLevelId);
-      return reply.send({ imported });
+      return reply.send({ imported, total: topics.length });
+    }
+  );
+
+  fastify.post(
+    '/curriculum/topics/bulk',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      try {
+        const { topics } = BulkCreateSchema.parse(request.body);
+        const result = await curriculumService.bulkCreateTopics(topics);
+        return reply.status(201).send({
+          created: result.created.length,
+          failed: result.errors.length,
+          topics: result.created,
+          errors: result.errors,
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return reply.status(400).send({
+            error: 'Validation failed',
+            details: error.errors,
+          });
+        }
+        throw error;
+      }
     }
   );
 };

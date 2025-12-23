@@ -217,18 +217,216 @@ export class CurriculumService {
   }
 
   async importTopicsFromJSON(levelId: string, topics: CreateTopicInput[]): Promise<number> {
-    let imported = 0;
-
-    for (const topic of topics) {
-      try {
-        await this.createTopic({ ...topic, levelId });
-        imported++;
-      } catch (error) {
-        logger.error({ topicName: topic.name, error }, 'Failed to import topic');
-      }
+    if (topics.length === 0) {
+      return 0;
     }
 
-    return imported;
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const topicValues: unknown[][] = [];
+      const slugs: string[] = [];
+
+      for (const topic of topics) {
+        const slug = this.generateSlug(topic.name);
+        slugs.push(slug);
+        topicValues.push([
+          levelId,
+          topic.name,
+          slug,
+          topic.description || null,
+          topic.contentType,
+          topic.sortOrder ?? 0,
+          topic.estimatedItems ?? 0,
+        ]);
+      }
+
+      const placeholders = topicValues
+        .map(
+          (_, idx) =>
+            `($${idx * 7 + 1}, $${idx * 7 + 2}, $${idx * 7 + 3}, $${idx * 7 + 4}, $${idx * 7 + 5}, $${idx * 7 + 6}, $${idx * 7 + 7})`
+        )
+        .join(', ');
+
+      const flatValues = topicValues.flat();
+
+      const result = await client.query(
+        `INSERT INTO curriculum_topics 
+         (level_id, name, slug, description, content_type, sort_order, estimated_items)
+         VALUES ${placeholders}
+         RETURNING id, name, slug`,
+        flatValues
+      );
+
+      const createdTopics = result.rows as Array<{ id: string; name: string; slug: string }>;
+
+      for (let i = 0; i < topics.length; i++) {
+        const topic = topics[i];
+        const createdTopic = createdTopics[i];
+
+        if (topic.prerequisites && topic.prerequisites.length > 0 && createdTopic) {
+          await this.validateNoCircularDeps(client, createdTopic.id, topic.prerequisites);
+
+          const prereqPlaceholders = topic.prerequisites
+            .map((_, idx) => `($1, $${idx + 2})`)
+            .join(', ');
+          const prereqValues = [createdTopic.id, ...topic.prerequisites];
+
+          await client.query(
+            `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
+             VALUES ${prereqPlaceholders}`,
+            prereqValues
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return createdTopics.length;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error({ levelId, topicCount: topics.length, error }, 'Failed to bulk import topics');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async bulkCreateTopics(
+    topics: CreateTopicInput[]
+  ): Promise<{
+    created: CurriculumTopic[];
+    errors: Array<{ index: number; name: string; error: string }>;
+  }> {
+    const created: CurriculumTopic[] = [];
+    const errors: Array<{ index: number; name: string; error: string }> = [];
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const topicValues: unknown[][] = [];
+      const topicIndices: number[] = [];
+
+      for (let i = 0; i < topics.length; i++) {
+        const topic = topics[i];
+        try {
+          const slug = this.generateSlug(topic.name);
+          topicValues.push([
+            topic.levelId,
+            topic.name,
+            slug,
+            topic.description || null,
+            topic.contentType,
+            topic.sortOrder ?? 0,
+            topic.estimatedItems ?? 0,
+          ]);
+          topicIndices.push(i);
+        } catch (error) {
+          errors.push({
+            index: i,
+            name: topic.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (topicValues.length === 0) {
+        await client.query('ROLLBACK');
+        return { created, errors };
+      }
+
+      const placeholders = topicValues
+        .map(
+          (_, idx) =>
+            `($${idx * 7 + 1}, $${idx * 7 + 2}, $${idx * 7 + 3}, $${idx * 7 + 4}, $${idx * 7 + 5}, $${idx * 7 + 6}, $${idx * 7 + 7})`
+        )
+        .join(', ');
+
+      const flatValues = topicValues.flat();
+
+      const result = await client.query(
+        `INSERT INTO curriculum_topics 
+         (level_id, name, slug, description, content_type, sort_order, estimated_items)
+         VALUES ${placeholders}
+         RETURNING *`,
+        flatValues
+      );
+
+      const insertedTopics = result.rows as Array<{ id: string; [key: string]: unknown }>;
+
+      const topicPrerequisitesMap = new Map<string, string[]>();
+
+      for (let i = 0; i < insertedTopics.length; i++) {
+        const insertedTopic = insertedTopics[i];
+        const originalIndex = topicIndices[i];
+        const topic = topics[originalIndex];
+
+        try {
+          if (topic.prerequisites && topic.prerequisites.length > 0) {
+            await this.validateNoCircularDeps(client, insertedTopic.id, topic.prerequisites);
+            topicPrerequisitesMap.set(insertedTopic.id, topic.prerequisites);
+          }
+        } catch (error) {
+          errors.push({
+            index: originalIndex,
+            name: topic.name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (topicPrerequisitesMap.size > 0) {
+        const prereqValues: unknown[] = [];
+        const prereqPlaceholders: string[] = [];
+        let paramIndex = 1;
+
+        for (const [topicId, prereqIds] of topicPrerequisitesMap.entries()) {
+          for (const prereqId of prereqIds) {
+            prereqPlaceholders.push(`($${paramIndex}, $${paramIndex + 1})`);
+            prereqValues.push(topicId, prereqId);
+            paramIndex += 2;
+          }
+        }
+
+        if (prereqPlaceholders.length > 0) {
+          await client.query(
+            `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
+             VALUES ${prereqPlaceholders.join(', ')}`,
+            prereqValues
+          );
+        }
+      }
+
+      const topicIds = insertedTopics.map((t) => t.id);
+      if (topicIds.length > 0) {
+        const topicsWithPrereqs = await client.query(
+          `SELECT t.*, 
+                  COALESCE(
+                    (SELECT array_agg(prerequisite_id) 
+                     FROM topic_prerequisites 
+                     WHERE topic_id = t.id), 
+                    '{}'
+                  ) as prerequisites
+           FROM curriculum_topics t
+           WHERE t.id = ANY($1::uuid[])`,
+          [topicIds]
+        );
+
+        for (const row of topicsWithPrereqs.rows) {
+          created.push(this.mapTopicRow(row as Record<string, unknown>));
+        }
+      }
+
+      await client.query('COMMIT');
+      return { created, errors };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error({ topicCount: topics.length, error }, 'Failed to bulk create topics');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   private async validateNoCircularDeps(
