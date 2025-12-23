@@ -1,20 +1,12 @@
 import { Pool, PoolClient } from 'pg';
-
-export interface StateTransition {
-  id: string;
-  itemId: string;
-  itemType: string;
-  fromState: string;
-  toState: string;
-  metadata: Record<string, unknown>;
-  timestamp: Date;
-}
+import type { StateTransition } from '@polyladder/core';
+import { LifecycleState } from '@polyladder/core';
 
 export interface TransitionParams {
   itemId: string;
   itemType: string;
-  fromState: string;
-  toState: string;
+  fromState: LifecycleState;
+  toState: LifecycleState;
   metadata?: Record<string, unknown>;
 }
 
@@ -44,8 +36,8 @@ export async function recordTransition(
     id: row.id,
     itemId: row.item_id,
     itemType: row.item_type,
-    fromState: row.from_state,
-    toState: row.to_state,
+    fromState: row.from_state as LifecycleState,
+    toState: row.to_state as LifecycleState,
     metadata: row.metadata,
     timestamp: row.created_at,
   };
@@ -55,8 +47,8 @@ export async function moveItemToState(
   pool: Pool | PoolClient,
   itemId: string,
   itemType: string,
-  fromState: string,
-  toState: string
+  fromState: LifecycleState,
+  toState: LifecycleState
 ): Promise<void> {
   // If pool is already a client (in transaction), use it directly
   const isPoolClient = (p: Pool | PoolClient): p is PoolClient =>
@@ -71,7 +63,7 @@ export async function moveItemToState(
     }
 
     // DRAFT -> CANDIDATE: create candidate from draft
-    if (fromState === 'DRAFT' && toState === 'CANDIDATE') {
+    if (fromState === LifecycleState.DRAFT && toState === LifecycleState.CANDIDATE) {
       const draft = await client.query<{ data_type: string; raw_data: unknown }>(
         'SELECT id, data_type, raw_data FROM drafts WHERE id = $1',
         [itemId]
@@ -95,7 +87,7 @@ export async function moveItemToState(
       );
     }
     // CANDIDATE -> VALIDATED: create validated from candidate
-    else if (fromState === 'CANDIDATE' && toState === 'VALIDATED') {
+    else if (fromState === LifecycleState.CANDIDATE && toState === LifecycleState.VALIDATED) {
       const candidate = await client.query<{ data_type: string; normalized_data: unknown }>(
         'SELECT id, data_type, normalized_data FROM candidates WHERE id = $1',
         [itemId]
@@ -119,7 +111,7 @@ export async function moveItemToState(
       );
     }
     // VALIDATED -> APPROVED: move to approved tables
-    else if (fromState === 'VALIDATED' && toState === 'APPROVED') {
+    else if (fromState === LifecycleState.VALIDATED && toState === LifecycleState.APPROVED) {
       const validated = await client.query<{ data_type: string; validated_data: unknown }>(
         'SELECT id, data_type, validated_data FROM validated WHERE id = $1',
         [itemId]
