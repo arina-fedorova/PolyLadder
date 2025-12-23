@@ -47,10 +47,15 @@ describe('Curriculum Integration Tests', () => {
     return response.json<LoginResponse>().accessToken;
   }
 
-  async function createTestLevel(language: string, cefrLevel: string): Promise<string> {
+  async function createTestLevel(
+    language: string,
+    cefrLevel: string,
+    uniqueName?: string
+  ): Promise<string> {
+    const levelName = uniqueName ?? `${cefrLevel} Level`;
     const existing = await pool.query(
-      `SELECT id FROM curriculum_levels WHERE language = $1 AND cefr_level = $2`,
-      [language, cefrLevel]
+      `SELECT id FROM curriculum_levels WHERE language = $1 AND name = $2`,
+      [language, levelName]
     );
 
     if (existing.rows.length > 0) {
@@ -62,7 +67,7 @@ describe('Curriculum Integration Tests', () => {
       `INSERT INTO curriculum_levels (language, cefr_level, name, description, sort_order)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [language, cefrLevel, `${cefrLevel} Level`, `Description for ${cefrLevel}`, 0]
+      [language, cefrLevel, levelName, `Description for ${levelName}`, 0]
     );
     return result.rows[0].id;
   }
@@ -75,7 +80,7 @@ describe('Curriculum Integration Tests', () => {
       const topics = [
         {
           levelId,
-          name: `Basic Greetings ${Date.now()}`,
+          name: 'Basic Greetings',
           description: 'Learn how to greet people',
           contentType: 'vocabulary' as const,
           sortOrder: 0,
@@ -83,7 +88,7 @@ describe('Curriculum Integration Tests', () => {
         },
         {
           levelId,
-          name: `Numbers 1-10 ${Date.now()}`,
+          name: 'Numbers 1-10',
           description: 'Learn numbers from 1 to 10',
           contentType: 'vocabulary' as const,
           sortOrder: 1,
@@ -91,7 +96,7 @@ describe('Curriculum Integration Tests', () => {
         },
         {
           levelId,
-          name: `Present Tense ${Date.now()}`,
+          name: 'Present Tense',
           description: 'Basic present tense grammar',
           contentType: 'grammar' as const,
           sortOrder: 2,
@@ -127,11 +132,12 @@ describe('Curriculum Integration Tests', () => {
 
     it('should handle prerequisites in bulk create', async () => {
       const token = await getOperatorToken();
-      const levelId = await createTestLevel('EN', 'A1');
+      const levelId = await createTestLevel('EN', 'A1', `Test Level ${Date.now()}`);
 
+      const timestamp = Date.now();
       const firstTopic = {
         levelId,
-        name: `Basic Greetings ${Date.now()}`,
+        name: `Basic Greetings ${timestamp}`,
         contentType: 'vocabulary' as const,
       };
 
@@ -147,17 +153,17 @@ describe('Curriculum Integration Tests', () => {
       expect(createFirstResponse.statusCode).toBe(201);
       const firstTopicId = createFirstResponse.json<{ topic: { id: string } }>().topic.id;
 
-      const timestamp = Date.now();
+      const bulkTimestamp = Date.now();
       const topics = [
         {
           levelId,
-          name: `Advanced Greetings ${timestamp}`,
+          name: `Advanced Greetings ${bulkTimestamp}`,
           contentType: 'vocabulary' as const,
           prerequisites: [firstTopicId],
         },
         {
           levelId,
-          name: `Formal Greetings ${timestamp}`,
+          name: `Formal Greetings ${bulkTimestamp}`,
           contentType: 'vocabulary' as const,
           prerequisites: [firstTopicId],
         },
@@ -184,7 +190,7 @@ describe('Curriculum Integration Tests', () => {
 
     it('should handle partial failures gracefully', async () => {
       const token = await getOperatorToken();
-      const levelId = await createTestLevel('EN', 'A1');
+      const levelId = await createTestLevel('EN', 'A1', `Test Level ${Date.now()}`);
 
       const invalidTopicId = '00000000-0000-0000-0000-000000000000';
 
