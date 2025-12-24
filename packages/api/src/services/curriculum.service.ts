@@ -144,11 +144,19 @@ export class CurriculumService {
         await this.validateNoCircularDeps(client, topic.id as string, input.prerequisites);
 
         for (const prereqId of input.prerequisites) {
-          await client.query(
-            `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
-             VALUES ($1, $2)`,
-            [topic.id as string, prereqId]
-          );
+          try {
+            await client.query(
+              `INSERT INTO topic_prerequisites (topic_id, prerequisite_id)
+               VALUES ($1, $2)
+               ON CONFLICT DO NOTHING`,
+              [topic.id as string, prereqId]
+            );
+          } catch (error) {
+            if (error instanceof Error && 'code' in error && error.code === '23503') {
+              throw new Error(`Prerequisite topic ${prereqId} does not exist`);
+            }
+            throw error;
+          }
         }
       }
 

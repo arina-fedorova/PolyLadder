@@ -52,20 +52,14 @@ describe('Curriculum Integration Tests', () => {
     cefrLevel: string,
     uniqueName?: string
   ): Promise<string> {
-    const levelName = uniqueName ?? `${cefrLevel} Level`;
-    const existing = await pool.query(
-      `SELECT id FROM curriculum_levels WHERE language = $1 AND name = $2`,
-      [language, levelName]
-    );
-
-    if (existing.rows.length > 0) {
-      const row = existing.rows[0] as { id: string };
-      return row.id;
-    }
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(7);
+    const levelName = uniqueName ?? `${cefrLevel} Level ${timestamp}-${randomSuffix}`;
 
     const result = await pool.query<{ id: string }>(
       `INSERT INTO curriculum_levels (language, cefr_level, name, description, sort_order)
        VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (language, cefr_level) DO UPDATE SET name = EXCLUDED.name
        RETURNING id`,
       [language, cefrLevel, levelName, `Description for ${levelName}`, 0]
     );
