@@ -5,7 +5,9 @@ let pool: Pool | null = null;
 
 export function getE2EPool(): Pool {
   if (!pool) {
-    const databaseUrl = process.env.DATABASE_URL || 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+    const databaseUrl =
+      process.env.DATABASE_URL ||
+      'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
     pool = new Pool({
       connectionString: databaseUrl,
     });

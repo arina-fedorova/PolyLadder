@@ -55,7 +55,7 @@ async function startDockerDatabase(projectRoot: string): Promise<void> {
     try {
       const { Pool } = await import('pg');
       const testPool = new Pool({
-        connectionString: 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
+        connectionString: 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e',
       });
       await testPool.query('SELECT 1');
       await testPool.end();
@@ -72,17 +72,17 @@ async function runMigrations(projectRoot: string): Promise<void> {
   const isCI = process.env.CI === 'true';
   console.log(`🔧 Running migrations${isCI ? ' (CI mode)' : ''}...`);
 
-  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
-  
+  const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+
   const env = {
     ...process.env,
     DATABASE_URL: databaseUrl,
   };
-  
+
   delete env.PGUSER;
   delete env.PGPASSWORD;
   delete env.PGDATABASE;
-  
+
   await execAsync('pnpm --filter @polyladder/db migrate:up', {
     cwd: projectRoot,
     env,
@@ -93,7 +93,7 @@ async function runMigrations(projectRoot: string): Promise<void> {
 function startApiServer(projectRoot: string): ChildProcess {
   console.log('🌐 Starting API server...');
 
-  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+  const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
   const env = {
     ...process.env,
     DATABASE_URL: databaseUrl,
@@ -102,7 +102,7 @@ function startApiServer(projectRoot: string): ChildProcess {
     NODE_ENV: 'test',
     LOG_LEVEL: 'error',
   };
-  
+
   delete env.PGUSER;
   delete env.PGPASSWORD;
   delete env.PGDATABASE;
@@ -134,7 +134,7 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   const isCI = process.env.CI === 'true';
   const projectRoot = getProjectRoot();
   const apiUrl = 'http://localhost:3001/health';
-  const databaseUrl = 'postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
+  const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
 
   process.env.DATABASE_URL = databaseUrl;
 
