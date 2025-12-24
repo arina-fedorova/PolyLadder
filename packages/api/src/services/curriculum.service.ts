@@ -98,6 +98,7 @@ export class CurriculumService {
           `INSERT INTO curriculum_topics 
            (level_id, name, slug, description, content_type, sort_order, estimated_items)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (level_id, slug) DO NOTHING
            RETURNING *`,
           [
             input.levelId,
@@ -109,6 +110,18 @@ export class CurriculumService {
             input.estimatedItems || 0,
           ]
         );
+
+        if (result.rows.length === 0) {
+          const existing = await client.query(
+            `SELECT * FROM curriculum_topics WHERE level_id = $1 AND slug = $2`,
+            [input.levelId, slug]
+          );
+          if (existing.rows.length > 0) {
+            result = existing;
+          } else {
+            throw new Error('Failed to create topic and topic does not exist');
+          }
+        }
       } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === '23505') {
           const existing = await client.query(
@@ -443,8 +456,10 @@ export class CurriculumService {
             `SELECT id FROM curriculum_topics WHERE id = ANY($1::uuid[])`,
             [Array.from(allPrereqIds)]
           );
-          const existingIdsSet = new Set(existingPrereqIds.rows.map((r) => r.id));
-          const invalidPrereqIds = Array.from(allPrereqIds).filter((id) => !existingIdsSet.has(id));
+          const existingIdsSet = new Set(existingPrereqIds.rows.map((r) => String(r.id)));
+          const invalidPrereqIds = Array.from(allPrereqIds).filter(
+            (id) => !existingIdsSet.has(String(id))
+          );
 
           for (let i = 0; i < insertedTopics.length; i++) {
             const insertedTopic = insertedTopics[i];
@@ -504,19 +519,19 @@ export class CurriculumService {
             if (error instanceof Error && 'code' in error && error.code === '23503') {
               const failedPrereqIds = new Set<string>();
               for (let i = 1; i < prereqValues.length; i += 2) {
-                failedPrereqIds.add(prereqValues[i] as string);
+                failedPrereqIds.add(String(prereqValues[i]));
               }
               const failedTopicIds = new Set<string>();
               for (let i = 0; i < prereqValues.length; i += 2) {
-                const topicId = prereqValues[i] as string;
-                const prereqId = prereqValues[i + 1] as string;
+                const topicId = String(prereqValues[i]);
+                const prereqId = String(prereqValues[i + 1]);
                 if (failedPrereqIds.has(prereqId)) {
                   failedTopicIds.add(topicId);
                 }
               }
               for (let i = 0; i < insertedTopics.length; i++) {
                 const insertedTopic = insertedTopics[i];
-                if (failedTopicIds.has(insertedTopic.id)) {
+                if (failedTopicIds.has(String(insertedTopic.id))) {
                   const originalIndex = finalTopicIndices[i];
                   const existingError = errors.find((e) => e.index === originalIndex);
                   if (!existingError) {
