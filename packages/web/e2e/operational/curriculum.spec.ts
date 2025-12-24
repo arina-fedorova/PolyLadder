@@ -15,7 +15,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
-    await page.getByLabel('Password').fill('TestPassword123');
+    await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -34,7 +34,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -52,7 +52,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -78,7 +78,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -104,7 +104,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -132,7 +132,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -155,7 +155,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -180,7 +180,7 @@ test.describe('Curriculum Page', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');

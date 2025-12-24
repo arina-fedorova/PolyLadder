@@ -15,15 +15,17 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
     await page.goto('/operator/review-queue');
 
-    const feedbackButton = page.getByRole('button', { name: /feedback|reject|provide feedback/i }).first();
-    
+    const feedbackButton = page
+      .getByRole('button', { name: /feedback|reject|provide feedback/i })
+      .first();
+
     if (await feedbackButton.isVisible()) {
       await feedbackButton.click();
 
@@ -43,15 +45,17 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
     await page.goto('/operator/review-queue');
 
-    const feedbackButton = page.getByRole('button', { name: /feedback|reject|provide feedback/i }).first();
-    
+    const feedbackButton = page
+      .getByRole('button', { name: /feedback|reject|provide feedback/i })
+      .first();
+
     if (await feedbackButton.isVisible()) {
       await feedbackButton.click();
 
@@ -72,20 +76,22 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
     await page.goto('/operator/review-queue');
 
-    const feedbackButton = page.getByRole('button', { name: /feedback|reject|provide feedback/i }).first();
-    
+    const feedbackButton = page
+      .getByRole('button', { name: /feedback|reject|provide feedback/i })
+      .first();
+
     if (await feedbackButton.isVisible()) {
       await feedbackButton.click();
 
       const submitButton = page.getByRole('button', { name: /submit feedback/i });
-      
+
       if (await submitButton.isVisible()) {
         await expect(submitButton).toBeDisabled();
 
@@ -94,7 +100,9 @@ test.describe('Feedback System', () => {
 
         await expect(submitButton).toBeDisabled();
 
-        await page.getByLabel(/comment/i).fill('This is a valid comment that is long enough to pass validation');
+        await page
+          .getByLabel(/comment/i)
+          .fill('This is a valid comment that is long enough to pass validation');
 
         await expect(submitButton).toBeEnabled();
       }
@@ -110,7 +118,7 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -118,7 +126,7 @@ test.describe('Feedback System', () => {
     await page.goto('/operator/dashboard');
 
     const analyticsSection = page.getByText(/feedback|analytics/i);
-    
+
     if (await analyticsSection.isVisible()) {
       await expect(page.getByText(/total feedback/i)).toBeVisible();
       await expect(page.getByText(/retry success rate/i)).toBeVisible();
@@ -134,15 +142,17 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
     await page.goto('/operator/review-queue');
 
-    const feedbackButton = page.getByRole('button', { name: /feedback|reject|provide feedback/i }).first();
-    
+    const feedbackButton = page
+      .getByRole('button', { name: /feedback|reject|provide feedback/i })
+      .first();
+
     if (await feedbackButton.isVisible()) {
       await feedbackButton.click();
 
@@ -151,7 +161,7 @@ test.describe('Feedback System', () => {
       await page.waitForTimeout(500);
 
       const templatesSection = page.getByText(/quick templates|templates/i);
-      
+
       if (await templatesSection.isVisible()) {
         await expect(page.getByText(/template/i)).toBeVisible();
       }
@@ -167,15 +177,17 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
     await page.goto('/operator/review-queue');
 
-    const feedbackButton = page.getByRole('button', { name: /feedback|reject|provide feedback/i }).first();
-    
+    const feedbackButton = page
+      .getByRole('button', { name: /feedback|reject|provide feedback/i })
+      .first();
+
     if (await feedbackButton.isVisible()) {
       await feedbackButton.click();
 
@@ -196,7 +208,7 @@ test.describe('Feedback System', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
-    await page.getByLabel('Password').fill('LearnerPass123');
+    await page.getByPlaceholder('••••••••').fill('LearnerPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -207,4 +219,3 @@ test.describe('Feedback System', () => {
     await expect(page.getByText("You don't have permission")).toBeVisible();
   });
 });
-
