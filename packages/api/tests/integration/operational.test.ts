@@ -32,8 +32,9 @@ describe('Operational Integration Tests', () => {
   });
 
   async function getOperatorToken(): Promise<string> {
+    const uniqueEmail = `test-operator-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
     const operator = await createTestOperator(pool, {
-      email: 'test-operator@example.com',
+      email: uniqueEmail,
       password: 'OperatorPassword123!',
     });
 

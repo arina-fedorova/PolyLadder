@@ -107,6 +107,12 @@ export async function cleanupTestData(): Promise<void> {
   } catch {
     // Table might not exist yet, ignore
   }
+
+  try {
+    await pool.query('DELETE FROM refresh_tokens');
+  } catch {
+    // Table might not exist yet, ignore
+  }
 }
 
 export function useTestServer() {
