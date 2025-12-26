@@ -123,7 +123,7 @@ test.describe('Curriculum Page', () => {
     await expect(page.getByRole('heading', { name: 'Topics' })).not.toBeVisible();
   });
 
-  test('should show empty state when no topics defined', async ({ page }) => {
+  test('should display topics when level is expanded', async ({ page }) => {
     await createTestUser({
       email: 'operator@example.com',
       password: 'OperatorPass123',
@@ -143,7 +143,8 @@ test.describe('Curriculum Page', () => {
     const levelButton = page.locator('button').filter({ hasText: 'A1' }).first();
     await levelButton.click();
 
-    await expect(page.getByText(/No topics defined yet/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Topics' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Add Topic/ })).toBeVisible();
   });
 
   test('should add a new topic', async ({ page }) => {
