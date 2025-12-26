@@ -150,7 +150,6 @@ export class PipelineOrchestrator {
     }
 
     await this.repository.moveToCandidates(item);
-    await this.repository.deleteDraft(item.id);
 
     await this.repository.recordMetrics(
       'normalization',
@@ -302,11 +301,25 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     },
 
     async moveToCandidates(item: PipelineItem): Promise<void> {
-      await pool.query(
-        `INSERT INTO candidates (data_type, normalized_data, draft_id)
-         VALUES ($1, $2, $3)`,
-        [item.dataType, JSON.stringify(item.data), item.id]
-      );
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        await client.query(
+          `INSERT INTO candidates (data_type, normalized_data, draft_id)
+           VALUES ($1, $2, $3)`,
+          [item.dataType, JSON.stringify(item.data), item.id]
+        );
+
+        await client.query(`DELETE FROM drafts WHERE id = $1`, [item.id]);
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     },
 
     async moveToValidated(item: PipelineItem): Promise<void> {
