@@ -634,6 +634,20 @@ export class CurriculumService {
   }
 
   private mapTopicRow(row: Record<string, unknown>): CurriculumTopic {
+    let prerequisites: string[] = [];
+    if (row.prerequisites) {
+      if (Array.isArray(row.prerequisites)) {
+        prerequisites = row.prerequisites as unknown[] as string[];
+      } else if (typeof row.prerequisites === 'string') {
+        try {
+          const parsed = JSON.parse(row.prerequisites) as unknown;
+          prerequisites = Array.isArray(parsed) ? (parsed as string[]) : [];
+        } catch {
+          prerequisites = [];
+        }
+      }
+    }
+
     return {
       id: row.id as string,
       levelId: row.level_id as string,
@@ -644,7 +658,7 @@ export class CurriculumService {
       sortOrder: row.sort_order as number,
       estimatedItems: row.estimated_items as number,
       metadata: (row.metadata as Record<string, unknown>) || {},
-      prerequisites: (row.prerequisites as string[]) || [],
+      prerequisites,
     };
   }
 }

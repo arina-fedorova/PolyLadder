@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, GripVertical, Trash2, Edit2, ChevronDown, ChevronRight, Upload } from 'lucide-react';
 import { apiClient } from '../../api/client';
@@ -34,6 +34,12 @@ const LANGUAGES = [
 export function CurriculumPage() {
   const [selectedLanguage, setSelectedLanguage] = useState('ES');
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedLanguage) {
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
+    }
+  }, [selectedLanguage, queryClient]);
   const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
   const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -46,17 +52,30 @@ export function CurriculumPage() {
       );
       return response.data;
     },
+    staleTime: 0,
   });
 
-  const { data: topics } = useQuery<{ topics: CurriculumTopic[] }>({
+  const {
+    data: topics,
+    isLoading: topicsLoading,
+    error: topicsError,
+  } = useQuery<{ topics: CurriculumTopic[] }>({
     queryKey: ['curriculum-topics', expandedLevel],
     queryFn: async () => {
+      if (!expandedLevel) {
+        throw new Error('Level ID is required');
+      }
+      const levelExists = levels?.levels.some((l) => l.id === expandedLevel);
+      if (!levelExists) {
+        throw new Error(`Level ${expandedLevel} not found. Please refresh the page.`);
+      }
       const response = await apiClient.get<{ topics: CurriculumTopic[] }>(
         `/operational/curriculum/topics/${expandedLevel}`
       );
       return response.data;
     },
-    enabled: !!expandedLevel,
+    enabled: !!expandedLevel && !!levels?.levels.length,
+    staleTime: 0,
   });
 
   const createTopicMutation = useMutation({
@@ -64,6 +83,7 @@ export function CurriculumPage() {
       apiClient.post('/operational/curriculum/topics', topic),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
     },
   });
 
@@ -72,6 +92,7 @@ export function CurriculumPage() {
       apiClient.put(`/operational/curriculum/topics/${id}`, updates),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
       setEditingTopic(null);
     },
   });
@@ -80,6 +101,7 @@ export function CurriculumPage() {
     mutationFn: (id: string) => apiClient.delete(`/operational/curriculum/topics/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
     },
   });
 
@@ -156,9 +178,11 @@ export function CurriculumPage() {
                   </div>
                 </div>
                 <div className="text-sm text-gray-500">
-                  {topics?.topics && expandedLevel === level.id
-                    ? `${topics.topics.length} topics`
-                    : ''}
+                  {expandedLevel === level.id && topicsLoading
+                    ? 'Loading...'
+                    : topics?.topics && expandedLevel === level.id
+                      ? `${topics.topics.length} topics`
+                      : ''}
                 </div>
               </button>
 
@@ -185,7 +209,18 @@ export function CurriculumPage() {
                     </div>
                   </div>
 
-                  {topics?.topics.length === 0 ? (
+                  {topicsError ? (
+                    <div className="text-center py-8 bg-white border border-red-300 rounded-lg">
+                      <p className="text-red-500 mb-2">Error loading topics</p>
+                      <p className="text-sm text-red-400">
+                        {topicsError instanceof Error ? topicsError.message : 'Unknown error'}
+                      </p>
+                    </div>
+                  ) : topicsLoading ? (
+                    <div className="text-center py-8 bg-white border border-dashed border-gray-300 rounded-lg">
+                      <p className="text-gray-500 mb-2">Loading topics...</p>
+                    </div>
+                  ) : !topics || !topics.topics || topics.topics.length === 0 ? (
                     <div className="text-center py-8 bg-white border border-dashed border-gray-300 rounded-lg">
                       <p className="text-gray-500 mb-2">No topics defined yet</p>
                       <p className="text-sm text-gray-400">
@@ -194,7 +229,7 @@ export function CurriculumPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {topics?.topics.map((topic: CurriculumTopic) => (
+                      {topics.topics.map((topic: CurriculumTopic) => (
                         <div
                           key={topic.id}
                           className="flex items-center gap-3 p-3 bg-white border rounded hover:shadow-sm transition-shadow"
