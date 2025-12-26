@@ -104,16 +104,30 @@ function registerErrorHandler(server: FastifyInstance): void {
 
   server.setErrorHandler((err: FastifyError, request, reply) => {
     const statusCode = err.statusCode ?? 500;
+    const isValidationError = err.code === 'FST_ERR_VALIDATION' || statusCode === 400;
+    const isClientError = statusCode >= 400 && statusCode < 500;
 
-    request.log.error(
-      {
-        err,
-        requestId: request.id,
-        method: request.method,
-        url: request.url,
-      },
-      'Request error'
-    );
+    if (isValidationError || (isClientError && env.NODE_ENV === 'test')) {
+      request.log.debug(
+        {
+          err,
+          requestId: request.id,
+          method: request.method,
+          url: request.url,
+        },
+        'Request validation error'
+      );
+    } else {
+      request.log.error(
+        {
+          err,
+          requestId: request.id,
+          method: request.method,
+          url: request.url,
+        },
+        'Request error'
+      );
+    }
 
     const response: {
       error: {
