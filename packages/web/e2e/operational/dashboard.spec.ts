@@ -38,10 +38,7 @@ test.describe('Operator Dashboard', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    await page.goto('/operator/dashboard');
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Pipeline Dashboard|Failed to load dashboard metrics/)).toBeVisible(
@@ -61,10 +58,7 @@ test.describe('Operator Dashboard', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    await page.goto('/operator/dashboard');
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('link', { name: 'Pipeline' })).toBeVisible();

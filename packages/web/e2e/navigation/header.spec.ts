@@ -58,8 +58,8 @@ test.describe('Header Navigation', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Learner Dashboard' })).toBeVisible({
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Pipeline Dashboard' })).toBeVisible({
       timeout: 10000,
     });
     await expect(page.getByRole('link', { name: 'Pipeline' })).toBeVisible({ timeout: 5000 });
@@ -100,8 +100,8 @@ test.describe('Header Navigation', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard', { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Learner Dashboard' })).toBeVisible({
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Pipeline Dashboard' })).toBeVisible({
       timeout: 10000,
     });
     await page.getByText('operator@example.com').click();

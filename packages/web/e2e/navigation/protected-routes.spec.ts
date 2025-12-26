@@ -60,7 +60,7 @@ test.describe('Protected Routes', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
 
     await page.goto('/operator/pipeline');
 

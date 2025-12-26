@@ -82,7 +82,7 @@ test.describe('Login Page', () => {
     await loginPage.passwordInput.fill('OperatorPass123');
     await loginPage.submitButton.click();
 
-    // Should navigate to dashboard
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // Should navigate to operator dashboard
+    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
   });
 });
