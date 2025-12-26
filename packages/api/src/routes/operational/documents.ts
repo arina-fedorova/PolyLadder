@@ -162,7 +162,9 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
 
   const storageConfig = {
     type: (process.env.STORAGE_TYPE as 'local' | 's3') || 'local',
-    localPath: process.env.STORAGE_LOCAL_PATH || '/app/uploads/documents',
+    localPath:
+      process.env.STORAGE_LOCAL_PATH ||
+      (process.env.NODE_ENV === 'test' ? './test-uploads' : '/app/uploads/documents'),
     s3Bucket: process.env.S3_BUCKET,
     s3Region: process.env.S3_REGION,
   };

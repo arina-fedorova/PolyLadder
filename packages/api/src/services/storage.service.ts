@@ -34,7 +34,14 @@ export class StorageService {
     }
 
     const localDir = this.config.localPath || './uploads/documents';
-    await fs.mkdir(localDir, { recursive: true });
+    try {
+      await fs.mkdir(localDir, { recursive: true });
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code !== 'EEXIST') {
+        throw new Error(`Failed to create storage directory: ${err.message}`);
+      }
+    }
 
     const filePath = path.join(localDir, uniqueFilename);
     await fs.writeFile(filePath, buffer);
