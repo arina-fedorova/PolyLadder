@@ -32,8 +32,12 @@ export function LoginPage() {
     setApiError(null);
 
     try {
-      await login(data);
-      void navigate('/dashboard');
+      const user = await login(data);
+      if (user?.role === 'operator') {
+        void navigate('/operator/dashboard');
+      } else {
+        void navigate('/dashboard');
+      }
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(axiosError.response?.data?.error?.message || 'Login failed. Please try again.');

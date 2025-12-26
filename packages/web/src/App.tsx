@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/pages/public/LoginPage';
@@ -31,6 +31,14 @@ const LandingPage = () => (
   </div>
 );
 
+const DashboardRedirect = () => {
+  const { user } = useAuth();
+  if (user?.role === 'operator') {
+    return <Navigate to="/operator/dashboard" replace />;
+  }
+  return <DashboardPage />;
+};
+
 const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
@@ -57,7 +65,7 @@ export function App() {
             element={
               <ProtectedRoute>
                 <MainLayout>
-                  <DashboardPage />
+                  <DashboardRedirect />
                 </MainLayout>
               </ProtectedRoute>
             }

@@ -31,7 +31,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, login } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -59,7 +59,12 @@ export function RegisterPage() {
         role: data.role,
       });
 
-      void navigate('/dashboard');
+      const user = await login({ email: data.email, password: data.password });
+      if (user?.role === 'operator') {
+        void navigate('/operator/dashboard');
+      } else {
+        void navigate('/dashboard');
+      }
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(

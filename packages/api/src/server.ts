@@ -63,8 +63,23 @@ export async function buildServer(): Promise<FastifyInstance> {
 async function registerPlugins(server: FastifyInstance): Promise<void> {
   const env = getEnv();
 
+  const corsOrigin =
+    env.NODE_ENV === 'development'
+      ? (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          if (
+            !origin ||
+            origin.startsWith('http://localhost:') ||
+            origin.startsWith('http://127.0.0.1:')
+          ) {
+            callback(null, true);
+          } else {
+            callback(null, false);
+          }
+        }
+      : env.FRONTEND_URL;
+
   await server.register(fastifyCors, {
-    origin: env.FRONTEND_URL,
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
