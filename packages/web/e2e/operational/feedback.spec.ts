@@ -18,7 +18,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 
@@ -48,7 +48,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 
@@ -79,7 +79,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 
@@ -121,9 +121,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
-
-    await page.goto('/operator/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     const analyticsSection = page.getByText(/feedback|analytics/i);
 
@@ -145,7 +143,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 
@@ -180,7 +178,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 
@@ -211,7 +209,7 @@ test.describe('Feedback System', () => {
     await page.getByPlaceholder('••••••••').fill('LearnerPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
 

@@ -20,7 +20,7 @@ test.describe('Operator Dashboard', () => {
 
     await expect(page).toHaveURL('/dashboard');
 
-    await page.goto('/operator/dashboard');
+    await page.goto('/operator/pipeline');
 
     await expect(page.getByText('403')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("You don't have permission to access this page.")).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('Operator Dashboard', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/Pipeline Dashboard|Failed to load dashboard metrics/)).toBeVisible(
@@ -58,7 +58,7 @@ test.describe('Operator Dashboard', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/dashboard', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('link', { name: 'Pipeline' })).toBeVisible();

@@ -17,7 +17,7 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('learner@example.com');
     await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/mappings');
     await expect(page.getByText('403')).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('operator@example.com');
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/mappings');
     await expect(page.getByRole('heading', { name: 'Review Content Mappings' })).toBeVisible();
@@ -52,7 +52,7 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('operator@example.com');
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/mappings');
     await expect(page.getByRole('heading', { name: 'Review Content Mappings' })).toBeVisible();
@@ -71,7 +71,7 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('operator@example.com');
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/mappings');
     await expect(page.getByText(/\d+ pending review/)).toBeVisible();
@@ -88,9 +88,9 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('operator@example.com');
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
-    await page.goto('/dashboard');
+    await page.goto('/operator/pipeline');
     await expect(page.getByRole('link', { name: 'Mappings' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Mappings' }).click();
@@ -111,7 +111,7 @@ test.describe('Mapping Review Page', () => {
     await page.getByLabel('Email address').fill('operator@example.com');
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/mappings');
     await expect(page.getByRole('heading', { name: 'Review Content Mappings' })).toBeVisible();

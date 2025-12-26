@@ -18,7 +18,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByText('403')).toBeVisible();
@@ -37,7 +37,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -55,7 +55,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -81,7 +81,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -107,7 +107,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -135,7 +135,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await page.goto('/operator/curriculum');
     await expect(page.getByRole('heading', { name: 'Curriculum Structure' })).toBeVisible();
@@ -184,7 +184,7 @@ test.describe('Curriculum Page', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
 
     await expect(page.getByRole('link', { name: 'Curriculum' })).toBeVisible();
 

@@ -34,7 +34,7 @@ const LandingPage = () => (
 const DashboardRedirect = () => {
   const { user } = useAuth();
   if (user?.role === 'operator') {
-    return <Navigate to="/operator/dashboard" replace />;
+    return <Navigate to="/operator/pipeline" replace />;
   }
   return <DashboardPage />;
 };
@@ -66,17 +66,6 @@ export function App() {
               <ProtectedRoute>
                 <MainLayout>
                   <DashboardRedirect />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/operator/dashboard"
-            element={
-              <ProtectedRoute requiredRole="operator">
-                <MainLayout>
-                  <OperatorDashboardPage />
                 </MainLayout>
               </ProtectedRoute>
             }

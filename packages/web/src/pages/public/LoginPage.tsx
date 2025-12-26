@@ -34,7 +34,7 @@ export function LoginPage() {
     try {
       const user = await login(data);
       if (user?.role === 'operator') {
-        void navigate('/operator/dashboard');
+        void navigate('/operator/pipeline');
       } else {
         void navigate('/dashboard');
       }

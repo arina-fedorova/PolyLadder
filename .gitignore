@@ -42,3 +42,7 @@ uploads/
 **/uploads/
 **/test-uploads/
 
+# Test artifacts
+**/test-results/
+**/playwright-report/
+

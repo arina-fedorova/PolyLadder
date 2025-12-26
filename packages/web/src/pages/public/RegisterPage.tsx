@@ -61,7 +61,7 @@ export function RegisterPage() {
 
       const user = await login({ email: data.email, password: data.password });
       if (user?.role === 'operator') {
-        void navigate('/operator/dashboard');
+        void navigate('/operator/pipeline');
       } else {
         void navigate('/dashboard');
       }
