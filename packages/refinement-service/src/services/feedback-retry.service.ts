@@ -48,7 +48,7 @@ export class FeedbackRetryService {
     const prompt = this.buildFeedbackAwarePrompt(originalData, feedbackHistory, retry);
 
     const response = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -170,21 +170,23 @@ Return the improved content in the exact same JSON format as the original.`;
       [limit]
     );
 
-    return result.rows.map((row: {
-      id: unknown;
-      item_id: unknown;
-      item_type: unknown;
-      comment: unknown;
-      category: unknown;
-      suggested_correction: unknown;
-    }) => ({
-      id: row.id as string,
-      item_id: row.item_id as string,
-      item_type: row.item_type as string,
-      comment: row.comment as string,
-      category: row.category as string,
-      suggested_correction: (row.suggested_correction as string) || null,
-    }));
+    return result.rows.map(
+      (row: {
+        id: unknown;
+        item_id: unknown;
+        item_type: unknown;
+        comment: unknown;
+        category: unknown;
+        suggested_correction: unknown;
+      }) => ({
+        id: row.id as string,
+        item_id: row.item_id as string,
+        item_type: row.item_type as string,
+        comment: row.comment as string,
+        category: row.category as string,
+        suggested_correction: (row.suggested_correction as string) || null,
+      })
+    );
   }
 
   private async markRetryProcessing(retryId: string): Promise<void> {
@@ -196,7 +198,11 @@ Return the improved content in the exact same JSON format as the original.`;
     );
   }
 
-  private async markRetryComplete(retryId: string, success: boolean, error?: string): Promise<void> {
+  private async markRetryComplete(
+    retryId: string,
+    success: boolean,
+    error?: string
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE retry_queue 
        SET status = $1, processed_at = CURRENT_TIMESTAMP, error_message = $2
@@ -205,4 +211,3 @@ Return the improved content in the exact same JSON format as the original.`;
     );
   }
 }
-

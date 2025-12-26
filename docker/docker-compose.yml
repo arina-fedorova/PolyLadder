@@ -28,6 +28,7 @@ services:
       - ../packages/api/src:/app/packages/api/src
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
+      - uploads_data:/app/uploads
     environment:
       DATABASE_URL: postgres://dev:dev@db:5432/polyladder
       JWT_SECRET: dev-secret-key-must-be-at-least-32-characters-long
@@ -54,10 +55,12 @@ services:
       - ../packages/refinement-service/src:/app/packages/refinement-service/src
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
+      - uploads_data:/app/uploads
     environment:
       DATABASE_URL: postgres://dev:dev@db:5432/polyladder
       NODE_ENV: development
       LOG_LEVEL: debug
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     command: pnpm --filter @polyladder/refinement-service dev
     depends_on:
       db:
@@ -92,6 +95,7 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
 
 networks:
   polyladder-network:

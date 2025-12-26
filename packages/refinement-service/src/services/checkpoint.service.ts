@@ -65,7 +65,7 @@ export function createCheckpointRepository(pool: Pool): CheckpointRepository {
     },
 
     async restoreState(serviceName: string): Promise<CheckpointState | null> {
-      const result = await pool.query<{ state: string }>(
+      const result = await pool.query<{ state: string | Record<string, unknown> }>(
         `SELECT state FROM service_state WHERE service_name = $1`,
         [serviceName]
       );
@@ -74,7 +74,11 @@ export function createCheckpointRepository(pool: Pool): CheckpointRepository {
         return null;
       }
 
-      const parsed = JSON.parse(result.rows[0].state) as CheckpointState;
+      const stateData = result.rows[0].state;
+      const parsed =
+        typeof stateData === 'string'
+          ? (JSON.parse(stateData) as CheckpointState)
+          : (stateData as CheckpointState);
       return {
         ...parsed,
         timestamp: new Date(parsed.timestamp),

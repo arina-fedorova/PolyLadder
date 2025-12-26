@@ -130,6 +130,10 @@ export class PipelineOrchestrator {
     const result = this.normalization.normalize(item);
 
     if (!result.success) {
+      logger.warn(
+        { itemId: item.id, dataType: item.dataType, errors: result.errors, data: item.data },
+        'Normalization failed'
+      );
       await this.repository.recordMetrics(
         'normalization',
         item.dataType,
@@ -242,29 +246,46 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     limit: number,
     state: PipelineStage
   ): Promise<PipelineItem[]> {
+    const dataColumn =
+      tableName === 'drafts'
+        ? 'raw_data'
+        : tableName === 'candidates'
+          ? 'normalized_data'
+          : 'validated_data';
+
     const result = await pool.query<{
       id: string;
       data_type: string;
-      raw_data?: unknown;
-      normalized_data?: unknown;
-      validated_data?: unknown;
+      data: unknown;
     }>(
-      `SELECT id, data_type, ${tableName === 'drafts' ? 'raw_data' : tableName === 'candidates' ? 'normalized_data' : 'validated_data'} as data
+      `SELECT id, data_type, ${dataColumn} as data
        FROM ${tableName}
        ORDER BY created_at ASC
        LIMIT $1`,
       [limit]
     );
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      dataType: row.data_type,
-      currentState: state,
-      data: (row.raw_data ?? row.normalized_data ?? row.validated_data ?? {}) as Record<
-        string,
-        unknown
-      >,
-    }));
+    return result.rows.map((row) => {
+      let data: Record<string, unknown> = {};
+      if (row.data) {
+        if (typeof row.data === 'string') {
+          try {
+            data = JSON.parse(row.data) as Record<string, unknown>;
+          } catch {
+            data = {};
+          }
+        } else if (typeof row.data === 'object' && row.data !== null) {
+          data = row.data as Record<string, unknown>;
+        }
+      }
+
+      return {
+        id: row.id,
+        dataType: row.data_type,
+        currentState: state,
+        data,
+      };
+    });
   }
 
   return {

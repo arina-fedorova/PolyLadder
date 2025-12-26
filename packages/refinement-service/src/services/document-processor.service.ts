@@ -98,7 +98,18 @@ export class DocumentProcessorService {
     for (const doc of result.rows) {
       try {
         const fs = await import('fs/promises');
-        const fileBuffer = await fs.readFile(doc.storage_path);
+        const pathModule = await import('path');
+        let normalizedPath = doc.storage_path.replace(/\\/g, '/');
+
+        if (!normalizedPath.startsWith('/')) {
+          if (normalizedPath.startsWith('uploads/')) {
+            normalizedPath = `/app/${normalizedPath}`;
+          } else {
+            normalizedPath = pathModule.join('/app/uploads/documents', normalizedPath);
+          }
+        }
+
+        const fileBuffer = await fs.readFile(normalizedPath);
         await this.processDocument(doc.id, fileBuffer);
         processed++;
       } catch (error) {

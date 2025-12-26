@@ -16,6 +16,7 @@ import { createApprovalRepository } from './pipeline/steps/approval.step';
 import { SemanticMapperService } from './services/semantic-mapper.service';
 import { ContentTransformerService } from './services/content-transformer.service';
 import { PromotionWorker } from './services/promotion-worker.service';
+import { DocumentProcessorService } from './services/document-processor.service';
 import {
   createCEFRConsistencyGate,
   createOrthographyGate,
@@ -49,6 +50,7 @@ function getDatabaseUrl(): string {
 interface DocumentProcessingContext {
   semanticMapper: SemanticMapperService | null;
   contentTransformer: ContentTransformerService | null;
+  documentProcessor: DocumentProcessorService;
   pool: Pool;
 }
 
@@ -124,6 +126,8 @@ async function mainLoop(
   }
 
   let consecutiveEmptyIterations = 0;
+  let lastHeartbeat = previousState?.timestamp ?? new Date();
+  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
 
   while (!isShuttingDown) {
     try {
@@ -146,6 +150,7 @@ async function mainLoop(
         };
 
         await checkpoint.saveState(state);
+        lastHeartbeat = new Date();
         logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
         workDone = true;
       }
@@ -159,10 +164,19 @@ async function mainLoop(
 
       await pipeline.processBatch();
 
+      const pendingProcessed = await docContext.documentProcessor.processPendingDocuments();
+      if (pendingProcessed > 0) {
+        workDone = true;
+        logger.info({ count: pendingProcessed }, 'Pending documents processed');
+      }
+
       const docProcessed = await processDocumentPipeline(docContext);
       if (docProcessed) {
         workDone = true;
       }
+
+      const now = new Date();
+      const timeSinceHeartbeat = now.getTime() - lastHeartbeat.getTime();
 
       if (!workDone) {
         consecutiveEmptyIterations++;
@@ -170,6 +184,22 @@ async function mainLoop(
           getLoopInterval() * Math.pow(1.5, Math.min(consecutiveEmptyIterations, 5)),
           MAX_LOOP_INTERVAL_MS
         );
+
+        if (timeSinceHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+          const heartbeatState: CheckpointState = {
+            lastProcessedId: previousState?.lastProcessedId ?? null,
+            lastProcessedType: previousState?.lastProcessedType ?? null,
+            timestamp: now,
+            metadata: {
+              heartbeat: true,
+              consecutiveEmptyIterations,
+              status: 'idle',
+            },
+          };
+          await checkpoint.saveState(heartbeatState);
+          lastHeartbeat = now;
+          logger.debug('Heartbeat checkpoint saved');
+        }
 
         logger.debug(
           { intervalMs: currentLoopInterval },
@@ -274,11 +304,16 @@ async function start(): Promise<void> {
     'Promotion worker initialized with quality gates'
   );
 
+  const documentProcessor = new DocumentProcessorService(pool);
+  logger.info('Document processor initialized');
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   let semanticMapper: SemanticMapperService | null = null;
   let contentTransformer: ContentTransformerService | null = null;
 
-  if (anthropicKey) {
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('Test environment detected - LLM services disabled');
+  } else if (anthropicKey) {
     semanticMapper = new SemanticMapperService(pool, anthropicKey);
     contentTransformer = new ContentTransformerService(pool, anthropicKey);
     logger.info('LLM services initialized (semantic mapping and content transformation)');
@@ -289,6 +324,7 @@ async function start(): Promise<void> {
   const docContext: DocumentProcessingContext = {
     semanticMapper,
     contentTransformer,
+    documentProcessor,
     pool,
   };
 

@@ -77,7 +77,7 @@ export class ContentTransformerService {
     const prompt = this.buildTransformationPrompt(input);
 
     const response = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -206,26 +206,35 @@ Include: title, content, examples where available.`;
       document_id: string;
       chunk_id: string;
       topic_id: string;
+      language: string;
+      level: string;
     }
 
     const mapping = await this.pool.query<MappingRow>(
-      `SELECT c.document_id, m.chunk_id, m.topic_id
+      `SELECT c.document_id, m.chunk_id, m.topic_id, d.language, d.target_level as level
        FROM content_topic_mappings m
        JOIN raw_content_chunks c ON m.chunk_id = c.id
+       JOIN document_sources d ON c.document_id = d.id
        WHERE m.id = $1`,
       [result.mappingId]
     );
 
     if (mapping.rows.length === 0) return;
 
-    const { document_id, chunk_id, topic_id } = mapping.rows[0];
+    const { document_id, chunk_id, topic_id, language, level } = mapping.rows[0];
 
     for (const item of result.items) {
+      const enrichedItem = {
+        ...item,
+        language: language,
+        level: level,
+      };
+
       await this.pool.query(
         `INSERT INTO drafts 
          (data_type, raw_data, source, document_id, chunk_id, topic_id)
          VALUES ($1, $2, 'document_transform', $3, $4, $5)`,
-        [result.dataType, JSON.stringify(item), document_id, chunk_id, topic_id]
+        [result.dataType, JSON.stringify(enrichedItem), document_id, chunk_id, topic_id]
       );
     }
 
