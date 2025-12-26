@@ -24,23 +24,27 @@ function escapeSqlString(str: string): string {
 }
 
 export function up(pgm: MigrationBuilder): void {
+  const cwd = process.cwd();
   const possiblePaths = [
-    path.resolve(process.cwd(), 'packages/db/src/data/curriculum_scheme.json'),
-    path.resolve(process.cwd(), 'src/data/curriculum_scheme.json'),
-    path.resolve(__dirname, '../data/curriculum_scheme.json'),
+    path.resolve(cwd, 'packages/db/src/data/curriculum_scheme.json'),
+    path.resolve(cwd, 'src/data/curriculum_scheme.json'),
   ];
 
   let jsonPath: string | null = null;
   for (const possiblePath of possiblePaths) {
-    if (fs.existsSync(possiblePath)) {
-      jsonPath = possiblePath;
-      break;
+    try {
+      if (fs.existsSync(possiblePath)) {
+        jsonPath = possiblePath;
+        break;
+      }
+    } catch {
+      continue;
     }
   }
 
   if (!jsonPath) {
     throw new Error(
-      `Could not find curriculum_scheme.json. Tried: ${possiblePaths.join(', ')}. Current working directory: ${process.cwd()}`
+      `Could not find curriculum_scheme.json. Tried: ${possiblePaths.join(', ')}. Current working directory: ${cwd}`
     );
   }
 
