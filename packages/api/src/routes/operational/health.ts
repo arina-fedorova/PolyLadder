@@ -90,16 +90,28 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
       );
 
       const approvedMeanings = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_meanings`
+        `SELECT COUNT(*) as count 
+         FROM approved_meanings am
+         LEFT JOIN deprecations d ON d.item_id = am.id AND d.item_type = 'meaning'
+         WHERE d.id IS NULL`
       );
       const approvedUtterances = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_utterances`
+        `SELECT COUNT(*) as count 
+         FROM approved_utterances au
+         LEFT JOIN deprecations d ON d.item_id = au.id::varchar AND d.item_type = 'utterance'
+         WHERE d.id IS NULL`
       );
       const approvedRules = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_rules`
+        `SELECT COUNT(*) as count 
+         FROM approved_rules ar
+         LEFT JOIN deprecations d ON d.item_id = ar.id AND d.item_type = 'rule'
+         WHERE d.id IS NULL`
       );
       const approvedExercises = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_exercises`
+        `SELECT COUNT(*) as count 
+         FROM approved_exercises ae
+         LEFT JOIN deprecations d ON d.item_id = ae.id::varchar AND d.item_type = 'exercise'
+         WHERE d.id IS NULL`
       );
 
       const typeMapping: Record<string, keyof PipelineHealth['byContentType']> = {

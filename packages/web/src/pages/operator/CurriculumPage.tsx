@@ -34,15 +34,15 @@ const LANGUAGES = [
 export function CurriculumPage() {
   const [selectedLanguage, setSelectedLanguage] = useState('ES');
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
+  const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
+  const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (selectedLanguage) {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
     }
   }, [selectedLanguage, queryClient]);
-  const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
-  const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const { data: levels, isLoading: levelsLoading } = useQuery<{ levels: CurriculumLevel[] }>({
     queryKey: ['curriculum-levels', selectedLanguage],
