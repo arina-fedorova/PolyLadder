@@ -7,16 +7,33 @@ let testServer: FastifyInstance | null = null;
 let testPool: Pool | null = null;
 
 function getTestDatabaseUrl(): string {
-  return (
-    process.env.TEST_DATABASE_URL ||
-    process.env.DATABASE_URL ||
-    'postgresql://test:test@localhost:5433/polyladder_test'
-  );
+  if (process.env.TEST_DATABASE_URL) {
+    return process.env.TEST_DATABASE_URL;
+  }
+
+  const defaultTestUrl = 'postgresql://test:test@localhost:5433/polyladder_test';
+
+  if (process.env.DATABASE_URL) {
+    const devUrl = process.env.DATABASE_URL;
+    if (devUrl.includes('polyladder') && !devUrl.includes('polyladder_test')) {
+      throw new Error(
+        `TEST_DATABASE_URL not set and DATABASE_URL points to dev database (${devUrl}). ` +
+          `Tests must use a separate test database. Set TEST_DATABASE_URL or use default: ${defaultTestUrl}`
+      );
+    }
+    return devUrl;
+  }
+
+  return defaultTestUrl;
 }
 
 export function setupTestEnv(): void {
   process.env.NODE_ENV = 'test';
-  process.env.DATABASE_URL = getTestDatabaseUrl();
+
+  const testDbUrl = getTestDatabaseUrl();
+  process.env.DATABASE_URL = testDbUrl;
+  process.env.TEST_DATABASE_URL = testDbUrl;
+
   process.env.JWT_SECRET = 'test-secret-key-that-is-at-least-32-characters-long';
   process.env.JWT_ACCESS_EXPIRY = '15m';
   process.env.JWT_REFRESH_EXPIRY = '7d';
@@ -79,6 +96,8 @@ export async function cleanupTestData(): Promise<void> {
     'operator_feedback',
     'feedback_templates',
     'topic_prerequisites',
+    'curriculum_topics',
+    'curriculum_levels',
     'refresh_tokens',
     'approval_events',
     'review_queue',
