@@ -40,4 +40,5 @@ coverage/
 # Uploads
 uploads/
 **/uploads/
+**/test-uploads/
 
