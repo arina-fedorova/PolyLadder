@@ -79,8 +79,6 @@ export async function cleanupTestData(): Promise<void> {
     'operator_feedback',
     'feedback_templates',
     'topic_prerequisites',
-    'curriculum_topics',
-    'curriculum_levels',
     'refresh_tokens',
     'approval_events',
     'review_queue',
