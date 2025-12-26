@@ -77,8 +77,13 @@ export function createCheckpointRepository(pool: Pool): CheckpointRepository {
       const stateData = result.rows[0].state;
       const parsed =
         typeof stateData === 'string'
-          ? (JSON.parse(stateData) as CheckpointState)
-          : (stateData as CheckpointState);
+          ? (JSON.parse(stateData) as unknown as CheckpointState)
+          : (stateData as unknown as CheckpointState);
+
+      if (!parsed.timestamp) {
+        throw new Error('Invalid checkpoint state: missing timestamp');
+      }
+
       return {
         ...parsed,
         timestamp: new Date(parsed.timestamp),
