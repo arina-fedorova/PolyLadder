@@ -65,12 +65,35 @@ interface MappingForTransformation {
 
 async function findDocumentWithUnmappedChunks(pool: Pool): Promise<UnmappedDocument | null> {
   const result = await pool.query<UnmappedDocument>(
-    `SELECT DISTINCT d.id, l.id as level_id
+    `SELECT DISTINCT d.id, 
+            COALESCE(
+              NULLIF((SELECT l.id FROM curriculum_levels l 
+                      WHERE l.language = d.language 
+                        AND l.cefr_level = NULLIF(d.target_level, '') 
+                      LIMIT 1), NULL),
+              (SELECT l.id FROM curriculum_levels l 
+               WHERE l.language = d.language 
+                 AND l.cefr_level = 'A1' 
+               ORDER BY l.sort_order 
+               LIMIT 1)
+            ) as level_id
      FROM document_sources d
-     JOIN curriculum_levels l ON d.language = l.language AND d.target_level = l.cefr_level
      JOIN raw_content_chunks c ON c.document_id = d.id
      LEFT JOIN content_topic_mappings m ON m.chunk_id = c.id
-     WHERE d.status = 'ready' AND m.id IS NULL
+     WHERE d.status = 'ready' 
+       AND m.id IS NULL
+       AND d.language IS NOT NULL
+       AND COALESCE(
+             NULLIF((SELECT l.id FROM curriculum_levels l 
+                     WHERE l.language = d.language 
+                       AND l.cefr_level = NULLIF(d.target_level, '') 
+                     LIMIT 1), NULL),
+             (SELECT l.id FROM curriculum_levels l 
+              WHERE l.language = d.language 
+                AND l.cefr_level = 'A1' 
+              ORDER BY l.sort_order 
+              LIMIT 1)
+           ) IS NOT NULL
      LIMIT 1`
   );
   return result.rows[0] ?? null;
