@@ -187,8 +187,8 @@ async function mainLoop(
 
         if (timeSinceHeartbeat >= HEARTBEAT_INTERVAL_MS) {
           const heartbeatState: CheckpointState = {
-            lastProcessedId: previousState?.lastProcessedId,
-            lastProcessedType: previousState?.lastProcessedType,
+            lastProcessedId: previousState?.lastProcessedId ?? undefined,
+            lastProcessedType: previousState?.lastProcessedType ?? undefined,
             timestamp: now,
             metadata: {
               heartbeat: true,
