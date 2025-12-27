@@ -221,6 +221,9 @@ export class DocumentProcessorService {
     try {
       await client.query('BEGIN');
 
+      // Delete any existing chunks from previous attempts (for retry support)
+      await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
+
       // Get document storage path
       const docResult = await client.query<DocumentRow>(
         `SELECT storage_path FROM document_sources WHERE id = $1`,
@@ -290,6 +293,9 @@ export class DocumentProcessorService {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Delete any existing chunks from previous attempts (for retry support)
+      await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
 
       // Get document storage path
       const docResult = await client.query<DocumentRow>(

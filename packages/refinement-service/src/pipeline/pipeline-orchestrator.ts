@@ -150,7 +150,12 @@ export class PipelineOrchestrator {
       );
 
       const errorMessage = result.errors?.join('; ') || 'Normalization failed';
-      await this.repository.recordFailure(item.id, item.dataType, PipelineStage.DRAFT, errorMessage);
+      await this.repository.recordFailure(
+        item.id,
+        item.dataType,
+        PipelineStage.DRAFT,
+        errorMessage
+      );
 
       if (failureCount + 1 >= maxFailures) {
         await this.repository.deleteDraft(item.id);
@@ -382,6 +387,14 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
 
         await client.query(`DELETE FROM drafts WHERE id = $1`, [item.id]);
 
+        // Update pipeline_tasks to track DRAFT → CANDIDATE transition
+        await client.query(
+          `UPDATE pipeline_tasks
+           SET current_stage = 'CANDIDATE', updated_at = CURRENT_TIMESTAMP
+           WHERE item_id = $1 AND current_stage = 'DRAFT'`,
+          [item.id]
+        );
+
         await client.query('COMMIT');
       } catch (error) {
         await client.query('ROLLBACK');
@@ -394,15 +407,41 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     async moveToValidated(item: PipelineItem): Promise<void> {
       const candidateId = item.id;
 
+      // Get draft_id from candidate before it gets deleted
+      const candidateResult = await pool.query<{ draft_id: string }>(
+        `SELECT draft_id FROM candidates WHERE id = $1`,
+        [candidateId]
+      );
+      const draftId = candidateResult.rows[0]?.draft_id;
+
+      // Store draft_id in validated_data so we can track it to APPROVED stage
+      const validatedData = { ...item.data, __draft_id: draftId };
+
       await pool.query(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
          VALUES ($1, $2, $3, $4)`,
-        [item.dataType, JSON.stringify(item.data), candidateId, JSON.stringify({ passed: true })]
+        [
+          item.dataType,
+          JSON.stringify(validatedData),
+          candidateId,
+          JSON.stringify({ passed: true }),
+        ]
       );
+
+      // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
+      if (draftId) {
+        await pool.query(
+          `UPDATE pipeline_tasks
+           SET current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
+           WHERE item_id = $1 AND current_stage = 'CANDIDATE'`,
+          [draftId]
+        );
+      }
     },
 
     async copyToApproved(item: PipelineItem): Promise<string> {
       const data = item.data;
+      const draftId = data.__draft_id as string | undefined;
       let result;
 
       switch (item.dataType) {
@@ -467,6 +506,16 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
 
         default:
           throw new Error(`Unknown data type: ${item.dataType}`);
+      }
+
+      // Update pipeline_tasks to track VALIDATED → APPROVED transition
+      if (draftId) {
+        await pool.query(
+          `UPDATE pipeline_tasks
+           SET current_stage = 'APPROVED', updated_at = CURRENT_TIMESTAMP
+           WHERE item_id = $1 AND current_stage = 'VALIDATED'`,
+          [draftId]
+        );
       }
 
       return result.rows[0].id;

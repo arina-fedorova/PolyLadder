@@ -31,56 +31,97 @@ export class PDFExtractorService {
   async extractFromBuffer(buffer: Buffer): Promise<ExtractionResult> {
     const pdfParse = await import('pdf-parse');
 
-    // Strategy 1: Try standard parsing
+    // Make a fresh copy of buffer for each attempt to avoid state issues
+    const getBuffer = () => Buffer.from(buffer);
+
+    // Strategy 1: Standard parsing (works for 95% of PDFs)
     try {
-      const data = (await pdfParse.default(buffer)) as PDFParseResult;
+      const data = (await pdfParse.default(getBuffer())) as PDFParseResult;
+      return this.buildExtractionResult(data);
+    } catch {
+      // Continue to fallback strategies
+    }
+
+    // Strategy 2: Parse with max: 0 (parse all pages, not just first)
+    try {
+      const data = (await pdfParse.default(getBuffer(), {
+        max: 0,
+      })) as PDFParseResult;
+      return this.buildExtractionResult(data);
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 3: Try with empty options object
+    try {
+      const data = (await pdfParse.default(getBuffer(), {})) as PDFParseResult;
+      return this.buildExtractionResult(data);
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 4: Try with version specified
+    try {
+      const data = (await pdfParse.default(getBuffer(), {
+        version: 'default',
+      })) as PDFParseResult;
+      return this.buildExtractionResult(data);
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 5: Custom page renderer that ignores errors per page
+    try {
+      const data = (await pdfParse.default(getBuffer(), {
+        max: 0,
+        pagerender: async (pageData: unknown) => {
+          try {
+            const page = pageData as {
+              getTextContent: () => Promise<{ items: Array<{ str: string }> }>;
+            };
+            const textContent = await page.getTextContent();
+            return textContent.items.map((item) => item.str).join(' ');
+          } catch {
+            // Return empty string for failed pages
+            return '';
+          }
+        },
+      })) as PDFParseResult;
+      return this.buildExtractionResult(data);
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 6: Try combining max: 0 with custom renderer
+    try {
+      const data = (await pdfParse.default(getBuffer(), {
+        max: 0,
+        version: 'default',
+        pagerender: async (pageData: unknown) => {
+          try {
+            const page = pageData as {
+              getTextContent: () => Promise<{ items: Array<{ str: string }> }>;
+            };
+            const textContent = await page.getTextContent();
+            let text = '';
+            for (const item of textContent.items) {
+              text += item.str + ' ';
+            }
+            return text;
+          } catch {
+            return '';
+          }
+        },
+      })) as PDFParseResult;
       return this.buildExtractionResult(data);
     } catch (error) {
+      // All strategies failed
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-      // Strategy 2: If XRef error, try with custom options
-      if (errorMessage.includes('XRef') || errorMessage.includes('Invalid PDF')) {
-        try {
-          // Try parsing with maximum pages and ignoring errors
-          const data = (await pdfParse.default(buffer, {
-            max: 0, // Parse all pages, not just first page
-            version: 'default',
-          })) as PDFParseResult;
-          return this.buildExtractionResult(data);
-        } catch {
-          // Strategy 3: Try with custom pagerender that ignores errors
-          try {
-            const data = (await pdfParse.default(buffer, {
-              max: 0,
-              pagerender: async (pageData: unknown) => {
-                try {
-                  // Try to render the page text
-                  const page = pageData as {
-                    getTextContent: () => Promise<{ items: Array<{ str: string }> }>;
-                  };
-                  return await page.getTextContent().then((textContent) => {
-                    return textContent.items.map((item) => item.str).join(' ');
-                  });
-                } catch {
-                  // If page fails, return empty string and continue
-                  return '';
-                }
-              },
-            })) as PDFParseResult;
-            return this.buildExtractionResult(data);
-          } catch {
-            throw new Error(
-              `PDF extraction failed: The file cannot be processed. ` +
-                `Possible reasons: the PDF is corrupted, encrypted, password-protected, or uses an unsupported format. ` +
-                `Please verify the file is a valid, unencrypted PDF and try uploading again. ` +
-                `Technical details: ${errorMessage}`
-            );
-          }
-        }
-      }
-
-      // Re-throw if not XRef related
-      throw error;
+      throw new Error(
+        `PDF extraction failed after trying 6 different strategies. ` +
+          `The file may be corrupted, encrypted, password-protected, or use an unsupported format. ` +
+          `Technical details: ${errorMessage}`
+      );
     }
   }
 

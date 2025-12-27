@@ -23,6 +23,7 @@ interface RetryPipelineBody {
   force?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await
 export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /operational/pipelines
@@ -249,10 +250,59 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         [pipelineId]
       );
 
+      // Get content lifecycle statistics (DRAFT → CANDIDATE → VALIDATED → APPROVED)
+      const contentStatsResult = await fastify.db.query<{
+        current_stage: string;
+        count: string;
+      }>(
+        `SELECT current_stage, COUNT(*) as count
+         FROM pipeline_tasks
+         WHERE pipeline_id = $1
+         GROUP BY current_stage
+         ORDER BY
+           CASE current_stage
+             WHEN 'DRAFT' THEN 1
+             WHEN 'CANDIDATE' THEN 2
+             WHEN 'VALIDATED' THEN 3
+             WHEN 'APPROVED' THEN 4
+             ELSE 5
+           END`,
+        [pipelineId]
+      );
+
+      const contentStats = {
+        draft: 0,
+        candidate: 0,
+        validated: 0,
+        approved: 0,
+        total: 0,
+      };
+
+      for (const row of contentStatsResult.rows) {
+        const count = parseInt(row.count, 10);
+        contentStats.total += count;
+
+        switch (row.current_stage) {
+          case 'DRAFT':
+            contentStats.draft = count;
+            break;
+          case 'CANDIDATE':
+            contentStats.candidate = count;
+            break;
+          case 'VALIDATED':
+            contentStats.validated = count;
+            break;
+          case 'APPROVED':
+            contentStats.approved = count;
+            break;
+        }
+      }
+
       return reply.send({
         pipeline,
         tasks: tasksResult.rows,
         events: eventsResult.rows,
+        contentStats,
       });
     }
   );
@@ -351,10 +401,7 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       const pipelineResult = await fastify.db.query<{
         id: string;
         status: string;
-      }>(
-        `SELECT id, status FROM pipelines WHERE id = $1`,
-        [pipelineId]
-      );
+      }>(`SELECT id, status FROM pipelines WHERE id = $1`, [pipelineId]);
 
       if (pipelineResult.rows.length === 0) {
         return reply.code(404).send({
@@ -372,32 +419,50 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Retry all failed tasks
-      const result = await fastify.db.query<{ id: string }>(
-        `UPDATE pipeline_tasks
-         SET current_status = 'pending',
-             error_message = NULL,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE pipeline_id = $1
-           AND current_status = 'failed'
-           AND retry_count < 3
-         RETURNING id`,
+      // Get the document_id for this pipeline
+      const docResult = await fastify.db.query<{ document_id: string }>(
+        `SELECT document_id FROM pipelines WHERE id = $1`,
         [pipelineId]
       );
 
-      const retriedCount = result.rowCount || 0;
-
-      if (retriedCount > 0) {
-        // Reset pipeline status
-        await fastify.db.query(
-          `UPDATE pipelines
-           SET status = 'processing',
-               error_message = NULL,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = $1`,
-          [pipelineId]
-        );
+      if (docResult.rows.length === 0) {
+        return reply.code(404).send({
+          error: { message: 'Pipeline not found' },
+        });
       }
+
+      const documentId = docResult.rows[0].document_id;
+
+      // Clean up old data from previous attempts to avoid constraint violations
+      // Delete mappings first (foreign key dependency)
+      await fastify.db.query(
+        `DELETE FROM content_topic_mappings
+         WHERE chunk_id IN (SELECT id FROM raw_content_chunks WHERE document_id = $1)`,
+        [documentId]
+      );
+      // Then delete chunks
+      await fastify.db.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
+
+      // Delete all tasks for this pipeline (we'll recreate them)
+      await fastify.db.query(`DELETE FROM document_processing_tasks WHERE pipeline_id = $1`, [
+        pipelineId,
+      ]);
+
+      // Reset pipeline status to pending so it gets picked up by orchestrator
+      await fastify.db.query(
+        `UPDATE pipelines
+         SET status = 'pending',
+             current_stage = 'created',
+             error_message = NULL,
+             total_tasks = 0,
+             completed_tasks = 0,
+             failed_tasks = 0,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [pipelineId]
+      );
+
+      const retriedCount = 1; // We're retrying the entire pipeline
 
       return reply.send({
         success: true,
@@ -434,7 +499,11 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       const { pipelineId } = request.params;
 
       // Get pipeline with document
-      const pipelineResult = await fastify.db.query(
+      const pipelineResult = await fastify.db.query<{
+        id: string;
+        document_id: string;
+        original_filename: string;
+      }>(
         `SELECT p.id, p.document_id, d.original_filename
          FROM pipelines p
          JOIN document_sources d ON d.id = p.document_id

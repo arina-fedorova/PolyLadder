@@ -117,6 +117,14 @@ export class PromotionWorker {
       // Delete candidate
       await this.pool.query('DELETE FROM candidates WHERE id = $1', [candidate.id]);
 
+      // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
+      await this.pool.query(
+        `UPDATE pipeline_tasks
+         SET current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
+         WHERE item_id = $1 AND current_stage = 'CANDIDATE'`,
+        [candidate.draftId]
+      );
+
       // Record transition
       const transitionRepo = this.createTransitionRepository();
       await executeTransitionSimple(transitionRepo, {

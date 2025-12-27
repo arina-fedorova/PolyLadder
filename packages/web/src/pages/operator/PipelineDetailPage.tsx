@@ -70,6 +70,13 @@ interface PipelineDetail {
     created_at: string;
     task_type: string | null;
   }>;
+  contentStats: {
+    draft: number;
+    candidate: number;
+    validated: number;
+    approved: number;
+    total: number;
+  };
 }
 
 export function PipelineDetailPage() {
@@ -156,9 +163,19 @@ export function PipelineDetailPage() {
     );
   }
 
-  const { pipeline, tasks, events } = data;
+  const { pipeline, tasks, events, contentStats } = data;
   const statusConfig = getStatusConfig(pipeline.status);
   const StatusIcon = statusConfig.icon;
+
+  // Determine if pipeline is waiting for content approval
+  const isWaitingForApproval =
+    pipeline.status === 'completed' &&
+    contentStats.total > 0 &&
+    contentStats.approved < contentStats.total;
+
+  // Calculate content approval percentage
+  const contentApprovalPercentage =
+    contentStats.total > 0 ? Math.round((contentStats.approved / contentStats.total) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -324,6 +341,135 @@ export function PipelineDetailPage() {
           </dl>
         </div>
       </div>
+
+      {/* Content Lifecycle Progress */}
+      {contentStats.total > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Content Lifecycle Progress</h2>
+            <span className="text-sm text-gray-600">
+              {contentStats.approved} / {contentStats.total} Approved ({contentApprovalPercentage}%)
+            </span>
+          </div>
+
+          {/* Waiting for Approval Alert */}
+          {isWaitingForApproval && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Document Processing Complete - Awaiting Content Approval
+                  </p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    All document processing tasks have completed successfully. The pipeline will
+                    complete once all extracted content ({contentStats.total} items) reaches the
+                    APPROVED stage.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all"
+                  style={{ width: `${contentApprovalPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lifecycle Stages */}
+          <div className="grid grid-cols-4 gap-4">
+            {/* DRAFT */}
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Draft
+                </span>
+                <span
+                  className={`text-2xl font-bold ${contentStats.draft > 0 ? 'text-gray-700' : 'text-gray-400'}`}
+                >
+                  {contentStats.draft}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">Initial content extraction</div>
+              {contentStats.draft > 0 && (
+                <div className="mt-2 h-1 bg-gray-300 rounded-full animate-pulse"></div>
+              )}
+            </div>
+
+            {/* CANDIDATE */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                  Candidate
+                </span>
+                <span
+                  className={`text-2xl font-bold ${contentStats.candidate > 0 ? 'text-blue-700' : 'text-blue-400'}`}
+                >
+                  {contentStats.candidate}
+                </span>
+              </div>
+              <div className="text-xs text-blue-600">Normalized & ready for validation</div>
+              {contentStats.candidate > 0 && (
+                <div className="mt-2 h-1 bg-blue-400 rounded-full animate-pulse"></div>
+              )}
+            </div>
+
+            {/* VALIDATED */}
+            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">
+                  Validated
+                </span>
+                <span
+                  className={`text-2xl font-bold ${contentStats.validated > 0 ? 'text-yellow-700' : 'text-yellow-400'}`}
+                >
+                  {contentStats.validated}
+                </span>
+              </div>
+              <div className="text-xs text-yellow-700">Passed quality gates</div>
+              {contentStats.validated > 0 && (
+                <div className="mt-2 h-1 bg-yellow-400 rounded-full animate-pulse"></div>
+              )}
+            </div>
+
+            {/* APPROVED */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                  Approved
+                </span>
+                <span
+                  className={`text-2xl font-bold ${contentStats.approved > 0 ? 'text-green-700' : 'text-green-400'}`}
+                >
+                  {contentStats.approved}
+                </span>
+              </div>
+              <div className="text-xs text-green-700">Ready for production</div>
+              {contentStats.approved > 0 && (
+                <div className="mt-2 h-1 bg-green-500 rounded-full"></div>
+              )}
+            </div>
+          </div>
+
+          {/* Flow Arrows */}
+          <div className="flex items-center justify-center gap-2 mt-4 text-gray-400">
+            <span className="text-xs">DRAFT</span>
+            <span>→</span>
+            <span className="text-xs">CANDIDATE</span>
+            <span>→</span>
+            <span className="text-xs">VALIDATED</span>
+            <span>→</span>
+            <span className="text-xs">APPROVED</span>
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {pipeline.error_message && (
