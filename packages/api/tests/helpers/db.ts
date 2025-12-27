@@ -146,19 +146,31 @@ export async function createTestDocument(
   }
 ): Promise<{ id: string; original_filename: string }> {
   const id = overrides.id ?? uuidv4();
-  const filename = overrides.filename ?? `test-doc-${id}.pdf`;
+  const originalFilename = overrides.filename ?? `test-doc-${id}.pdf`;
+  const filename = `${id}.pdf`; // Sanitized filename for storage
   const language = overrides.language ?? 'EN';
   const targetLevel = overrides.targetLevel ?? 'A1';
   const status = overrides.status ?? 'pending';
 
   await pool.query(
     `INSERT INTO document_sources
-     (id, original_filename, storage_path, language, target_level, document_type, status, uploaded_by)
-     VALUES ($1, $2, $3, $4, $5, 'textbook', $6, $7)`,
-    [id, filename, `/test/${filename}`, language, targetLevel, status, overrides.uploadedBy]
+     (id, filename, original_filename, mime_type, file_size_bytes, storage_path, language, target_level, document_type, status, uploaded_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'textbook', $9, $10)`,
+    [
+      id,
+      filename,
+      originalFilename,
+      'application/pdf',
+      1024,
+      `/test/${filename}`,
+      language,
+      targetLevel,
+      status,
+      overrides.uploadedBy,
+    ]
   );
 
-  return { id, original_filename: filename };
+  return { id, original_filename: originalFilename };
 }
 
 export async function createTestChunk(

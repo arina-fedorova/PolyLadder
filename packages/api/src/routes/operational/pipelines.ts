@@ -439,15 +439,45 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       // Then delete chunks
       await fastify.db.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
 
-      // Delete all tasks for this pipeline (we'll recreate them)
+      // Delete all document processing tasks for this pipeline (we'll recreate them)
       await fastify.db.query(`DELETE FROM document_processing_tasks WHERE pipeline_id = $1`, [
         pipelineId,
       ]);
 
+      // Reset or delete pipeline_tasks (content lifecycle tasks)
+      // Count tasks that can be retried (retry_count < 3)
+      const retriableTasksResult = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM pipeline_tasks
+         WHERE pipeline_id = $1
+           AND current_status = 'failed'
+           AND retry_count < 3`,
+        [pipelineId]
+      );
+      const retriableCount = parseInt(retriableTasksResult.rows[0]?.count || '0', 10);
+
+      // Reset retriable tasks
+      await fastify.db.query(
+        `UPDATE pipeline_tasks
+         SET current_status = 'pending',
+             error_message = NULL,
+             retry_count = retry_count + 1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE pipeline_id = $1
+           AND current_status = 'failed'
+           AND retry_count < 3`,
+        [pipelineId]
+      );
+
+      // Delete tasks that exceeded max retries or delete all if force flag
+      if (force) {
+        await fastify.db.query(`DELETE FROM pipeline_tasks WHERE pipeline_id = $1`, [pipelineId]);
+      }
+
       // Reset pipeline status to pending so it gets picked up by orchestrator
       await fastify.db.query(
         `UPDATE pipelines
-         SET status = 'pending',
+         SET status = 'processing',
              current_stage = 'created',
              error_message = NULL,
              total_tasks = 0,
@@ -458,7 +488,7 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         [pipelineId]
       );
 
-      const retriedCount = 1; // We're retrying the entire pipeline
+      const retriedCount = retriableCount;
 
       return reply.send({
         success: true,
