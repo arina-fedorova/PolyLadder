@@ -148,11 +148,8 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   console.log(`   CI mode: ${isCI}\n`);
   console.log(`   Database URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}\n`);
 
-  if (await isServiceRunning(apiUrl)) {
-    console.log('✅ API server is already running, skipping setup');
-    global.dockerStarted = false;
-    return;
-  }
+  // Always setup database and API for E2E tests to ensure correct configuration
+  // Don't skip setup even if API is running, as it might be using wrong database
 
   try {
     if (!isCI) {

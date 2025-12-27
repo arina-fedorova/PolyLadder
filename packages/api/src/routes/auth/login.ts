@@ -85,7 +85,19 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const userRow = userResult.rows[0];
 
       if (!userRow) {
-        request.log.warn({ email: normalizedEmail }, 'User not found during login');
+        // Check all users for debugging
+        const allUsersResult = await fastify.db.query<{ email: string }>(
+          'SELECT email FROM users LIMIT 10'
+        );
+        request.log.warn(
+          {
+            email: normalizedEmail,
+            searchedEmail: normalizedEmail,
+            allUsers: allUsersResult.rows.map((r) => r.email),
+            databaseUrl: process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'),
+          },
+          'User not found during login'
+        );
         return reply.status(401).send({
           error: {
             statusCode: 401,
