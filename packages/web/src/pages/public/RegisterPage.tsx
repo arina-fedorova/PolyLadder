@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,11 +31,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register: registerUser, user, isAuthenticated } = useAuth();
+  const { register: registerUser } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const pendingNavigationRef = useRef<'operator' | 'learner' | null>(null);
 
   const {
     register,
@@ -49,17 +48,6 @@ export function RegisterPage() {
     },
   });
 
-  useEffect(() => {
-    if (pendingNavigationRef.current && isAuthenticated && user) {
-      if (pendingNavigationRef.current === 'operator') {
-        void navigate('/operator/pipeline');
-      } else {
-        void navigate('/dashboard');
-      }
-      pendingNavigationRef.current = null;
-    }
-  }, [user, isAuthenticated, navigate]);
-
   const onSubmit = async (data: RegisterFormData): Promise<void> => {
     setApiError(null);
 
@@ -70,10 +58,13 @@ export function RegisterPage() {
         baseLanguage: data.baseLanguage,
         role: data.role,
       });
-      // Set pending navigation based on user role
-      pendingNavigationRef.current = registeredUser?.role === 'operator' ? 'operator' : 'learner';
+      // Navigate immediately after registration - state is already updated via flushSync
+      if (registeredUser.role === 'operator') {
+        void navigate('/operator/pipeline');
+      } else {
+        void navigate('/dashboard');
+      }
     } catch (error) {
-      pendingNavigationRef.current = null;
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(
         axiosError.response?.data?.error?.message || 'Registration failed. Please try again.'

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { authApi, LoginRequest, RegisterRequest } from '@/api/auth';
 import { User } from '@/types';
 
@@ -46,8 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('accessToken', response.accessToken);
     localStorage.setItem('refreshToken', response.refreshToken);
 
-    // Set user
-    setUser(response.user);
+    // Set user with flushSync to ensure state is updated synchronously
+    flushSync(() => {
+      setUser(response.user);
+    });
     return response.user;
   };
 
