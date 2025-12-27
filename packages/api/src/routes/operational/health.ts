@@ -71,35 +71,49 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
       }
 
       const draftResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT data_type, COUNT(*) as count FROM drafts GROUP BY data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'DRAFT' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const candidateResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT d.data_type, COUNT(*) as count 
-         FROM candidates c 
-         JOIN drafts d ON c.draft_id = d.id 
-         GROUP BY d.data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'CANDIDATE' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const validatedResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT d.data_type, COUNT(*) as count 
-         FROM validated v 
-         JOIN candidates c ON v.candidate_id = c.id
-         JOIN drafts d ON c.draft_id = d.id 
-         GROUP BY d.data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'VALIDATED' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const approvedMeanings = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_meanings`
+        `SELECT COUNT(*) as count 
+         FROM approved_meanings am
+         LEFT JOIN deprecations d ON d.item_id = am.id AND d.item_type = 'meaning'
+         WHERE d.id IS NULL`
       );
       const approvedUtterances = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_utterances`
+        `SELECT COUNT(*) as count 
+         FROM approved_utterances au
+         LEFT JOIN deprecations d ON d.item_id = au.id::varchar AND d.item_type = 'utterance'
+         WHERE d.id IS NULL`
       );
       const approvedRules = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_rules`
+        `SELECT COUNT(*) as count 
+         FROM approved_rules ar
+         LEFT JOIN deprecations d ON d.item_id = ar.id AND d.item_type = 'rule'
+         WHERE d.id IS NULL`
       );
       const approvedExercises = await fastify.db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM approved_exercises`
+        `SELECT COUNT(*) as count 
+         FROM approved_exercises ae
+         LEFT JOIN deprecations d ON d.item_id = ae.id::varchar AND d.item_type = 'exercise'
+         WHERE d.id IS NULL`
       );
 
       const typeMapping: Record<string, keyof PipelineHealth['byContentType']> = {

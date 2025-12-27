@@ -53,7 +53,7 @@ export class AnthropicAdapter implements SourceAdapter {
   ];
 
   private client: Anthropic;
-  private model = 'claude-3-5-sonnet-20241022';
+  private model = 'claude-sonnet-4-20250514';
 
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey });

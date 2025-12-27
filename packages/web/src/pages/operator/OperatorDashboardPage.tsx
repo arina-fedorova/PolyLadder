@@ -7,6 +7,8 @@ import { PipelineFlowChart } from '@/components/operational/PipelineFlowChart';
 import { ActivityLog } from '@/components/operational/ActivityLog';
 import { ServiceStatus } from '@/components/operational/ServiceStatus';
 import { FailureTrendsChart } from '@/components/operational/FailureTrendsChart';
+import { TransformationJobsList } from '@/components/operational/TransformationJobsList';
+import { PipelineTasksList } from '@/components/operational/PipelineTasksList';
 
 interface PipelineHealth {
   summary: {
@@ -144,6 +146,16 @@ function DashboardContent() {
       <ServiceStatus service={health.refinementService} />
 
       <FailureTrendsChart />
+
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Pipeline Tasks</h2>
+        <PipelineTasksList />
+      </div>
+
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Transformation Jobs</h2>
+        <TransformationJobsList />
+      </div>
 
       <div className="card">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>

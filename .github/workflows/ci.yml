@@ -72,19 +72,19 @@ jobs:
       - name: Run migrations
         run: pnpm --filter @polyladder/db migrate up
         env:
-          DATABASE_URL: postgres://test:test@localhost:5432/polyladder_test
+          DATABASE_URL: postgresql://test:test@localhost:5432/polyladder_test
 
       - name: Unit tests
         run: pnpm test
         env:
-          DATABASE_URL: postgres://test:test@localhost:5432/polyladder_test
+          DATABASE_URL: postgresql://test:test@localhost:5432/polyladder_test
           JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
           FRONTEND_URL: http://localhost:5173
 
       - name: Integration tests
         run: pnpm test:integration
         env:
-          DATABASE_URL: postgres://test:test@localhost:5432/polyladder_test
+          DATABASE_URL: postgresql://test:test@localhost:5432/polyladder_test
           JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
           FRONTEND_URL: http://localhost:5173
           NODE_ENV: test
@@ -96,13 +96,13 @@ jobs:
       - name: Run E2E database migrations
         run: pnpm --filter @polyladder/db migrate up
         env:
-          DATABASE_URL: postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
+          DATABASE_URL: postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
 
       - name: E2E tests
         run: pnpm --filter @polyladder/web test:e2e
         env:
           CI: true
-          DATABASE_URL: postgres://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
+          DATABASE_URL: postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
           JWT_SECRET: test-secret-key-for-e2e-tests-min-32-chars-long
           VITE_API_URL: http://localhost:3001/api/v1
 

@@ -166,4 +166,163 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   );
+
+  fastify.get(
+    '/transformation-jobs',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const query = request.query as MappingQueryParams;
+      const page = parseInt(query.page || '1', 10);
+      const limit = parseInt(query.limit || '50', 10);
+      const offset = (page - 1) * limit;
+
+      const result = await fastify.db.query(
+        `
+        SELECT 
+          j.*,
+          m.chunk_id,
+          m.topic_id,
+          m.confidence_score as mapping_confidence,
+          t.name as topic_name,
+          t.content_type as topic_type,
+          c.cleaned_text as chunk_text,
+          d.original_filename as document_name
+        FROM transformation_jobs j
+        JOIN content_topic_mappings m ON j.mapping_id = m.id
+        JOIN curriculum_topics t ON m.topic_id = t.id
+        JOIN raw_content_chunks c ON m.chunk_id = c.id
+        JOIN document_sources d ON c.document_id = d.id
+        ORDER BY j.created_at DESC
+        LIMIT $1 OFFSET $2
+      `,
+        [limit, offset]
+      );
+
+      const countResult = await fastify.db.query<CountRow>(
+        `SELECT COUNT(*) FROM transformation_jobs`
+      );
+
+      return reply.send({
+        jobs: result.rows,
+        total: parseInt(countResult.rows[0].count, 10),
+        page,
+        limit,
+      });
+    }
+  );
+
+  fastify.post(
+    '/transformation-jobs/:id/retry',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      await fastify.db.query('BEGIN');
+
+      try {
+        const jobResult = await fastify.db.query<{
+          id: string;
+          mapping_id: string;
+          status: string;
+        }>(
+          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        if (jobResult.rows.length === 0) {
+          await fastify.db.query('ROLLBACK');
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Transformation job not found',
+              requestId: request.id,
+              code: 'NOT_FOUND',
+            },
+          });
+        }
+
+        const job = jobResult.rows[0];
+
+        await fastify.db.query(
+          `DELETE FROM drafts WHERE transformation_job_id = $1`,
+          [id]
+        );
+
+        await fastify.db.query(
+          `DELETE FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        await fastify.db.query('COMMIT');
+
+        return reply.send({
+          success: true,
+          message: 'Transformation job deleted. It will be recreated on next processing cycle.',
+          mappingId: job.mapping_id,
+        });
+      } catch (error) {
+        await fastify.db.query('ROLLBACK');
+        throw error;
+      }
+    }
+  );
+
+  fastify.delete(
+    '/transformation-jobs/:id',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      await fastify.db.query('BEGIN');
+
+      try {
+        const jobResult = await fastify.db.query<{
+          id: string;
+          mapping_id: string;
+          status: string;
+        }>(
+          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        if (jobResult.rows.length === 0) {
+          await fastify.db.query('ROLLBACK');
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Transformation job not found',
+              requestId: request.id,
+              code: 'NOT_FOUND',
+            },
+          });
+        }
+
+        await fastify.db.query(
+          `DELETE FROM drafts WHERE transformation_job_id = $1`,
+          [id]
+        );
+
+        await fastify.db.query(
+          `DELETE FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        await fastify.db.query('COMMIT');
+
+        return reply.send({
+          success: true,
+          message: 'Transformation job deleted',
+        });
+      } catch (error) {
+        await fastify.db.query('ROLLBACK');
+        throw error;
+      }
+    }
+  );
 };

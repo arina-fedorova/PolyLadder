@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { authApi, LoginRequest, RegisterRequest } from '@/api/auth';
 import { User } from '@/types';
 
@@ -6,8 +7,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<User>;
+  register: (data: RegisterRequest) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -39,22 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void initAuth();
   }, []);
 
-  const login = async (credentials: LoginRequest) => {
+  const login = async (credentials: LoginRequest): Promise<User> => {
     const response = await authApi.login(credentials);
 
     // Store tokens
     localStorage.setItem('accessToken', response.accessToken);
     localStorage.setItem('refreshToken', response.refreshToken);
 
-    // Set user
-    setUser(response.user);
+    // Set user with flushSync to ensure state is updated synchronously
+    flushSync(() => {
+      setUser(response.user);
+    });
+    return response.user;
   };
 
-  const register = async (data: RegisterRequest) => {
+  const register = async (data: RegisterRequest): Promise<User> => {
     await authApi.register(data);
 
     // After registration, log the user in
-    await login({ email: data.email, password: data.password });
+    return await login({ email: data.email, password: data.password });
   };
 
   const logout = async () => {

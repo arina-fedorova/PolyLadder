@@ -1,10 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { Pool } from 'pg';
 import { FeedbackService } from '../../src/services/feedback.service';
-import { getTestPool, cleanupTestData } from '../setup';
+import { getTestPool, cleanupTestData, checkDatabaseConnection } from '../setup';
 import { createTestOperator } from '../helpers/db';
 
-describe('FeedbackService', () => {
+let dbAvailable = false;
+
+beforeAll(async () => {
+  dbAvailable = await checkDatabaseConnection();
+  if (!dbAvailable && process.env.CI !== 'true') {
+    console.warn('Test database not available, skipping database-dependent tests');
+  }
+});
+
+describe.skipIf(!dbAvailable && process.env.CI !== 'true')('FeedbackService', () => {
   let pool: Pool;
   let service: FeedbackService;
   let operator: { id: string; email: string; password: string; role: 'operator' };
@@ -38,18 +47,16 @@ describe('FeedbackService', () => {
 
       expect(feedbackId).toBeDefined();
 
-      const feedbackResult = await pool.query(
-        'SELECT * FROM operator_feedback WHERE id = $1',
-        [feedbackId]
-      );
+      const feedbackResult = await pool.query('SELECT * FROM operator_feedback WHERE id = $1', [
+        feedbackId,
+      ]);
       expect(feedbackResult.rows).toHaveLength(1);
       expect((feedbackResult.rows[0] as { item_id: string }).item_id).toBe(draftId);
       expect((feedbackResult.rows[0] as { action: string }).action).toBe('reject');
 
-      const versionResult = await pool.query(
-        'SELECT * FROM item_versions WHERE item_id = $1',
-        [draftId]
-      );
+      const versionResult = await pool.query('SELECT * FROM item_versions WHERE item_id = $1', [
+        draftId,
+      ]);
       expect(versionResult.rows).toHaveLength(1);
     });
 
@@ -65,10 +72,9 @@ describe('FeedbackService', () => {
         comment: 'Quality is too low',
       });
 
-      const retryResult = await pool.query(
-        'SELECT * FROM retry_queue WHERE feedback_id = $1',
-        [feedbackId]
-      );
+      const retryResult = await pool.query('SELECT * FROM retry_queue WHERE feedback_id = $1', [
+        feedbackId,
+      ]);
       expect(retryResult.rows).toHaveLength(1);
       expect((retryResult.rows[0] as { status: string }).status).toBe('pending');
     });
@@ -85,10 +91,9 @@ describe('FeedbackService', () => {
         comment: 'Needs more context',
       });
 
-      const retryResult = await pool.query(
-        'SELECT * FROM retry_queue WHERE feedback_id = $1',
-        [feedbackId]
-      );
+      const retryResult = await pool.query('SELECT * FROM retry_queue WHERE feedback_id = $1', [
+        feedbackId,
+      ]);
       expect(retryResult.rows).toHaveLength(1);
     });
 
@@ -104,10 +109,9 @@ describe('FeedbackService', () => {
         comment: 'Flagged for manual review',
       });
 
-      const retryResult = await pool.query(
-        'SELECT * FROM retry_queue WHERE feedback_id = $1',
-        [feedbackId]
-      );
+      const retryResult = await pool.query('SELECT * FROM retry_queue WHERE feedback_id = $1', [
+        feedbackId,
+      ]);
       expect(retryResult.rows).toHaveLength(0);
     });
 
@@ -125,10 +129,9 @@ describe('FeedbackService', () => {
 
       expect(feedbackId).toBeDefined();
 
-      const feedbackResult = await pool.query(
-        'SELECT * FROM operator_feedback WHERE id = $1',
-        [feedbackId]
-      );
+      const feedbackResult = await pool.query('SELECT * FROM operator_feedback WHERE id = $1', [
+        feedbackId,
+      ]);
       expect((feedbackResult.rows[0] as { action: string }).action).toBe('reject');
     });
   });
@@ -213,10 +216,9 @@ describe('FeedbackService', () => {
         comment: 'Needs retry',
       });
 
-      await pool.query(
-        'UPDATE retry_queue SET retry_count = max_retries WHERE feedback_id = $1',
-        [feedbackId]
-      );
+      await pool.query('UPDATE retry_queue SET retry_count = max_retries WHERE feedback_id = $1', [
+        feedbackId,
+      ]);
 
       const retries = await service.getPendingRetries(10);
 
@@ -340,12 +342,15 @@ describe('FeedbackService', () => {
 });
 
 async function createTestDraft(pool: Pool): Promise<string> {
-  const result = await pool.query(
+  interface DraftRow {
+    id: string;
+  }
+
+  const result = await pool.query<DraftRow>(
     `INSERT INTO drafts (id, data_type, raw_data, source, created_at)
      VALUES (gen_random_uuid(), 'meaning', $1, 'test', CURRENT_TIMESTAMP)
      RETURNING id`,
     [JSON.stringify({ word: 'test', definition: 'a test' })]
   );
-  return result.rows[0].id as string;
+  return result.rows[0].id;
 }
-

@@ -12,6 +12,8 @@ import { curriculumRoutes } from './curriculum';
 import { documentRoutes } from './documents';
 import { mappingRoutes } from './mappings';
 import { feedbackRoutes } from './feedback';
+import { pipelineTasksRoutes } from './pipeline-tasks';
+import { pipelinesRoutes } from './pipelines';
 
 const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -27,6 +29,8 @@ const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(documentRoutes);
   await fastify.register(mappingRoutes);
   await fastify.register(feedbackRoutes);
+  await fastify.register(pipelineTasksRoutes);
+  await fastify.register(pipelinesRoutes);
 };
 
 export default operationalRoutes;

@@ -45,9 +45,9 @@ export class SemanticMapperService {
 
     for (const chunk of chunks) {
       try {
-        const mapping = await this.mapSingleChunk(chunk, topics);
+        const mappings = await this.mapSingleChunk(chunk, topics);
 
-        if (mapping) {
+        for (const mapping of mappings) {
           await this.saveMappingResult(mapping);
           results.push(mapping);
         }
@@ -59,13 +59,13 @@ export class SemanticMapperService {
     return results;
   }
 
-  private async mapSingleChunk(chunk: Chunk, topics: Topic[]): Promise<MappingResult | null> {
+  private async mapSingleChunk(chunk: Chunk, topics: Topic[]): Promise<MappingResult[]> {
     const topicList = topics
       .map((t, i) => `${i + 1}. ${t.name} (${t.contentType}): ${t.description || 'No description'}`)
       .join('\n');
 
     const prompt = `You are analyzing educational content for language learning. 
-Given a text chunk from a textbook, determine which curriculum topic it belongs to.
+Given a text chunk from a textbook, find ALL relevant curriculum topics it covers.
 
 ## Available Topics:
 ${topicList}
@@ -74,52 +74,91 @@ ${topicList}
 "${chunk.cleanedText.substring(0, 2000)}"
 
 ## Instructions:
-1. Analyze the content of the chunk
-2. Determine which topic(s) it most closely matches
-3. If no topic matches well, respond with topic_index: 0
+1. Analyze the content of the chunk thoroughly
+2. Identify ALL topics that are relevant to this chunk (a chunk can cover multiple topics)
+3. For each relevant topic, provide a confidence score (0.0-1.0)
+4. Only include topics with confidence >= 0.3
+5. A chunk can map to multiple topics if it covers multiple concepts
 
 Respond in JSON format:
 {
-  "topic_index": <number 1-${topics.length} or 0 if no match>,
-  "confidence": <number 0.0-1.0>,
-  "reasoning": "<brief explanation of why this topic matches>"
+  "mappings": [
+    {
+      "topic_index": <number 1-${topics.length}>,
+      "confidence": <number 0.0-1.0>,
+      "reasoning": "<brief explanation of why this topic is relevant>"
+    }
+  ]
+}
+
+Example: If a chunk covers both "Present tense verbs" and "Basic vocabulary", return:
+{
+  "mappings": [
+    {"topic_index": 5, "confidence": 0.85, "reasoning": "Chunk contains present tense conjugations"},
+    {"topic_index": 12, "confidence": 0.65, "reasoning": "Chunk includes vocabulary words"}
+  ]
 }`;
 
     const response = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 500,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     });
 
     const content = response.content[0];
-    if (content.type !== 'text') return null;
+    if (content.type !== 'text') return [];
 
     try {
       const parsed = JSON.parse(content.text) as {
-        topic_index: number;
-        confidence: number;
-        reasoning: string;
+        mappings?: Array<{
+          topic_index: number;
+          confidence: number;
+          reasoning: string;
+        }>;
       };
 
-      if (parsed.topic_index === 0 || parsed.confidence < 0.3) {
-        return null;
+      if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
+        logger.warn(
+          { chunkId: chunk.id, response: content.text },
+          'Invalid mapping response format'
+        );
+        return [];
       }
 
-      const selectedTopic = topics[parsed.topic_index - 1];
-      if (!selectedTopic) return null;
+      const results: MappingResult[] = [];
 
-      return {
-        chunkId: chunk.id,
-        topicId: selectedTopic.id,
-        confidence: parsed.confidence,
-        reasoning: parsed.reasoning,
-      };
-    } catch {
+      for (const mapping of parsed.mappings) {
+        if (
+          mapping.confidence < 0.3 ||
+          mapping.topic_index < 1 ||
+          mapping.topic_index > topics.length
+        ) {
+          continue;
+        }
+
+        const selectedTopic = topics[mapping.topic_index - 1];
+        if (!selectedTopic) continue;
+
+        results.push({
+          chunkId: chunk.id,
+          topicId: selectedTopic.id,
+          confidence: mapping.confidence,
+          reasoning: mapping.reasoning,
+        });
+      }
+
+      logger.info(
+        { chunkId: chunk.id, mappingsCount: results.length },
+        'Mapped chunk to multiple topics'
+      );
+
+      return results;
+    } catch (error) {
       logger.error(
-        { chunkId: chunk.id, response: content.text },
+        { chunkId: chunk.id, response: content.text, error },
         'Failed to parse mapping response'
       );
-      return null;
+      return [];
     }
   }
 

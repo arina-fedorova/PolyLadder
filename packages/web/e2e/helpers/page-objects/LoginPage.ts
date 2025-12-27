@@ -11,7 +11,7 @@ export class LoginPage {
   constructor(page: Page) {
     this.page = page;
     this.emailInput = page.getByLabel('Email address');
-    this.passwordInput = page.getByLabel('Password');
+    this.passwordInput = page.getByPlaceholder('••••••••');
     this.submitButton = page.getByRole('button', { name: 'Sign in' });
     this.errorMessage = page.getByRole('alert');
     this.signUpLink = page.getByRole('link', { name: 'Sign up' });

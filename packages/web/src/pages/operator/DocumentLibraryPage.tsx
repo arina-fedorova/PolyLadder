@@ -285,9 +285,22 @@ function DocumentDetailModal({ documentId, onClose }: { documentId: string; onCl
             </div>
 
             {data.document.error_message && (
-              <div className="bg-red-50 border border-red-200 rounded p-3">
-                <h3 className="font-medium text-red-800 mb-1">Error</h3>
-                <p className="text-sm text-red-700">{data.document.error_message}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-red-900 mb-1">Processing Error</h3>
+                    <p className="text-sm text-red-700 leading-relaxed">
+                      {data.document.error_message}
+                    </p>
+                    <div className="mt-3 pt-3 border-t border-red-200">
+                      <p className="text-xs text-red-600">
+                        <strong>What to do:</strong> Verify the PDF file is valid, unencrypted, and
+                        not password-protected. Try re-uploading the file or use a different PDF.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -446,9 +459,14 @@ export function DocumentLibraryPage() {
                       <span>{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                     </div>
                     {doc.error_message && (
-                      <div className="flex items-center gap-1 mt-2 text-sm text-red-600">
-                        <AlertCircle className="w-4 h-4" />
-                        {doc.error_message}
+                      <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-red-800">Processing Error</p>
+                            <p className="text-sm text-red-700 mt-0.5">{doc.error_message}</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

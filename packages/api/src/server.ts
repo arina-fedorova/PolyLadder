@@ -7,13 +7,25 @@ import { HealthResponseSchema } from './schemas/common';
 import { Pool } from 'pg';
 
 let pool: Pool | null = null;
+let poolConnectionString: string | null = null;
 
 function getPool(): Pool {
   const env = getEnv();
+  const connectionString = env.DATABASE_URL;
 
-  if (!pool) {
+  // Recreate pool if DATABASE_URL changed (for E2E tests)
+  if (!pool || poolConnectionString !== connectionString) {
+    if (pool) {
+      void pool.end();
+    }
+    poolConnectionString = connectionString;
+    if (process.env.NODE_ENV === 'test') {
+      process.stderr.write(
+        `[E2E] Creating database pool with URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}\n`
+      );
+    }
     pool = new Pool({
-      connectionString: env.DATABASE_URL,
+      connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
@@ -63,14 +75,25 @@ export async function buildServer(): Promise<FastifyInstance> {
 async function registerPlugins(server: FastifyInstance): Promise<void> {
   const env = getEnv();
 
-  await server.register(fastifyCors, {
-    origin: env.FRONTEND_URL,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-    exposedHeaders: ['X-Request-ID'],
-    maxAge: 86400,
-  });
+  if (env.NODE_ENV === 'development') {
+    await server.register(fastifyCors, {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      exposedHeaders: ['X-Request-ID'],
+      maxAge: 86400,
+    });
+  } else {
+    await server.register(fastifyCors, {
+      origin: env.FRONTEND_URL,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      exposedHeaders: ['X-Request-ID'],
+      maxAge: 86400,
+    });
+  }
 
   await server.register(fastifyRateLimit, {
     max: env.RATE_LIMIT_MAX,
@@ -104,16 +127,30 @@ function registerErrorHandler(server: FastifyInstance): void {
 
   server.setErrorHandler((err: FastifyError, request, reply) => {
     const statusCode = err.statusCode ?? 500;
+    const isValidationError = err.code === 'FST_ERR_VALIDATION' || statusCode === 400;
+    const isClientError = statusCode >= 400 && statusCode < 500;
 
-    request.log.error(
-      {
-        err,
-        requestId: request.id,
-        method: request.method,
-        url: request.url,
-      },
-      'Request error'
-    );
+    if (isValidationError || (isClientError && env.NODE_ENV === 'test')) {
+      request.log.debug(
+        {
+          err,
+          requestId: request.id,
+          method: request.method,
+          url: request.url,
+        },
+        'Request validation error'
+      );
+    } else {
+      request.log.error(
+        {
+          err,
+          requestId: request.id,
+          method: request.method,
+          url: request.url,
+        },
+        'Request error'
+      );
+    }
 
     const response: {
       error: {
