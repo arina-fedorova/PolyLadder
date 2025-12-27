@@ -56,6 +56,9 @@ test.describe('Login Page', () => {
       role: 'learner',
     });
 
+    // Wait a bit to ensure user is committed and visible to API
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
@@ -69,14 +72,24 @@ test.describe('Login Page', () => {
 
   test('should successfully login as operator', async ({ page }) => {
     // Create operator user in database
-    await createTestUser({
+    const user = await createTestUser({
       email: 'operator@example.com',
       password: 'OperatorPass123',
       role: 'operator',
     });
 
+    // Verify user was created
+    expect(user.email).toBe('operator@example.com');
+    expect(user.role).toBe('operator');
+
+    // Wait a bit to ensure user is committed to database and API can see it
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     const loginPage = new LoginPage(page);
     await loginPage.goto();
+
+    // Wait for page to be ready
+    await expect(loginPage.emailInput).toBeVisible();
 
     await loginPage.emailInput.fill('operator@example.com');
     await loginPage.passwordInput.fill('OperatorPass123');

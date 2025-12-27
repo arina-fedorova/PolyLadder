@@ -7,7 +7,6 @@ import {
   generateToken,
   UserRole,
 } from '@polyladder/core';
-import { findUserByEmail, updatePassword } from '@polyladder/db';
 import { getEnv } from '../../config/env';
 import { ErrorResponseSchema } from '../../schemas/common';
 
@@ -70,9 +69,25 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       try {
         await client.query('BEGIN');
 
-        const user = await findUserByEmail(normalizedEmail);
+        const userResult = await client.query<{
+          id: string;
+          email: string;
+          password_hash: string;
+          role: 'learner' | 'operator';
+          base_language: string;
+          created_at: Date;
+          updated_at: Date;
+        }>(
+          `SELECT id, email, password_hash, role,
+                  base_language, created_at, updated_at
+           FROM users
+           WHERE email = $1`,
+          [normalizedEmail]
+        );
 
-        if (!user) {
+        const userRow = userResult.rows[0];
+
+        if (!userRow) {
           await client.query('ROLLBACK');
           return reply.status(401).send({
             error: {
@@ -83,6 +98,16 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
             },
           });
         }
+
+        const user = {
+          id: userRow.id,
+          email: userRow.email,
+          passwordHash: userRow.password_hash,
+          role: userRow.role,
+          baseLanguage: userRow.base_language as 'EN' | 'IT' | 'PT' | 'SL' | 'ES',
+          createdAt: userRow.created_at,
+          updatedAt: userRow.updated_at,
+        };
 
         const isValid = await verifyPassword(password, user.passwordHash);
 
@@ -101,7 +126,10 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
         // Check if password needs rehashing
         if (needsRehash(user.passwordHash)) {
           const newHash = await hashPassword(password);
-          await updatePassword(user.id, newHash);
+          await client.query(
+            'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [newHash, user.id]
+          );
         }
 
         const tokenPayload = {
