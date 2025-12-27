@@ -186,7 +186,7 @@ export async function createTestChunk(
 
   await pool.query(
     `INSERT INTO raw_content_chunks
-     (id, document_id, chunk_index, text_content, created_at)
+     (id, document_id, chunk_index, raw_text, created_at)
      VALUES ($1, $2, 0, $3, CURRENT_TIMESTAMP)`,
     [id, data.documentId, text]
   );
