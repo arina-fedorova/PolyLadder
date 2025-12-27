@@ -236,13 +236,10 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         duration_ms: number | null;
         payload: Record<string, unknown>;
         created_at: string;
-        task_type: string | null;
       }>(
         `SELECT
-          e.*,
-          t.task_type
+          e.*
         FROM pipeline_events e
-        LEFT JOIN pipeline_tasks t ON t.id = e.task_id
         WHERE e.item_id = $1 OR e.task_id IN (
           SELECT id FROM pipeline_tasks WHERE pipeline_id = $1
         )
