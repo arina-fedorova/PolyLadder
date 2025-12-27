@@ -51,6 +51,10 @@ export function validateEnv(): Env {
 }
 
 export function getEnv(): Env {
+  // In test mode, always re-validate to pick up DATABASE_URL changes
+  if (process.env.NODE_ENV === 'test') {
+    validatedEnv = null;
+  }
   if (!validatedEnv) {
     return validateEnv();
   }

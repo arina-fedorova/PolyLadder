@@ -7,12 +7,18 @@ import { HealthResponseSchema } from './schemas/common';
 import { Pool } from 'pg';
 
 let pool: Pool | null = null;
+let poolConnectionString: string | null = null;
 
 function getPool(): Pool {
   const env = getEnv();
+  const connectionString = env.DATABASE_URL;
 
-  if (!pool) {
-    const connectionString = env.DATABASE_URL;
+  // Recreate pool if DATABASE_URL changed (for E2E tests)
+  if (!pool || poolConnectionString !== connectionString) {
+    if (pool) {
+      void pool.end();
+    }
+    poolConnectionString = connectionString;
     if (process.env.NODE_ENV === 'test') {
       process.stderr.write(
         `[E2E] Creating database pool with URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}\n`
