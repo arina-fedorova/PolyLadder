@@ -83,7 +83,7 @@ export class DocumentPipelineManager {
   constructor(private readonly pool: Pool) {}
 
   async createPipeline(params: CreatePipelineParams): Promise<DocumentPipeline> {
-    const result = await this.pool.query<DocumentPipeline>(
+    const result = await this.pool.query<PipelineRow>(
       `INSERT INTO pipelines (document_id, status, current_stage, metadata)
        VALUES ($1, 'pending', 'created', $2)
        RETURNING *`,
