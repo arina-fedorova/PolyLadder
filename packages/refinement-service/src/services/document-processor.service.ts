@@ -197,4 +197,155 @@ export class DocumentProcessorService {
       [documentId, step, status, message, durationMs]
     );
   }
+
+  /**
+   * Extract text from a document (used by pipeline orchestrator)
+   */
+  async extractText(documentId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get document storage path
+      const docResult = await client.query<DocumentRow>(
+        `SELECT storage_path FROM document_sources WHERE id = $1`,
+        [documentId]
+      );
+
+      if (docResult.rows.length === 0) {
+        throw new Error(`Document ${documentId} not found`);
+      }
+
+      const doc = docResult.rows[0];
+
+      // Update status to extracting
+      await this.updateStatusWithClient(client, documentId, 'extracting');
+      await this.logStep(documentId, 'extract', 'start', 'Starting text extraction');
+
+      // Load file
+      const fs = await import('fs/promises');
+      const pathModule = await import('path');
+      let normalizedPath = doc.storage_path.replace(/\\/g, '/');
+
+      if (!normalizedPath.startsWith('/')) {
+        if (normalizedPath.startsWith('uploads/')) {
+          normalizedPath = `/app/${normalizedPath}`;
+        } else {
+          normalizedPath = pathModule.join('/app/uploads/documents', normalizedPath);
+        }
+      }
+
+      const fileBuffer = await fs.readFile(normalizedPath);
+
+      // Extract
+      const extracted = await this.pdfExtractor.extractFromBuffer(fileBuffer);
+
+      // Update document with total pages
+      await client.query(
+        `UPDATE document_sources SET total_pages = $1 WHERE id = $2`,
+        [extracted.totalPages, documentId]
+      );
+
+      await this.logStep(
+        documentId,
+        'extract',
+        'success',
+        `Extracted ${extracted.totalPages} pages`
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.pool.query(
+        `UPDATE document_sources SET status = 'error', error_message = $1 WHERE id = $2`,
+        [errorMessage, documentId]
+      );
+      await this.logStep(documentId, 'extract', 'error', errorMessage);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Chunk a document (used by pipeline orchestrator)
+   */
+  async chunkDocument(documentId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get document storage path
+      const docResult = await client.query<DocumentRow>(
+        `SELECT storage_path FROM document_sources WHERE id = $1`,
+        [documentId]
+      );
+
+      if (docResult.rows.length === 0) {
+        throw new Error(`Document ${documentId} not found`);
+      }
+
+      const doc = docResult.rows[0];
+
+      // Update status to chunking
+      await this.updateStatusWithClient(client, documentId, 'chunking');
+      await this.logStep(documentId, 'chunk', 'start', 'Starting document chunking');
+
+      // Load file
+      const fs = await import('fs/promises');
+      const pathModule = await import('path');
+      let normalizedPath = doc.storage_path.replace(/\\/g, '/');
+
+      if (!normalizedPath.startsWith('/')) {
+        if (normalizedPath.startsWith('uploads/')) {
+          normalizedPath = `/app/${normalizedPath}`;
+        } else {
+          normalizedPath = pathModule.join('/app/uploads/documents', normalizedPath);
+        }
+      }
+
+      const fileBuffer = await fs.readFile(normalizedPath);
+
+      // Extract and chunk
+      const extracted = await this.pdfExtractor.extractFromBuffer(fileBuffer);
+      const chunks = this.chunker.chunkDocument(extracted.pages);
+
+      // Save chunks
+      await this.saveChunksWithClient(client, documentId, chunks);
+
+      // Update document
+      await client.query(
+        `UPDATE document_sources
+         SET status = 'ready',
+             total_chunks = $1,
+             processed_pages = $2,
+             processed_at = CURRENT_TIMESTAMP,
+             error_message = NULL
+         WHERE id = $3`,
+        [chunks.length, extracted.totalPages, documentId]
+      );
+
+      await this.logStep(
+        documentId,
+        'chunk',
+        'success',
+        `Created ${chunks.length} chunks`
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      await this.cleanupPartialProcessing(client, documentId);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.pool.query(
+        `UPDATE document_sources SET status = 'error', error_message = $1 WHERE id = $2`,
+        [errorMessage, documentId]
+      );
+      await this.logStep(documentId, 'chunk', 'error', errorMessage);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

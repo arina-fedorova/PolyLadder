@@ -10,6 +10,7 @@ import {
 } from '@polyladder/core';
 import { recordTransition, moveItemToState } from '@polyladder/db';
 import { logger } from '../utils/logger';
+import { PipelineEventLogger } from './pipeline-event-logger.service';
 
 export interface CandidateRecord {
   id: string;
@@ -22,10 +23,12 @@ export interface CandidateRecord {
 export class PromotionWorker {
   private pool: Pool;
   private gates: QualityGate[];
+  private eventLogger: PipelineEventLogger;
 
   constructor(pool: Pool, gates: QualityGate[]) {
     this.pool = pool;
     this.gates = gates;
+    this.eventLogger = new PipelineEventLogger(pool);
   }
 
   private createTransitionRepository(): TransitionRepository {
@@ -81,6 +84,7 @@ export class PromotionWorker {
     const normalizedData = candidate.normalizedData as Record<string, unknown>;
     const text = this.extractTextFromNormalizedData(normalizedData);
     const language = (normalizedData.language as string) ?? 'EN';
+    const level = (normalizedData.level as string) ?? 'A1';
 
     const input: GateInput = {
       text,
@@ -90,6 +94,7 @@ export class PromotionWorker {
         candidateId: candidate.id,
         dataType: candidate.dataType,
         draftId: candidate.draftId,
+        level,
       },
     };
 
@@ -97,7 +102,22 @@ export class PromotionWorker {
     const gateResult = await runGatesByTier(this.gates, input);
 
     if (gateResult.allPassed) {
-      // Transition to VALIDATED
+      // Move candidate to validated table
+      await this.pool.query(
+        `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          candidate.dataType,
+          JSON.stringify(candidate.normalizedData),
+          candidate.id,
+          JSON.stringify({ passed: true, gateResults: gateResult.results }),
+        ]
+      );
+
+      // Delete candidate
+      await this.pool.query('DELETE FROM candidates WHERE id = $1', [candidate.id]);
+
+      // Record transition
       const transitionRepo = this.createTransitionRepository();
       await executeTransitionSimple(transitionRepo, {
         itemId: candidate.id,
@@ -110,6 +130,24 @@ export class PromotionWorker {
         },
       });
 
+      await this.eventLogger.logEvent({
+        itemId: candidate.id,
+        itemType: 'candidate',
+        eventType: 'quality_gates_passed',
+        fromStage: 'CANDIDATE',
+        toStage: 'VALIDATED',
+        fromStatus: 'processing',
+        toStatus: 'completed',
+        stage: 'VALIDATED',
+        status: 'completed',
+        success: true,
+        durationMs: gateResult.executionTimeMs,
+        payload: {
+          gateResults: gateResult.results,
+          gatesPassed: gateResult.results.length,
+        },
+      });
+
       logger.info(
         { candidateId: candidate.id, gates: gateResult.results.length },
         'Candidate promoted to VALIDATED'
@@ -117,6 +155,23 @@ export class PromotionWorker {
     } else {
       // Record failures
       await this.recordFailures(candidate.id, gateResult.results);
+
+      await this.eventLogger.logEvent({
+        itemId: candidate.id,
+        itemType: 'candidate',
+        eventType: 'quality_gates_failed',
+        stage: 'CANDIDATE',
+        status: 'failed',
+        fromStatus: 'processing',
+        toStatus: 'failed',
+        success: false,
+        errorMessage: `Failed at gate: ${gateResult.failedAt}`,
+        durationMs: gateResult.executionTimeMs,
+        payload: {
+          gateResults: gateResult.results,
+          failedAt: gateResult.failedAt,
+        },
+      });
 
       logger.warn(
         { candidateId: candidate.id, failedAt: gateResult.failedAt },

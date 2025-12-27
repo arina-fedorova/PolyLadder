@@ -4,6 +4,7 @@ import { ValidationStep, ValidationRepository } from './steps/validation.step';
 import { ApprovalStep, ApprovalRepository } from './steps/approval.step';
 import { PipelineItem, PipelineResult, PipelineStage, PipelineConfig } from './types';
 import { logger } from '../utils/logger';
+import { PipelineEventLogger } from '../services/pipeline-event-logger.service';
 
 export interface PipelineRepository {
   fetchDrafts(limit: number): Promise<PipelineItem[]>;
@@ -21,6 +22,7 @@ export interface PipelineRepository {
     state: string,
     errorMessage: string
   ): Promise<void>;
+  getNormalizationFailureCount(itemId: string): Promise<number>;
   recordMetrics(
     stage: string,
     dataType: string,
@@ -34,16 +36,19 @@ export class PipelineOrchestrator {
   private normalization: NormalizationStep;
   private validation: ValidationStep;
   private approval: ApprovalStep;
+  private eventLogger: PipelineEventLogger;
 
   constructor(
     private readonly repository: PipelineRepository,
     validationRepository: ValidationRepository,
     approvalRepository: ApprovalRepository,
+    pool: Pool,
     private readonly config: PipelineConfig
   ) {
     this.normalization = new NormalizationStep();
     this.validation = new ValidationStep(validationRepository);
     this.approval = new ApprovalStep(approvalRepository, config.autoApproval);
+    this.eventLogger = new PipelineEventLogger(pool);
   }
 
   async processBatch(): Promise<void> {
@@ -130,10 +135,44 @@ export class PipelineOrchestrator {
     const result = this.normalization.normalize(item);
 
     if (!result.success) {
+      const failureCount = await this.repository.getNormalizationFailureCount(item.id);
+      const maxFailures = 3;
+
       logger.warn(
-        { itemId: item.id, dataType: item.dataType, errors: result.errors, data: item.data },
+        {
+          itemId: item.id,
+          dataType: item.dataType,
+          errors: result.errors,
+          failureCount,
+          data: item.data,
+        },
         'Normalization failed'
       );
+
+      const errorMessage = result.errors?.join('; ') || 'Normalization failed';
+      await this.repository.recordFailure(item.id, item.dataType, PipelineStage.DRAFT, errorMessage);
+
+      if (failureCount + 1 >= maxFailures) {
+        await this.repository.deleteDraft(item.id);
+        logger.error(
+          { itemId: item.id, failureCount: failureCount + 1, errors: result.errors },
+          'Draft deleted after repeated normalization failures'
+        );
+        await this.repository.recordMetrics(
+          'normalization',
+          item.dataType,
+          0,
+          1,
+          Date.now() - startTime
+        );
+        return {
+          success: false,
+          newState: PipelineStage.DRAFT,
+          errors: result.errors,
+          metrics: { durationMs: Date.now() - startTime, stage: 'normalization' },
+        };
+      }
+
       await this.repository.recordMetrics(
         'normalization',
         item.dataType,
@@ -158,6 +197,21 @@ export class PipelineOrchestrator {
       0,
       Date.now() - startTime
     );
+
+    await this.eventLogger.logEvent({
+      itemId: item.id,
+      itemType: 'draft',
+      eventType: 'stage_transition',
+      fromStage: 'DRAFT',
+      toStage: 'CANDIDATE',
+      fromStatus: 'processing',
+      toStatus: 'completed',
+      stage: 'CANDIDATE',
+      status: 'completed',
+      success: true,
+      durationMs: Date.now() - startTime,
+      payload: { operation: 'normalization', dataType: item.dataType },
+    });
 
     logger.info({ itemId: item.id }, 'Promoted to CANDIDATE');
 
@@ -194,6 +248,21 @@ export class PipelineOrchestrator {
     await this.repository.deleteCandidate(item.id);
 
     await this.repository.recordMetrics('validation', item.dataType, 1, 0, Date.now() - startTime);
+
+    await this.eventLogger.logEvent({
+      itemId: item.id,
+      itemType: 'candidate',
+      eventType: 'stage_transition',
+      fromStage: 'CANDIDATE',
+      toStage: 'VALIDATED',
+      fromStatus: 'processing',
+      toStatus: 'completed',
+      stage: 'VALIDATED',
+      status: 'completed',
+      success: true,
+      durationMs: Date.now() - startTime,
+      payload: { operation: 'validation', dataType: item.dataType },
+    });
 
     logger.info({ itemId: item.id }, 'Promoted to VALIDATED');
 
@@ -323,12 +392,7 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     },
 
     async moveToValidated(item: PipelineItem): Promise<void> {
-      const candidateResult = await pool.query<{ id: string }>(
-        `SELECT id FROM candidates WHERE draft_id = $1`,
-        [item.id]
-      );
-
-      const candidateId = candidateResult.rows[0]?.id ?? item.id;
+      const candidateId = item.id;
 
       await pool.query(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
@@ -413,7 +477,7 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     },
 
     async deleteCandidate(itemId: string): Promise<void> {
-      await pool.query('DELETE FROM candidates WHERE draft_id = $1', [itemId]);
+      await pool.query('DELETE FROM candidates WHERE id = $1', [itemId]);
     },
 
     async deleteValidated(itemId: string): Promise<void> {
@@ -431,9 +495,20 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
     ): Promise<void> {
       await pool.query(
         `INSERT INTO pipeline_failures (item_id, data_type, state, error_message)
-         VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT DO NOTHING`,
         [itemId, dataType, state, errorMessage]
       );
+    },
+
+    async getNormalizationFailureCount(itemId: string): Promise<number> {
+      const result = await pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM pipeline_failures
+         WHERE item_id = $1 AND state = 'DRAFT'`,
+        [itemId]
+      );
+      return parseInt(result.rows[0]?.count || '0', 10);
     },
 
     async recordMetrics(

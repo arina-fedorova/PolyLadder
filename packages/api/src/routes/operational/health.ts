@@ -71,22 +71,24 @@ const healthRoute: FastifyPluginAsync = async function (fastify) {
       }
 
       const draftResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT data_type, COUNT(*) as count FROM drafts GROUP BY data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'DRAFT' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const candidateResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT d.data_type, COUNT(*) as count 
-         FROM candidates c 
-         JOIN drafts d ON c.draft_id = d.id 
-         GROUP BY d.data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'CANDIDATE' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const validatedResult = await fastify.db.query<{ data_type: string; count: string }>(
-        `SELECT d.data_type, COUNT(*) as count 
-         FROM validated v 
-         JOIN candidates c ON v.candidate_id = c.id
-         JOIN drafts d ON c.draft_id = d.id 
-         GROUP BY d.data_type`
+        `SELECT data_type, COUNT(*) as count 
+         FROM pipeline_tasks 
+         WHERE current_stage = 'VALIDATED' AND current_status != 'failed'
+         GROUP BY data_type`
       );
 
       const approvedMeanings = await fastify.db.query<{ count: string }>(

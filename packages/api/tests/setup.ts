@@ -91,6 +91,8 @@ export async function cleanupTestData(): Promise<void> {
   const pool = getTestPool();
 
   const tables = [
+    'pipeline_events',
+    'pipeline_tasks',
     'retry_queue',
     'item_versions',
     'operator_feedback',

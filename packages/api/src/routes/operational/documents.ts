@@ -256,7 +256,7 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
       const uploadResult = await storage.uploadFile(buffer, data.filename, data.mimetype);
 
       const result = await fastify.db.query(
-        `INSERT INTO document_sources 
+        `INSERT INTO document_sources
          (filename, original_filename, mime_type, file_size_bytes, storage_path,
           language, target_level, document_type, title, description, source_info,
           uploaded_by)
@@ -278,7 +278,24 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
         ]
       );
 
-      return reply.status(201).send({ document: result.rows[0] as DocumentRow });
+      const document = result.rows[0] as DocumentRow;
+
+      // Create pipeline for this document
+      await fastify.db.query(
+        `INSERT INTO pipelines (document_id, status, current_stage, metadata)
+         VALUES ($1, 'pending', 'created', $2)`,
+        [
+          document.id,
+          JSON.stringify({
+            language: metadata.language,
+            targetLevel: metadata.targetLevel,
+            documentType: metadata.documentType,
+            uploadedBy: request.user?.userId,
+          }),
+        ]
+      );
+
+      return reply.status(201).send({ document });
     }
   );
 

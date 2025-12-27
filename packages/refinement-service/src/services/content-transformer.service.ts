@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Pool } from 'pg';
 import { logger } from '../utils/logger';
+import { PipelineEventLogger } from './pipeline-event-logger.service';
 
 interface TransformationInput {
   mappingId: string;
@@ -41,12 +42,14 @@ interface TransformationResult {
 
 export class ContentTransformerService {
   private client: Anthropic;
+  private eventLogger: PipelineEventLogger;
 
   constructor(
     private readonly pool: Pool,
     apiKey: string
   ) {
     this.client = new Anthropic({ apiKey });
+    this.eventLogger = new PipelineEventLogger(pool);
   }
 
   async transformMapping(mappingId: string): Promise<TransformationResult> {
@@ -171,7 +174,13 @@ Extract every vocabulary word mentioned. If definition isn't explicit, leave it 
   }
 ]
 
-Extract grammar rules with all provided examples.`;
+## CRITICAL REQUIREMENTS:
+- You MUST provide at least ONE example in the "examples" array for every grammar rule
+- If the source text doesn't contain explicit examples, create appropriate examples based on the rule explanation
+- Examples are REQUIRED - never return an empty examples array
+- Each example must have at least a "correct" field with a complete sentence
+
+Extract grammar rules with all provided examples. If examples are not explicit in the text, create them based on the rule.`;
     }
 
     return `${basePrompt}
@@ -211,10 +220,11 @@ Include: title, content, examples where available.`;
     }
 
     const mapping = await this.pool.query<MappingRow>(
-      `SELECT c.document_id, m.chunk_id, m.topic_id, d.language, d.target_level as level
+      `SELECT c.document_id, m.chunk_id, m.topic_id, l.language, l.cefr_level as level
        FROM content_topic_mappings m
        JOIN raw_content_chunks c ON m.chunk_id = c.id
-       JOIN document_sources d ON c.document_id = d.id
+       JOIN curriculum_topics t ON m.topic_id = t.id
+       JOIN curriculum_levels l ON t.level_id = l.id
        WHERE m.id = $1`,
       [result.mappingId]
     );
@@ -230,12 +240,34 @@ Include: title, content, examples where available.`;
         level: level,
       };
 
-      await this.pool.query(
+      const draftResult = await this.pool.query<{ id: string }>(
         `INSERT INTO drafts 
          (data_type, raw_data, source, document_id, chunk_id, topic_id)
-         VALUES ($1, $2, 'document_transform', $3, $4, $5)`,
+         VALUES ($1, $2, 'document_transform', $3, $4, $5)
+         RETURNING id`,
         [result.dataType, JSON.stringify(enrichedItem), document_id, chunk_id, topic_id]
       );
+
+      const draftId = draftResult.rows[0].id;
+
+      await this.eventLogger.logEvent({
+        itemId: draftId,
+        itemType: 'draft',
+        eventType: 'draft_created',
+        stage: 'DRAFT',
+        status: 'pending',
+        dataType: result.dataType,
+        source: 'document_transform',
+        documentId: document_id,
+        chunkId: chunk_id,
+        topicId: topic_id,
+        mappingId: result.mappingId,
+        payload: {
+          language,
+          level,
+          itemTitle: (item as GrammarItem).title || (item as VocabularyItem).word || 'unknown',
+        },
+      });
     }
 
     logger.info(

@@ -212,4 +212,117 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   );
+
+  fastify.post(
+    '/transformation-jobs/:id/retry',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      await fastify.db.query('BEGIN');
+
+      try {
+        const jobResult = await fastify.db.query<{
+          id: string;
+          mapping_id: string;
+          status: string;
+        }>(
+          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        if (jobResult.rows.length === 0) {
+          await fastify.db.query('ROLLBACK');
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Transformation job not found',
+              requestId: request.id,
+              code: 'NOT_FOUND',
+            },
+          });
+        }
+
+        const job = jobResult.rows[0];
+
+        await fastify.db.query(
+          `DELETE FROM drafts WHERE transformation_job_id = $1`,
+          [id]
+        );
+
+        await fastify.db.query(
+          `DELETE FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        await fastify.db.query('COMMIT');
+
+        return reply.send({
+          success: true,
+          message: 'Transformation job deleted. It will be recreated on next processing cycle.',
+          mappingId: job.mapping_id,
+        });
+      } catch (error) {
+        await fastify.db.query('ROLLBACK');
+        throw error;
+      }
+    }
+  );
+
+  fastify.delete(
+    '/transformation-jobs/:id',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      await fastify.db.query('BEGIN');
+
+      try {
+        const jobResult = await fastify.db.query<{
+          id: string;
+          mapping_id: string;
+          status: string;
+        }>(
+          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        if (jobResult.rows.length === 0) {
+          await fastify.db.query('ROLLBACK');
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Transformation job not found',
+              requestId: request.id,
+              code: 'NOT_FOUND',
+            },
+          });
+        }
+
+        await fastify.db.query(
+          `DELETE FROM drafts WHERE transformation_job_id = $1`,
+          [id]
+        );
+
+        await fastify.db.query(
+          `DELETE FROM transformation_jobs WHERE id = $1`,
+          [id]
+        );
+
+        await fastify.db.query('COMMIT');
+
+        return reply.send({
+          success: true,
+          message: 'Transformation job deleted',
+        });
+      } catch (error) {
+        await fastify.db.query('ROLLBACK');
+        throw error;
+      }
+    }
+  );
 };

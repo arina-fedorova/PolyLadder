@@ -20,7 +20,140 @@ For local development, test users are automatically created:
 1. Open http://localhost:5173
 2. Click "Login"
 3. Enter operator email and password
-4. After login, you'll be redirected to the Operator Dashboard
+4. After login, you'll be redirected to **Pipelines** page
+
+---
+
+## Pipeline Management
+
+### Overview
+
+The **Pipelines** page is your main workspace. Each uploaded document creates exactly ONE pipeline that tracks the complete processing flow from upload to final approval.
+
+**Navigation**: `/operator/pipelines` (default landing page for operators)
+
+### What is a Pipeline?
+
+A pipeline represents the complete journey of a single document through all processing stages:
+
+1. **Created** → Document uploaded
+2. **Extracting** → Text extraction from PDF/DOCX
+3. **Chunking** → Breaking text into semantic chunks
+4. **Mapping** → AI mapping chunks to curriculum topics
+5. **Transforming** → Generating learning content (drafts)
+6. **Validating** → Quality gates (draft → candidate → validated)
+7. **Approving** → Operator approval (validated → approved)
+8. **Completed** → All processing finished
+
+### Viewing Pipelines
+
+On the Pipelines page you'll see:
+
+- **Summary Cards**: Processing / Completed / Failed / Pending counts
+- **Filters**: Filter by status (pending/processing/completed/failed)
+- **Pipeline List**: Table showing all pipelines with:
+  - Document filename and metadata
+  - Current status and stage
+  - Progress bar (0-100%)
+  - Task counts (completed/total/failed)
+  - Actions (view details, retry, delete)
+
+**Auto-refresh**: Page refreshes every 10 seconds to show real-time progress.
+
+### Viewing Pipeline Details
+
+Click the **eye icon** next to any pipeline to see:
+
+**Pipeline Info**:
+- Status (pending/processing/completed/failed)
+- Current stage
+- Progress percentage
+- Task statistics (completed/total/failed)
+- Error message (if failed)
+
+**Document Info**:
+- Language and target CEFR level
+- Document type
+- Uploader email
+
+**Timeline**:
+- Created timestamp
+- Started timestamp
+- Completed timestamp
+- Total duration
+
+**Tasks List**:
+- All tasks in the pipeline
+- Each task shows: type, status, stage, error messages
+- Task types: extract, chunk, map, transform, validate, approve
+
+**Event History**:
+- Complete timeline of all events
+- Success/failure indicators
+- Timestamps
+- Error details
+- Execution durations
+
+**Auto-refresh**: Detail page refreshes every 5 seconds.
+
+### Pipeline Statuses
+
+- **Pending** - Pipeline created, waiting to start
+- **Processing** - Currently executing tasks
+- **Completed** - All tasks successful
+- **Failed** - One or more tasks failed
+- **Cancelled** - Pipeline was cancelled/deleted
+
+### Pipeline Stages
+
+- **created** - Initial state after document upload
+- **extracting** - Extracting text from document
+- **chunking** - Creating semantic chunks
+- **mapping** - Mapping chunks to topics (AI)
+- **transforming** - Generating learning content
+- **validating** - Running quality checks
+- **approving** - Awaiting operator approval
+- **completed** - All stages finished
+
+### Retrying Failed Pipelines
+
+If a pipeline fails:
+
+1. View the pipeline details to see which task failed and why
+2. Click the **"Retry Failed"** button
+3. The system will retry all failed tasks (up to 3 attempts per task)
+4. Pipeline status changes to "processing"
+
+**Retry Limits**: Each task can retry up to 3 times. After that, manual intervention is needed.
+
+### Deleting Pipelines
+
+**Warning**: Deleting a pipeline also deletes the document and all associated data.
+
+1. Click the **trash icon** next to a pipeline
+2. Confirm deletion
+3. Pipeline, document, tasks, and events are all deleted
+
+**Use Case**: Delete test pipelines or documents that were uploaded by mistake.
+
+### Troubleshooting
+
+**Pipeline stuck in "pending"**:
+- Check Refinement Service status on Dashboard
+- View logs: `docker logs polyladder-refinement-dev --tail 50`
+
+**Pipeline stuck in "processing"**:
+- View pipeline details to see which task is running
+- Check task error messages
+- Retry if needed
+
+**Tasks repeatedly failing**:
+- Check error messages in task details
+- Common issues:
+  - Missing ANTHROPIC_API_KEY for AI tasks
+  - Invalid document format
+  - Missing curriculum topics for mapping
+  - Database connection issues
 
 ---
 
@@ -42,27 +175,26 @@ For local development, test users are automatically created:
 
 After you upload a document:
 
-1. **File Storage**: The file is saved securely on the server with a unique identifier
-2. **Automatic Processing**: The system automatically starts processing your document:
-   - Extracts text from the PDF
-   - Breaks it into meaningful chunks
-   - Prepares it for content generation
-3. **Status Updates**: You can track the processing progress in the document list:
-   - **Pending** → Document is queued for processing
-   - **Extracting** → Text is being extracted from the PDF
-   - **Chunking** → Document is being split into chunks
-   - **Ready** → Processing complete, ready for use
-   - **Error** → Something went wrong (check error message)
+1. **Pipeline Created**: A new pipeline is automatically created for your document
+2. **Processing Starts**: The refinement service picks up the pipeline and starts processing
+3. **Track Progress**: Go to **Pipelines** page to see real-time progress
+
+**To monitor**: Navigate to **Pipelines** → find your document → click eye icon to see detailed progress.
 
 **Note**: Each uploaded file receives a unique name to prevent conflicts. Your original filename is preserved for display purposes.
 
 ### Document Statuses
 
+Documents now have a corresponding **Pipeline** that tracks full processing. Check the **Pipelines** page for detailed status.
+
+Legacy statuses (shown in Document Library):
 - **Pending** - Document uploaded, awaiting processing
 - **Extracting** - Text extraction from PDF in progress
 - **Chunking** - Text is being split into semantic chunks
 - **Ready** - Document processed, ready for topic mapping
 - **Error** - An error occurred during processing
+
+**Recommended**: Use the **Pipelines** page for accurate, real-time status tracking.
 
 ### Viewing Document Details
 
@@ -252,14 +384,17 @@ On the main Dashboard page you'll see:
 
 3. **Wait for processing**: The system processes documents in batches, so it may take a few minutes
 
-**Complete workflow after document is Ready:**
+**Complete workflow (tracked in Pipelines):**
 
-1. ✅ Document processed → Status: **Ready** (chunks created)
-2. ⏳ System maps chunks to topics (automatic, requires topics and API key)
-3. 👁️ Review mappings in **Mapping Review** page
-4. ✅ Confirm mappings → System generates learning content
-5. 📚 Content appears in **Review Queue** for final approval
-6. ✅ Approve content → Available in **Corpus Explorer**
+1. 📤 Upload document → **Pipeline created** (status: pending)
+2. 🔄 Pipeline starts → **Extracting** → **Chunking** → **Mapping**
+3. 👁️ Review mappings in **Mapping Review** page → Confirm
+4. 🔄 Pipeline continues → **Transforming** (creates drafts)
+5. 🔄 **Validating** → draft → candidate → validated (automatic quality gates)
+6. ✅ **Approving** → Review in **Review Queue** → Approve
+7. 🎉 Pipeline **Completed** → Content in **Corpus Explorer**
+
+**Track everything** on the **Pipelines** page with real-time updates.
 
 ---
 
@@ -315,6 +450,22 @@ However, **integration tests** may use the same database if not configured prope
 ---
 
 ## Useful Commands
+
+### Apply Database Migrations
+
+When new migrations are added (like migration 026 for pipelines), you need to apply them:
+
+```bash
+cd packages/db
+DATABASE_URL="postgresql://dev:dev@localhost:5432/polyladder" pnpm migrate:up
+```
+
+After applying migrations, restart services:
+
+```bash
+docker restart polyladder-refinement-dev
+docker restart polyladder-api-dev
+```
 
 ### View Logs
 

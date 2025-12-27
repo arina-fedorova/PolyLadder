@@ -1,7 +1,7 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Clock, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 
 interface TransformationJob {
   id: string;
@@ -31,6 +31,8 @@ interface TransformationJobsResponse {
 }
 
 export function TransformationJobsList() {
+  const queryClient = useQueryClient();
+
   const { data, isLoading, error } = useQuery<TransformationJobsResponse>({
     queryKey: ['transformation-jobs'],
     queryFn: async () => {
@@ -41,6 +43,30 @@ export function TransformationJobsList() {
     },
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiClient.post<{ success: boolean; message?: string }>(
+        `/operational/transformation-jobs/${jobId}/retry`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['transformation-jobs'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiClient.delete<{ success: boolean; message?: string }>(
+        `/operational/transformation-jobs/${jobId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['transformation-jobs'] });
+    },
   });
 
   if (isLoading) {
@@ -172,6 +198,50 @@ export function TransformationJobsList() {
                       </span>
                     )}
                   </div>
+                </div>
+                <div className="ml-4 flex items-center gap-2">
+                  {(job.status === 'completed' || job.status === 'failed') && (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Retry this transformation job? This will delete the current job and recreate it on the next processing cycle.'
+                            )
+                          ) {
+                            retryMutation.mutate(job.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Retry transformation job"
+                        disabled={retryMutation.isPending || deleteMutation.isPending}
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 ${retryMutation.isPending ? 'animate-spin' : ''}`}
+                        />
+                        Retry
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Delete this transformation job? This action cannot be undone. Associated drafts will also be deleted.'
+                            )
+                          ) {
+                            deleteMutation.mutate(job.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Delete transformation job"
+                        disabled={retryMutation.isPending || deleteMutation.isPending}
+                      >
+                        <Trash2
+                          className={`w-4 h-4 ${deleteMutation.isPending ? 'animate-spin' : ''}`}
+                        />
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

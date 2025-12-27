@@ -17,6 +17,7 @@ import { SemanticMapperService } from './services/semantic-mapper.service';
 import { ContentTransformerService } from './services/content-transformer.service';
 import { PromotionWorker } from './services/promotion-worker.service';
 import { DocumentProcessorService } from './services/document-processor.service';
+import { DocumentPipelineOrchestrator } from './services/document-pipeline-orchestrator.service';
 import {
   createCEFRConsistencyGate,
   createOrthographyGate,
@@ -136,7 +137,8 @@ async function mainLoop(
   contentProcessor: ContentProcessor,
   pipeline: PipelineOrchestrator,
   promotionWorker: PromotionWorker,
-  docContext: DocumentProcessingContext
+  docContext: DocumentProcessingContext,
+  pipelineOrchestrator: DocumentPipelineOrchestrator
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
@@ -155,6 +157,13 @@ async function mainLoop(
   while (!isShuttingDown) {
     try {
       let workDone = false;
+
+      // NEW: Process active document pipelines (1 document = 1 pipeline)
+      const pipelinesProcessed = await pipelineOrchestrator.processActivePipelines();
+      if (pipelinesProcessed > 0) {
+        workDone = true;
+        logger.info({ count: pipelinesProcessed }, 'Pipelines processed');
+      }
 
       const workItem = await workPlanner.getNextWork();
 
@@ -187,11 +196,12 @@ async function mainLoop(
 
       await pipeline.processBatch();
 
-      const pendingProcessed = await docContext.documentProcessor.processPendingDocuments();
-      if (pendingProcessed > 0) {
-        workDone = true;
-        logger.info({ count: pendingProcessed }, 'Pending documents processed');
-      }
+      // OLD: Direct document processing - now handled by DocumentPipelineOrchestrator
+      // const pendingProcessed = await docContext.documentProcessor.processPendingDocuments();
+      // if (pendingProcessed > 0) {
+      //   workDone = true;
+      //   logger.info({ count: pendingProcessed }, 'Pending documents processed');
+      // }
 
       const docProcessed = await processDocumentPipeline(docContext);
       if (docProcessed) {
@@ -309,7 +319,7 @@ async function start(): Promise<void> {
   const pipelineRepo = createPipelineRepository(pool);
   const validationRepo = createValidationRepository(pool);
   const approvalRepo = createApprovalRepository(pool);
-  const pipeline = new PipelineOrchestrator(pipelineRepo, validationRepo, approvalRepo, {
+  const pipeline = new PipelineOrchestrator(pipelineRepo, validationRepo, approvalRepo, pool, {
     autoApproval: process.env.AUTO_APPROVAL === 'true',
     retryAttempts: 3,
     batchSize: 10,
@@ -351,6 +361,15 @@ async function start(): Promise<void> {
     pool,
   };
 
+  // Create document pipeline orchestrator (1 document = 1 pipeline)
+  const pipelineOrchestrator = new DocumentPipelineOrchestrator(
+    pool,
+    semanticMapper,
+    contentTransformer,
+    promotionWorker
+  );
+  logger.info('Document pipeline orchestrator initialized');
+
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
   });
@@ -366,7 +385,8 @@ async function start(): Promise<void> {
       contentProcessor,
       pipeline,
       promotionWorker,
-      docContext
+      docContext,
+      pipelineOrchestrator
     );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
