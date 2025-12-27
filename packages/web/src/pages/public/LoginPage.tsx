@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,9 +16,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const pendingNavigationRef = useRef<'operator' | 'learner' | null>(null);
 
   const {
     register,
@@ -28,20 +29,26 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    if (pendingNavigationRef.current && isAuthenticated && user) {
+      if (pendingNavigationRef.current === 'operator') {
+        void navigate('/operator/pipeline');
+      } else {
+        void navigate('/dashboard');
+      }
+      pendingNavigationRef.current = null;
+    }
+  }, [user, isAuthenticated, navigate]);
+
   const onSubmit = async (data: LoginFormData): Promise<void> => {
     setApiError(null);
 
     try {
-      const user = await login(data);
-      // Use setTimeout to ensure state is updated before navigation
-      setTimeout(() => {
-        if (user?.role === 'operator') {
-          void navigate('/operator/pipeline');
-        } else {
-          void navigate('/dashboard');
-        }
-      }, 0);
+      const loggedInUser = await login(data);
+      // Set pending navigation based on user role
+      pendingNavigationRef.current = loggedInUser?.role === 'operator' ? 'operator' : 'learner';
     } catch (error) {
+      pendingNavigationRef.current = null;
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(axiosError.response?.data?.error?.message || 'Login failed. Please try again.');
     }
