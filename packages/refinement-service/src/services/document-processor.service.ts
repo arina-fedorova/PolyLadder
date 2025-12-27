@@ -75,6 +75,18 @@ export class DocumentProcessorService {
       await this.cleanupPartialProcessing(client, documentId);
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const fileSize = fileBuffer.length;
+      const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+
+      logger.error(
+        {
+          documentId,
+          error: errorMessage,
+          fileSizeBytes: fileSize,
+          fileSizeMB,
+        },
+        'Document processing failed'
+      );
 
       await this.pool.query(
         `UPDATE document_sources SET status = 'error', error_message = $1 WHERE id = $2`,
@@ -114,7 +126,10 @@ export class DocumentProcessorService {
         processed++;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        logger.error({ documentId: doc.id, error: errorMessage }, 'Failed to process document');
+        logger.error(
+          { documentId: doc.id, error: errorMessage, storagePath: doc.storage_path },
+          'Failed to process document'
+        );
 
         await this.pool.query(
           `UPDATE document_sources 
@@ -241,10 +256,10 @@ export class DocumentProcessorService {
       const extracted = await this.pdfExtractor.extractFromBuffer(fileBuffer);
 
       // Update document with total pages
-      await client.query(
-        `UPDATE document_sources SET total_pages = $1 WHERE id = $2`,
-        [extracted.totalPages, documentId]
-      );
+      await client.query(`UPDATE document_sources SET total_pages = $1 WHERE id = $2`, [
+        extracted.totalPages,
+        documentId,
+      ]);
 
       await this.logStep(
         documentId,
@@ -326,12 +341,7 @@ export class DocumentProcessorService {
         [chunks.length, extracted.totalPages, documentId]
       );
 
-      await this.logStep(
-        documentId,
-        'chunk',
-        'success',
-        `Created ${chunks.length} chunks`
-      );
+      await this.logStep(documentId, 'chunk', 'success', `Created ${chunks.length} chunks`);
 
       await client.query('COMMIT');
     } catch (error) {
