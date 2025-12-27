@@ -153,8 +153,8 @@ export async function createTestDocument(
 
   await pool.query(
     `INSERT INTO document_sources
-     (id, original_filename, storage_path, language, target_level, document_type, status, uploaded_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, 'textbook', $6, $7, CURRENT_TIMESTAMP)`,
+     (id, original_filename, storage_path, language, target_level, document_type, status, uploaded_by)
+     VALUES ($1, $2, $3, $4, $5, 'textbook', $6, $7)`,
     [id, filename, `/test/${filename}`, language, targetLevel, status, overrides.uploadedBy]
   );
 

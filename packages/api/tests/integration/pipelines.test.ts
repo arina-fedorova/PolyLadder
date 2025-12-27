@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { Pool } from 'pg';
@@ -32,7 +33,10 @@ describe('Pipelines Integration Tests', () => {
   beforeEach(async () => {
     await cleanupTestData();
     const uniqueEmail = `operator-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
-    const operator = await createTestOperator(pool, { email: uniqueEmail, password: 'OperatorPass123!' });
+    const operator = await createTestOperator(pool, {
+      email: uniqueEmail,
+      password: 'OperatorPass123!',
+    });
     operatorId = operator.id;
 
     const response = await server.inject({
@@ -63,7 +67,7 @@ describe('Pipelines Integration Tests', () => {
       // Create learner
       const learnerEmail = `learner-${Date.now()}@example.com`;
       await pool.query(
-        `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'learner')`,
+        `INSERT INTO users (email, password_hash, role, base_language) VALUES ($1, $2, 'learner', 'EN')`,
         [learnerEmail, 'hash']
       );
 
@@ -301,17 +305,13 @@ describe('Pipelines Integration Tests', () => {
       expect(body.success).toBe(true);
 
       // Check pipeline deleted (cascade from document delete)
-      const pipelineCheck = await pool.query(
-        `SELECT id FROM pipelines WHERE id = $1`,
-        [pipelineId]
-      );
+      const pipelineCheck = await pool.query(`SELECT id FROM pipelines WHERE id = $1`, [
+        pipelineId,
+      ]);
       expect(pipelineCheck.rows).toHaveLength(0);
 
       // Check document deleted
-      const docCheck = await pool.query(
-        `SELECT id FROM document_sources WHERE id = $1`,
-        [doc.id]
-      );
+      const docCheck = await pool.query(`SELECT id FROM document_sources WHERE id = $1`, [doc.id]);
       expect(docCheck.rows).toHaveLength(0);
     });
   });
