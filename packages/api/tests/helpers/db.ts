@@ -194,6 +194,13 @@ export async function createTestChunk(
   return { id };
 }
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export async function createTestTopic(
   pool: Pool,
   data: {
@@ -204,12 +211,13 @@ export async function createTestTopic(
 ): Promise<{ id: string }> {
   const id = data.id ?? uuidv4();
   const name = data.name ?? 'Test Topic';
+  const slug = generateSlug(name);
 
   await pool.query(
     `INSERT INTO curriculum_topics
-     (id, level_id, name, description, content_type, estimated_items, created_at)
-     VALUES ($1, $2, $3, 'Test description', 'vocabulary', 10, CURRENT_TIMESTAMP)`,
-    [id, data.levelId, name]
+     (id, level_id, name, slug, description, content_type, estimated_items, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, 'Test description', 'vocabulary', 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    [id, data.levelId, name, slug]
   );
 
   return { id };
