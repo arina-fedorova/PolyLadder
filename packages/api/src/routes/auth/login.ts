@@ -66,6 +66,11 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const normalizedEmail = email.toLowerCase();
 
       // Find user without transaction (read-only operation doesn't need transaction)
+      // Log the query for debugging in E2E tests
+      if (process.env.NODE_ENV === 'test') {
+        process.stderr.write(`[E2E LOGIN] Searching for user: ${normalizedEmail}\n`);
+      }
+
       const userResult = await fastify.db.query<{
         id: string;
         email: string;
@@ -89,15 +94,19 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
         const allUsersResult = await fastify.db.query<{ email: string }>(
           'SELECT email FROM users LIMIT 10'
         );
-        request.log.warn(
-          {
-            email: normalizedEmail,
-            searchedEmail: normalizedEmail,
-            allUsers: allUsersResult.rows.map((r) => r.email),
-            databaseUrl: process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'),
-          },
-          'User not found during login'
-        );
+        const databaseUrl = process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@');
+        const logData = {
+          email: normalizedEmail,
+          searchedEmail: normalizedEmail,
+          allUsers: allUsersResult.rows.map((r) => r.email),
+          databaseUrl,
+          rowCount: userResult.rowCount,
+        };
+        request.log.warn(logData, 'User not found during login');
+        // Also log to stderr for E2E tests
+        if (process.env.NODE_ENV === 'test') {
+          process.stderr.write(`[E2E LOGIN DEBUG] User not found: ${JSON.stringify(logData)}\n`);
+        }
         return reply.status(401).send({
           error: {
             statusCode: 401,
