@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,11 +31,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register: registerUser, user, isAuthenticated } = useAuth();
+  const { register: registerUser } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const registeredRoleRef = useRef<'learner' | 'operator' | null>(null);
 
   const {
     register,
@@ -49,30 +48,25 @@ export function RegisterPage() {
     },
   });
 
-  useEffect(() => {
-    if (isAuthenticated && user && registeredRoleRef.current) {
-      if (user.role === 'operator') {
-        void navigate('/operator/pipeline');
-      } else {
-        void navigate('/dashboard');
-      }
-      registeredRoleRef.current = null;
-    }
-  }, [user, isAuthenticated, navigate]);
-
   const onSubmit = async (data: RegisterFormData): Promise<void> => {
     setApiError(null);
 
     try {
-      registeredRoleRef.current = data.role || 'learner';
-      await registerUser({
+      const user = await registerUser({
         email: data.email,
         password: data.password,
         baseLanguage: data.baseLanguage,
         role: data.role,
       });
+      // Use setTimeout to ensure state is updated before navigation
+      setTimeout(() => {
+        if (user?.role === 'operator') {
+          void navigate('/operator/pipeline');
+        } else {
+          void navigate('/dashboard');
+        }
+      }, 0);
     } catch (error) {
-      registeredRoleRef.current = null;
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(
         axiosError.response?.data?.error?.message || 'Registration failed. Please try again.'
