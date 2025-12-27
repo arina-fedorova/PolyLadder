@@ -155,13 +155,23 @@ Do NOT invent content. Only extract what exists in the source text.`;
 Extract every vocabulary word mentioned. If definition isn't explicit, leave it empty.`;
     }
 
-    if (input.topicType === 'grammar') {
+    if (
+      input.topicType === 'grammar' ||
+      input.topicType === 'orthography' ||
+      input.topicType === 'mixed'
+    ) {
+      const typeLabel =
+        input.topicType === 'orthography'
+          ? 'orthographic rule'
+          : input.topicType === 'mixed'
+            ? 'learning rule'
+            : 'grammar rule';
       return `${basePrompt}
 
 ## Output Format (JSON array):
 [
   {
-    "title": "grammar rule title",
+    "title": "${typeLabel} title",
     "explanation": "clear explanation of the rule",
     "examples": [
       {
@@ -175,12 +185,12 @@ Extract every vocabulary word mentioned. If definition isn't explicit, leave it 
 ]
 
 ## CRITICAL REQUIREMENTS:
-- You MUST provide at least ONE example in the "examples" array for every grammar rule
+- You MUST provide at least ONE example in the "examples" array for every rule
 - If the source text doesn't contain explicit examples, create appropriate examples based on the rule explanation
 - Examples are REQUIRED - never return an empty examples array
 - Each example must have at least a "correct" field with a complete sentence
 
-Extract grammar rules with all provided examples. If examples are not explicit in the text, create them based on the rule.`;
+Extract ${typeLabel}s with all provided examples. If examples are not explicit in the text, create them based on the rule.`;
     }
 
     return `${basePrompt}
@@ -201,8 +211,17 @@ Include: title, content, examples where available.`;
 
     const items = JSON.parse(jsonMatch[0]) as Array<VocabularyItem | GrammarItem>;
 
+    // Map topic types to data types
+    // - vocabulary -> meaning
+    // - grammar -> rule
+    // - orthography -> rule (orthographic rules)
+    // - mixed -> rule (treat as general learning rules)
     const dataType =
-      topicType === 'vocabulary' ? 'meaning' : topicType === 'grammar' ? 'rule' : 'exercise';
+      topicType === 'vocabulary'
+        ? 'meaning'
+        : topicType === 'grammar' || topicType === 'orthography' || topicType === 'mixed'
+          ? 'rule'
+          : 'exercise';
 
     return { dataType, items };
   }
