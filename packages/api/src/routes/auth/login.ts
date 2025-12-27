@@ -65,6 +65,11 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const { email, password } = request.body;
       const normalizedEmail = email.toLowerCase();
 
+      // Log all login attempts in E2E tests
+      if (process.env.NODE_ENV === 'test') {
+        process.stderr.write(`[E2E LOGIN] Login attempt for: ${normalizedEmail}\n`);
+      }
+
       // Find user without transaction (read-only operation doesn't need transaction)
       // Log the query for debugging in E2E tests
       if (process.env.NODE_ENV === 'test') {
