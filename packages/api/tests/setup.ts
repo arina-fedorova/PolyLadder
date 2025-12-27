@@ -11,15 +11,12 @@ function getTestDatabaseUrl(): string {
     return process.env.TEST_DATABASE_URL;
   }
 
-  const defaultTestUrl = 'postgresql://test:test@localhost:5433/polyladder_test';
+  const defaultTestUrl = 'postgresql://test:test@localhost:5432/polyladder_test';
 
   if (process.env.DATABASE_URL) {
     const devUrl = process.env.DATABASE_URL;
     if (devUrl.includes('polyladder') && !devUrl.includes('polyladder_test')) {
-      throw new Error(
-        `TEST_DATABASE_URL not set and DATABASE_URL points to dev database (${devUrl}). ` +
-          `Tests must use a separate test database. Set TEST_DATABASE_URL or use default: ${defaultTestUrl}`
-      );
+      return defaultTestUrl;
     }
     return devUrl;
   }

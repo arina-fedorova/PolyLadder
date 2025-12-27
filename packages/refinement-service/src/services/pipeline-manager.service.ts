@@ -71,6 +71,40 @@ export interface UpdateTaskStatusParams {
   errorMessage?: string;
 }
 
+interface PipelineRow {
+  id: string;
+  document_id: string;
+  status: string;
+  current_stage: string;
+  progress_percentage: number;
+  error_message: string | null;
+  total_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  metadata: string | Record<string, unknown>;
+}
+
+interface PipelineTaskRow {
+  id: string;
+  pipeline_id: string;
+  item_id: string;
+  item_type: string;
+  data_type: string;
+  task_type: string;
+  current_status: string;
+  current_stage: string;
+  error_message: string | null;
+  retry_count: number;
+  depends_on_task_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  metadata: string | Record<string, unknown>;
+}
+
 export class PipelineManager {
   private eventLogger: PipelineEventLogger;
 
@@ -83,7 +117,7 @@ export class PipelineManager {
    * This is called when a document is uploaded
    */
   async createPipeline(params: CreatePipelineParams): Promise<Pipeline> {
-    const result = await this.pool.query<Pipeline>(
+    const result = await this.pool.query<PipelineRow>(
       `INSERT INTO pipelines (document_id, status, current_stage, metadata)
        VALUES ($1, 'pending', 'created', $2)
        RETURNING *`,
@@ -92,10 +126,7 @@ export class PipelineManager {
 
     const pipeline = this.mapPipeline(result.rows[0]);
 
-    logger.info(
-      { pipelineId: pipeline.id, documentId: params.documentId },
-      'Pipeline created'
-    );
+    logger.info({ pipelineId: pipeline.id, documentId: params.documentId }, 'Pipeline created');
 
     // Log pipeline creation event
     await this.eventLogger.logEvent({
@@ -118,10 +149,9 @@ export class PipelineManager {
    * Get pipeline by ID
    */
   async getPipeline(pipelineId: string): Promise<Pipeline | null> {
-    const result = await this.pool.query<Pipeline>(
-      `SELECT * FROM pipelines WHERE id = $1`,
-      [pipelineId]
-    );
+    const result = await this.pool.query<PipelineRow>(`SELECT * FROM pipelines WHERE id = $1`, [
+      pipelineId,
+    ]);
 
     return result.rows[0] ? this.mapPipeline(result.rows[0]) : null;
   }
@@ -130,7 +160,7 @@ export class PipelineManager {
    * Get pipeline by document ID
    */
   async getPipelineByDocumentId(documentId: string): Promise<Pipeline | null> {
-    const result = await this.pool.query<Pipeline>(
+    const result = await this.pool.query<PipelineRow>(
       `SELECT * FROM pipelines WHERE document_id = $1`,
       [documentId]
     );
@@ -191,7 +221,11 @@ export class PipelineManager {
   /**
    * Mark pipeline as completed
    */
-  async completePipeline(pipelineId: string, success: boolean, errorMessage?: string): Promise<void> {
+  async completePipeline(
+    pipelineId: string,
+    success: boolean,
+    errorMessage?: string
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE pipelines
        SET status = $2,
@@ -224,7 +258,7 @@ export class PipelineManager {
    * Create a task within a pipeline
    */
   async createTask(params: CreateTaskParams): Promise<PipelineTask> {
-    const result = await this.pool.query<PipelineTask>(
+    const result = await this.pool.query<PipelineTaskRow>(
       `INSERT INTO pipeline_tasks
        (pipeline_id, item_id, item_type, data_type, task_type, current_status, current_stage, depends_on_task_id, metadata)
        VALUES ($1::uuid, $2::uuid, $3::text, $4::text, $5::text, 'pending', $6::text, $7::uuid, $8::jsonb)
@@ -309,7 +343,7 @@ export class PipelineManager {
    * Get all tasks for a pipeline
    */
   async getPipelineTasks(pipelineId: string): Promise<PipelineTask[]> {
-    const result = await this.pool.query<PipelineTask>(
+    const result = await this.pool.query<PipelineTaskRow>(
       `SELECT * FROM pipeline_tasks
        WHERE pipeline_id = $1
        ORDER BY created_at ASC`,
@@ -323,7 +357,7 @@ export class PipelineManager {
    * Get next task to process (respects dependencies)
    */
   async getNextTask(pipelineId: string): Promise<PipelineTask | null> {
-    const result = await this.pool.query<PipelineTask>(
+    const result = await this.pool.query<PipelineTaskRow>(
       `SELECT t.*
        FROM pipeline_tasks t
        WHERE t.pipeline_id = $1
@@ -352,7 +386,7 @@ export class PipelineManager {
     status: 'pending' | 'processing' | 'completed' | 'failed',
     limit = 50
   ): Promise<Pipeline[]> {
-    const result = await this.pool.query<Pipeline>(
+    const result = await this.pool.query<PipelineRow>(
       `SELECT p.*, d.original_filename, d.language, d.target_level
        FROM pipelines p
        JOIN document_sources d ON d.id = p.document_id
@@ -400,11 +434,11 @@ export class PipelineManager {
     return retriedCount;
   }
 
-  private mapPipeline(row: any): Pipeline {
+  private mapPipeline(row: PipelineRow): Pipeline {
     return {
       id: row.id,
       documentId: row.document_id,
-      status: row.status,
+      status: row.status as Pipeline['status'],
       currentStage: row.current_stage,
       progressPercentage: row.progress_percentage,
       errorMessage: row.error_message,
@@ -415,11 +449,14 @@ export class PipelineManager {
       completedAt: row.completed_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
+      metadata:
+        typeof row.metadata === 'string'
+          ? (JSON.parse(row.metadata) as Record<string, unknown>)
+          : row.metadata || {},
     };
   }
 
-  private mapTask(row: any): PipelineTask {
+  private mapTask(row: PipelineTaskRow): PipelineTask {
     return {
       id: row.id,
       pipelineId: row.pipeline_id,
@@ -434,7 +471,10 @@ export class PipelineManager {
       dependsOnTaskId: row.depends_on_task_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata || {},
+      metadata:
+        typeof row.metadata === 'string'
+          ? (JSON.parse(row.metadata) as Record<string, unknown>)
+          : row.metadata || {},
     };
   }
 }

@@ -17,7 +17,7 @@ interface RetryTaskBody {
   force?: boolean;
 }
 
-export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<void> {
+export function pipelineTasksRoutes(fastify: FastifyInstance): void {
   fastify.get<{ Querystring: PipelineTaskQuery }>(
     '/pipeline-tasks',
     {
@@ -106,7 +106,32 @@ export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<voi
     async (request, reply) => {
       const { taskId } = request.params;
 
-      const taskResult = await fastify.db.query(
+      interface TaskRow {
+        id: string;
+        item_id: string;
+        item_type: string;
+        data_type: string;
+        current_status: string;
+        current_stage: string;
+        source: string | null;
+        document_id: string | null;
+        chunk_id: string | null;
+        topic_id: string | null;
+        mapping_id: string | null;
+        error_message: string | null;
+        retry_count: number;
+        pipeline_id: string | null;
+        task_type: string | null;
+        depends_on_task_id: string | null;
+        created_at: string;
+        updated_at: string;
+        metadata: Record<string, unknown>;
+        document_name: string | null;
+        topic_name: string | null;
+        topic_type: string | null;
+      }
+
+      const taskResult = await fastify.db.query<TaskRow>(
         `SELECT 
           t.*,
           d.original_filename as document_name,
@@ -123,7 +148,7 @@ export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<voi
         return reply.code(404).send({ error: { message: 'Task not found' } });
       }
 
-      const task = taskResult.rows[0];
+      const task: TaskRow = taskResult.rows[0];
 
       const eventsResult = await fastify.db.query<{
         id: string;
@@ -166,7 +191,31 @@ export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<voi
       const { itemId } = request.params;
       const itemType = request.query.itemType || 'draft';
 
-      const taskResult = await fastify.db.query(
+      interface TaskRow {
+        id: string;
+        item_id: string;
+        item_type: string;
+        data_type: string;
+        current_status: string;
+        current_stage: string;
+        source: string | null;
+        document_id: string | null;
+        chunk_id: string | null;
+        topic_id: string | null;
+        mapping_id: string | null;
+        error_message: string | null;
+        retry_count: number;
+        pipeline_id: string | null;
+        task_type: string | null;
+        depends_on_task_id: string | null;
+        created_at: string;
+        updated_at: string;
+        metadata: Record<string, unknown>;
+        document_name: string | null;
+        topic_name: string | null;
+      }
+
+      const taskResult = await fastify.db.query<TaskRow>(
         `SELECT 
           t.*,
           d.original_filename as document_name,
@@ -184,7 +233,7 @@ export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<voi
         return reply.code(404).send({ error: { message: 'Task not found' } });
       }
 
-      const task = taskResult.rows[0];
+      const task: TaskRow = taskResult.rows[0];
 
       const eventsResult = await fastify.db.query<{
         id: string;
@@ -353,4 +402,3 @@ export async function pipelineTasksRoutes(fastify: FastifyInstance): Promise<voi
     }
   );
 }
-

@@ -135,7 +135,11 @@ export class PipelineEventLogger {
   }
 
   async getTaskHistory(itemId: string, itemType: string): Promise<Array<Record<string, unknown>>> {
-    const result = await this.pool.query(
+    interface EventRow {
+      [key: string]: unknown;
+    }
+
+    const result = await this.pool.query<EventRow>(
       `SELECT e.*, t.current_stage, t.current_status
        FROM pipeline_events e
        JOIN pipeline_tasks t ON e.task_id = t.id
@@ -144,11 +148,15 @@ export class PipelineEventLogger {
       [itemId, itemType]
     );
 
-    return result.rows;
+    return result.rows as Array<Record<string, unknown>>;
   }
 
   async getTaskByItemId(itemId: string, itemType: string): Promise<Record<string, unknown> | null> {
-    const result = await this.pool.query(
+    interface TaskRow {
+      [key: string]: unknown;
+    }
+
+    const result = await this.pool.query<TaskRow>(
       `SELECT t.*, 
               COUNT(e.id) as event_count,
               MAX(e.created_at) as last_event_at
@@ -160,7 +168,6 @@ export class PipelineEventLogger {
       [itemId, itemType]
     );
 
-    return result.rows[0] || null;
+    return (result.rows[0] as Record<string, unknown>) || null;
   }
 }
-

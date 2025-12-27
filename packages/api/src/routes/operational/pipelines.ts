@@ -196,7 +196,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         item_id: string;
         item_type: string;
         data_type: string;
-        task_type: string | null;
         current_status: string;
         current_stage: string;
         document_name: string | null;

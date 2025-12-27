@@ -44,6 +44,36 @@ export interface CreatePipelineParams {
   metadata?: Record<string, unknown>;
 }
 
+interface PipelineRow {
+  id: string;
+  document_id: string;
+  status: string;
+  current_stage: string;
+  error_message: string | null;
+  total_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface TaskRow {
+  id: string;
+  pipeline_id: string;
+  task_type: string;
+  status: string;
+  item_id: string | null;
+  depends_on_task_id: string | null;
+  error_message: string | null;
+  retry_count: number;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
 /**
  * Document Pipeline Manager
  * Manages pipelines and tasks for DOCUMENT PROCESSING (NOT content processing)
@@ -62,16 +92,18 @@ export class DocumentPipelineManager {
 
     const pipeline = this.mapPipeline(result.rows[0]);
 
-    logger.info({ pipelineId: pipeline.id, documentId: params.documentId }, 'Document pipeline created');
+    logger.info(
+      { pipelineId: pipeline.id, documentId: params.documentId },
+      'Document pipeline created'
+    );
 
     return pipeline;
   }
 
   async getPipeline(pipelineId: string): Promise<DocumentPipeline | null> {
-    const result = await this.pool.query<any>(
-      `SELECT * FROM pipelines WHERE id = $1`,
-      [pipelineId]
-    );
+    const result = await this.pool.query<PipelineRow>(`SELECT * FROM pipelines WHERE id = $1`, [
+      pipelineId,
+    ]);
 
     return result.rows.length > 0 ? this.mapPipeline(result.rows[0]) : null;
   }
@@ -80,7 +112,7 @@ export class DocumentPipelineManager {
     status: 'pending' | 'processing' | 'completed' | 'failed',
     limit: number = 10
   ): Promise<DocumentPipeline[]> {
-    const result = await this.pool.query<any>(
+    const result = await this.pool.query<PipelineRow>(
       `SELECT * FROM pipelines
        WHERE status = $1
        ORDER BY created_at ASC
@@ -88,7 +120,7 @@ export class DocumentPipelineManager {
       [status, limit]
     );
 
-    return result.rows.map(row => this.mapPipeline(row));
+    return result.rows.map((row) => this.mapPipeline(row));
   }
 
   async updatePipelineStage(
@@ -122,7 +154,11 @@ export class DocumentPipelineManager {
     logger.info({ pipelineId, stage, status }, 'Pipeline stage updated');
   }
 
-  async completePipeline(pipelineId: string, success: boolean, errorMessage?: string): Promise<void> {
+  async completePipeline(
+    pipelineId: string,
+    success: boolean,
+    errorMessage?: string
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE pipelines
        SET status = $2,
@@ -141,7 +177,7 @@ export class DocumentPipelineManager {
   }
 
   async createTask(params: CreateTaskParams): Promise<DocumentTask> {
-    const result = await this.pool.query<any>(
+    const result = await this.pool.query<TaskRow>(
       `INSERT INTO document_processing_tasks
        (pipeline_id, task_type, status, item_id, depends_on_task_id, metadata)
        VALUES ($1, $2, 'pending', $3, $4, $5)
@@ -166,13 +202,16 @@ export class DocumentPipelineManager {
 
     const task = this.mapTask(result.rows[0]);
 
-    logger.info({ taskId: task.id, pipelineId: params.pipelineId, taskType: params.taskType }, 'Task created');
+    logger.info(
+      { taskId: task.id, pipelineId: params.pipelineId, taskType: params.taskType },
+      'Task created'
+    );
 
     return task;
   }
 
   async getNextTask(pipelineId: string): Promise<DocumentTask | null> {
-    const result = await this.pool.query<any>(
+    const result = await this.pool.query<TaskRow>(
       `SELECT t.*
        FROM document_processing_tasks t
        WHERE t.pipeline_id = $1
@@ -194,14 +233,14 @@ export class DocumentPipelineManager {
   }
 
   async getPipelineTasks(pipelineId: string): Promise<DocumentTask[]> {
-    const result = await this.pool.query<any>(
+    const result = await this.pool.query<TaskRow>(
       `SELECT * FROM document_processing_tasks
        WHERE pipeline_id = $1
        ORDER BY created_at ASC`,
       [pipelineId]
     );
 
-    return result.rows.map(row => this.mapTask(row));
+    return result.rows.map((row) => this.mapTask(row));
   }
 
   async updateTaskStatus(params: {
@@ -212,7 +251,7 @@ export class DocumentPipelineManager {
     const { taskId, status, errorMessage } = params;
 
     const updates: string[] = ['status = $2', 'updated_at = CURRENT_TIMESTAMP'];
-    const values: any[] = [taskId, status];
+    const values: Array<string | number> = [taskId, status];
     let paramIndex = 3;
 
     if (status === 'processing') {
@@ -271,11 +310,11 @@ export class DocumentPipelineManager {
     return retriedCount;
   }
 
-  private mapPipeline(row: any): DocumentPipeline {
+  private mapPipeline(row: PipelineRow): DocumentPipeline {
     return {
       id: row.id,
       documentId: row.document_id,
-      status: row.status,
+      status: row.status as DocumentPipeline['status'],
       currentStage: row.current_stage,
       errorMessage: row.error_message,
       totalTasks: row.total_tasks,
@@ -288,12 +327,12 @@ export class DocumentPipelineManager {
     };
   }
 
-  private mapTask(row: any): DocumentTask {
+  private mapTask(row: TaskRow): DocumentTask {
     return {
       id: row.id,
       pipelineId: row.pipeline_id,
-      taskType: row.task_type,
-      status: row.status,
+      taskType: row.task_type as DocumentTask['taskType'],
+      status: row.status as DocumentTask['status'],
       itemId: row.item_id,
       dependsOnTaskId: row.depends_on_task_id,
       errorMessage: row.error_message,
