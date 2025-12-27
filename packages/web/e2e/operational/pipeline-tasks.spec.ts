@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { createTestUser } from '../helpers/db';
+import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
 
 test.describe('Pipeline Tasks', () => {
+  test.beforeEach(async () => {
+    await cleanupTestData();
+  });
   test('should display pipeline tasks list', async ({ page }) => {
     await createTestUser({
       email: 'operator@example.com',
@@ -66,4 +69,3 @@ test.describe('Pipeline Tasks', () => {
     }
   });
 });
-
