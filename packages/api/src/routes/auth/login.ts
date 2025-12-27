@@ -65,63 +65,68 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const { email, password } = request.body;
       const normalizedEmail = email.toLowerCase();
 
+      // Find user without transaction (read-only operation doesn't need transaction)
+      const userResult = await fastify.db.query<{
+        id: string;
+        email: string;
+        password_hash: string;
+        role: 'learner' | 'operator';
+        base_language: string;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `SELECT id, email, password_hash, role,
+                base_language, created_at, updated_at
+         FROM users
+         WHERE email = $1`,
+        [normalizedEmail]
+      );
+
+      const userRow = userResult.rows[0];
+
+      if (!userRow) {
+        request.log.warn({ email: normalizedEmail }, 'User not found during login');
+        return reply.status(401).send({
+          error: {
+            statusCode: 401,
+            message: 'Invalid email or password',
+            requestId: request.id,
+            code: 'INVALID_CREDENTIALS',
+          },
+        });
+      }
+
+      const user = {
+        id: userRow.id,
+        email: userRow.email,
+        passwordHash: userRow.password_hash,
+        role: userRow.role,
+        baseLanguage: userRow.base_language as 'EN' | 'IT' | 'PT' | 'SL' | 'ES',
+        createdAt: userRow.created_at,
+        updatedAt: userRow.updated_at,
+      };
+
+      const isValid = await verifyPassword(password, user.passwordHash);
+
+      if (!isValid) {
+        request.log.warn(
+          { email: normalizedEmail, userId: user.id },
+          'Password verification failed during login'
+        );
+        return reply.status(401).send({
+          error: {
+            statusCode: 401,
+            message: 'Invalid email or password',
+            requestId: request.id,
+            code: 'INVALID_CREDENTIALS',
+          },
+        });
+      }
+
+      // Use transaction only for write operations
       const client = await fastify.db.connect();
       try {
         await client.query('BEGIN');
-
-        const userResult = await client.query<{
-          id: string;
-          email: string;
-          password_hash: string;
-          role: 'learner' | 'operator';
-          base_language: string;
-          created_at: Date;
-          updated_at: Date;
-        }>(
-          `SELECT id, email, password_hash, role,
-                  base_language, created_at, updated_at
-           FROM users
-           WHERE email = $1`,
-          [normalizedEmail]
-        );
-
-        const userRow = userResult.rows[0];
-
-        if (!userRow) {
-          await client.query('ROLLBACK');
-          return reply.status(401).send({
-            error: {
-              statusCode: 401,
-              message: 'Invalid email or password',
-              requestId: request.id,
-              code: 'INVALID_CREDENTIALS',
-            },
-          });
-        }
-
-        const user = {
-          id: userRow.id,
-          email: userRow.email,
-          passwordHash: userRow.password_hash,
-          role: userRow.role,
-          baseLanguage: userRow.base_language as 'EN' | 'IT' | 'PT' | 'SL' | 'ES',
-          createdAt: userRow.created_at,
-          updatedAt: userRow.updated_at,
-        };
-
-        const isValid = await verifyPassword(password, user.passwordHash);
-
-        if (!isValid) {
-          await client.query('ROLLBACK');
-          return reply.status(401).send({
-            error: {
-              statusCode: 401,
-              message: 'Invalid email or password',
-              requestId: request.id,
-              code: 'INVALID_CREDENTIALS',
-            },
-          });
-        }
 
         // Check if password needs rehashing
         if (needsRehash(user.passwordHash)) {

@@ -100,7 +100,7 @@ function startApiServer(projectRoot: string): ChildProcess {
     JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-min-32-chars-long',
     PORT: '3001',
     NODE_ENV: 'test',
-    LOG_LEVEL: 'error',
+    LOG_LEVEL: 'info',
   };
 
   delete env.PGUSER;
@@ -114,7 +114,12 @@ function startApiServer(projectRoot: string): ChildProcess {
 
   apiProcess.stdout?.on('data', (data: Buffer) => {
     const output = String(data);
-    if (output.includes('Error') || output.includes('error')) {
+    if (
+      output.includes('Error') ||
+      output.includes('error') ||
+      output.includes('warn') ||
+      output.includes('User not found')
+    ) {
       console.error('API server output:', output);
     }
   });

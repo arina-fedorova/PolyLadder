@@ -12,8 +12,14 @@ function getPool(): Pool {
   const env = getEnv();
 
   if (!pool) {
+    const connectionString = env.DATABASE_URL;
+    if (process.env.NODE_ENV === 'test') {
+      process.stderr.write(
+        `[E2E] Creating database pool with URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}\n`
+      );
+    }
     pool = new Pool({
-      connectionString: env.DATABASE_URL,
+      connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
