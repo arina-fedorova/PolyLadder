@@ -67,6 +67,21 @@ export function getTestServer(): FastifyInstance {
   return testServer;
 }
 
+export async function checkDatabaseConnection(): Promise<boolean> {
+  try {
+    const testUrl = getTestDatabaseUrl();
+    const testPool = new Pool({
+      connectionString: testUrl,
+      max: 1,
+    });
+    await testPool.query('SELECT 1');
+    await testPool.end();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getTestPool(): Pool {
   if (!testPool) {
     testPool = new Pool({
