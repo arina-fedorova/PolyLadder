@@ -105,6 +105,12 @@ export async function cleanupTestData(): Promise<void> {
   const tables = [
     'pipeline_events',
     'pipeline_tasks',
+    'document_processing_tasks',
+    'transformation_jobs',
+    'content_topic_mappings',
+    'raw_content_chunks',
+    'pipelines',
+    'document_sources',
     'retry_queue',
     'item_versions',
     'operator_feedback',
