@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,10 +31,11 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register: registerUser, login } = useAuth();
+  const { register: registerUser, user } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [shouldNavigate, setShouldNavigate] = useState(false);
 
   const {
     register,
@@ -48,6 +49,17 @@ export function RegisterPage() {
     },
   });
 
+  useEffect(() => {
+    if (shouldNavigate && user) {
+      if (user.role === 'operator') {
+        void navigate('/operator/pipeline');
+      } else {
+        void navigate('/dashboard');
+      }
+      setShouldNavigate(false);
+    }
+  }, [user, shouldNavigate, navigate]);
+
   const onSubmit = async (data: RegisterFormData): Promise<void> => {
     setApiError(null);
 
@@ -59,12 +71,8 @@ export function RegisterPage() {
         role: data.role,
       });
 
-      const user = await login({ email: data.email, password: data.password });
-      if (user?.role === 'operator') {
-        void navigate('/operator/pipeline');
-      } else {
-        void navigate('/dashboard');
-      }
+      // registerUser already calls login internally, so we set flag to navigate
+      setShouldNavigate(true);
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(

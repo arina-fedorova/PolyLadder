@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,9 +16,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [shouldNavigate, setShouldNavigate] = useState(false);
 
   const {
     register,
@@ -28,16 +29,24 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormData): Promise<void> => {
-    setApiError(null);
-
-    try {
-      const user = await login(data);
-      if (user?.role === 'operator') {
+  useEffect(() => {
+    if (shouldNavigate && isAuthenticated && user) {
+      if (user.role === 'operator') {
         void navigate('/operator/pipeline');
       } else {
         void navigate('/dashboard');
       }
+      setShouldNavigate(false);
+    }
+  }, [user, isAuthenticated, shouldNavigate, navigate]);
+
+  const onSubmit = async (data: LoginFormData): Promise<void> => {
+    setApiError(null);
+
+    try {
+      await login(data);
+      // Set flag to navigate after state updates
+      setShouldNavigate(true);
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(axiosError.response?.data?.error?.message || 'Login failed. Please try again.');
