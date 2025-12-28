@@ -135,7 +135,7 @@ async function mainLoop(
   checkpoint: CheckpointService,
   workPlanner: WorkPlanner,
   contentProcessor: ContentProcessor,
-  pipeline: PipelineOrchestrator,
+  _pipeline: PipelineOrchestrator,
   promotionWorker: PromotionWorker,
   docContext: DocumentProcessingContext,
   pipelineOrchestrator: DocumentPipelineOrchestrator

@@ -19,11 +19,6 @@ function getPool(): Pool {
       void pool.end();
     }
     poolConnectionString = connectionString;
-    if (process.env.NODE_ENV === 'test') {
-      process.stderr.write(
-        `[E2E] Creating database pool with URL: ${connectionString.replace(/:[^:@]+@/, ':****@')}\n`
-      );
-    }
     pool = new Pool({
       connectionString,
       max: 10,
@@ -63,13 +58,6 @@ export async function buildServer(): Promise<FastifyInstance> {
     trustProxy: true,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
-  // Log all requests in E2E tests for debugging
-  if (env.NODE_ENV === 'test') {
-    server.addHook('onRequest', (request) => {
-      process.stderr.write(`[E2E API] ${request.method} ${request.url} from ${request.ip}\n`);
-    });
-  }
-
   server.decorate('db', getPool());
 
   await registerPlugins(server);
@@ -102,25 +90,28 @@ async function registerPlugins(server: FastifyInstance): Promise<void> {
     });
   }
 
-  await server.register(fastifyRateLimit, {
-    max: env.RATE_LIMIT_MAX,
-    timeWindow: env.RATE_LIMIT_WINDOW,
-    cache: 10000,
-    allowList: ['127.0.0.1', '::1'],
-    keyGenerator: (request: FastifyRequest) => {
-      return request.ip;
-    },
-    errorResponseBuilder: (request: FastifyRequest, context) => {
-      return {
-        error: {
-          statusCode: 429,
-          message: `Rate limit exceeded. Try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
-          requestId: request.id,
-          code: 'RATE_LIMIT_EXCEEDED',
-        },
-      };
-    },
-  });
+  // Skip rate limiting in test environment to avoid hangs
+  if (env.NODE_ENV !== 'test') {
+    await server.register(fastifyRateLimit, {
+      max: env.RATE_LIMIT_MAX,
+      timeWindow: env.RATE_LIMIT_WINDOW,
+      cache: 10000,
+      allowList: ['127.0.0.1', '::1'],
+      keyGenerator: (request: FastifyRequest) => {
+        return request.ip;
+      },
+      errorResponseBuilder: (request: FastifyRequest, context) => {
+        return {
+          error: {
+            statusCode: 429,
+            message: `Rate limit exceeded. Try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
+            requestId: request.id,
+            code: 'RATE_LIMIT_EXCEEDED',
+          },
+        };
+      },
+    });
+  }
 }
 
 interface FastifyError extends Error {

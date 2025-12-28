@@ -11,7 +11,7 @@ function getTestDatabaseUrl(): string {
     return process.env.TEST_DATABASE_URL;
   }
 
-  const defaultTestUrl = 'postgresql://test:test@localhost:5432/polyladder_test';
+  const defaultTestUrl = 'postgresql://test:test@localhost:5434/polyladder_test';
 
   if (process.env.DATABASE_URL) {
     const devUrl = process.env.DATABASE_URL;
