@@ -54,6 +54,11 @@ export class ContentProcessor {
   private initializeSources(): void {
     this.sourceRegistry.register(new RuleBasedAdapter());
 
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Test environment detected - LLM generation disabled');
+      return;
+    }
+
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (anthropicKey) {
       this.sourceRegistry.register(new AnthropicAdapter(anthropicKey));
@@ -90,7 +95,6 @@ export class ContentProcessor {
       await this.repository.trackGenerationCost(generated, workItem.type);
     }
 
-    // Transition each draft from DRAFT to CANDIDATE
     const transitionRepo = this.createTransitionRepository();
 
     for (const draftId of draftIds) {

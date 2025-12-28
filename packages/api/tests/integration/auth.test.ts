@@ -40,11 +40,12 @@ describe('Auth Integration Tests', () => {
 
   describe('POST /api/v1/auth/register', () => {
     it('should register a new user', async () => {
+      const uniqueEmail = `test-newuser-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
         payload: {
-          email: 'test-newuser@example.com',
+          email: uniqueEmail,
           password: 'SecurePassword123!',
         },
       });
@@ -52,16 +53,17 @@ describe('Auth Integration Tests', () => {
       expect(response.statusCode).toBe(201);
       const body = response.json<RegisterResponse>();
       expect(body.userId).toBeDefined();
-      expect(body.email).toBe('test-newuser@example.com');
+      expect(body.email).toBe(uniqueEmail);
       expect(body.role).toBe('learner');
     });
 
     it('should register an operator when role specified', async () => {
+      const uniqueEmail = `test-operator-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
         payload: {
-          email: 'test-operator@example.com',
+          email: uniqueEmail,
           password: 'SecurePassword123!',
           role: 'operator',
         },
@@ -118,8 +120,9 @@ describe('Auth Integration Tests', () => {
 
   describe('POST /auth/login', () => {
     it('should login with valid credentials', async () => {
+      const uniqueEmail = `test-login-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
       const user = await createTestUser(pool, {
-        email: 'test-login@example.com',
+        email: uniqueEmail,
         password: 'SecurePassword123!',
       });
 
@@ -156,8 +159,9 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should reject invalid password', async () => {
+      const uniqueEmail = `test-wrongpass-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
       await createTestUser(pool, {
-        email: 'test-wrongpass@example.com',
+        email: uniqueEmail,
         password: 'CorrectPassword123!',
       });
 
@@ -165,7 +169,7 @@ describe('Auth Integration Tests', () => {
         method: 'POST',
         url: '/api/v1/auth/login',
         payload: {
-          email: 'test-wrongpass@example.com',
+          email: uniqueEmail,
           password: 'WrongPassword123!',
         },
       });
@@ -186,11 +190,11 @@ describe('Auth Integration Tests', () => {
         url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
-      
+
       if (loginResponse.statusCode !== 200) {
         throw new Error(`Login failed: ${loginResponse.statusCode} - ${loginResponse.body}`);
       }
-      
+
       const { accessToken } = loginResponse.json<LoginResponse>();
 
       const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user.id]);
@@ -247,14 +251,16 @@ describe('Auth Integration Tests', () => {
         url: '/api/v1/auth/login',
         payload: { email: user.email, password: user.password },
       });
-      
+
       if (loginResponse.statusCode !== 200) {
         throw new Error(`Login failed: ${loginResponse.statusCode} - ${loginResponse.body}`);
       }
-      
+
       const { refreshToken } = loginResponse.json<LoginResponse>();
 
-      const tokenCheck = await pool.query('SELECT user_id FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      const tokenCheck = await pool.query('SELECT user_id FROM refresh_tokens WHERE token = $1', [
+        refreshToken,
+      ]);
       if (tokenCheck.rows.length === 0) {
         const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user.id]);
         if (userCheck.rows.length === 0) {
@@ -266,7 +272,9 @@ describe('Auth Integration Tests', () => {
           payload: { email: user.email, password: user.password },
         });
         if (retryLoginResponse.statusCode !== 200) {
-          throw new Error(`Retry login failed: ${retryLoginResponse.statusCode} - ${retryLoginResponse.body}`);
+          throw new Error(
+            `Retry login failed: ${retryLoginResponse.statusCode} - ${retryLoginResponse.body}`
+          );
         }
         const newRefreshToken = retryLoginResponse.json<LoginResponse>().refreshToken;
         const response = await server.inject({
@@ -304,8 +312,9 @@ describe('Auth Integration Tests', () => {
 
   describe('POST /auth/logout', () => {
     it('should logout and invalidate refresh token', async () => {
+      const uniqueEmail = `test-logout-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`;
       const user = await createTestUser(pool, {
-        email: 'test-logout@example.com',
+        email: uniqueEmail,
         password: 'SecurePassword123!',
       });
 

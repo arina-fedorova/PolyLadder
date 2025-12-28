@@ -10,6 +10,7 @@ import {
 } from '@polyladder/core';
 import { recordTransition, moveItemToState } from '@polyladder/db';
 import { logger } from '../utils/logger';
+import { PipelineEventLogger } from './pipeline-event-logger.service';
 
 export interface CandidateRecord {
   id: string;
@@ -22,10 +23,12 @@ export interface CandidateRecord {
 export class PromotionWorker {
   private pool: Pool;
   private gates: QualityGate[];
+  private eventLogger: PipelineEventLogger;
 
   constructor(pool: Pool, gates: QualityGate[]) {
     this.pool = pool;
     this.gates = gates;
+    this.eventLogger = new PipelineEventLogger(pool);
   }
 
   private createTransitionRepository(): TransitionRepository {
@@ -46,7 +49,6 @@ export class PromotionWorker {
   }
 
   async processBatch(batchSize = 10): Promise<number> {
-    // Find candidates that haven't been validated yet
     const result = await this.pool.query<CandidateRecord>(
       `SELECT id, data_type as "dataType", normalized_data as "normalizedData",
               draft_id as "draftId", created_at as "createdAt"
@@ -70,7 +72,14 @@ export class PromotionWorker {
         await this.processCandidate(candidate);
         processed++;
       } catch (error) {
-        logger.error({ candidateId: candidate.id, error }, 'Failed to process candidate');
+        logger.error(
+          {
+            candidateId: candidate.id,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Failed to process candidate'
+        );
       }
     }
 
@@ -81,23 +90,38 @@ export class PromotionWorker {
     const normalizedData = candidate.normalizedData as Record<string, unknown>;
     const text = this.extractTextFromNormalizedData(normalizedData);
     const language = (normalizedData.language as string) ?? 'EN';
+    const level = (normalizedData.level as string) ?? 'A1';
 
-    const input: GateInput = {
+    const input: GateInput & { level: string } = {
       text,
       language,
       contentType: candidate.dataType,
+      level,
       metadata: {
         candidateId: candidate.id,
         dataType: candidate.dataType,
         draftId: candidate.draftId,
+        level,
       },
     };
 
-    // Run quality gates
     const gateResult = await runGatesByTier(this.gates, input);
 
     if (gateResult.allPassed) {
-      // Transition to VALIDATED
+      const validatedResult = await this.pool.query<{ id: string }>(
+        `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [
+          candidate.dataType,
+          JSON.stringify(candidate.normalizedData),
+          candidate.id,
+          JSON.stringify({ passed: true, gateResults: gateResult.results }),
+        ]
+      );
+
+      const validatedId = validatedResult.rows[0].id;
+
       const transitionRepo = this.createTransitionRepository();
       await executeTransitionSimple(transitionRepo, {
         itemId: candidate.id,
@@ -110,13 +134,54 @@ export class PromotionWorker {
         },
       });
 
+      await this.pool.query(
+        `UPDATE pipeline_tasks
+         SET item_id = $1, item_type = 'validated', current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
+         WHERE item_id = $2 AND current_stage = 'CANDIDATE'`,
+        [validatedId, candidate.id]
+      );
+
+      await this.eventLogger.logEvent({
+        itemId: candidate.id,
+        itemType: 'candidate',
+        eventType: 'quality_gates_passed',
+        fromStage: 'CANDIDATE',
+        toStage: 'VALIDATED',
+        fromStatus: 'processing',
+        toStatus: 'completed',
+        stage: 'VALIDATED',
+        status: 'completed',
+        success: true,
+        durationMs: gateResult.executionTimeMs,
+        payload: {
+          gateResults: gateResult.results,
+          gatesPassed: gateResult.results.length,
+        },
+      });
+
       logger.info(
         { candidateId: candidate.id, gates: gateResult.results.length },
         'Candidate promoted to VALIDATED'
       );
     } else {
-      // Record failures
       await this.recordFailures(candidate.id, gateResult.results);
+
+      await this.eventLogger.logEvent({
+        itemId: candidate.id,
+        itemType: 'candidate',
+        eventType: 'quality_gates_failed',
+        stage: 'CANDIDATE',
+        status: 'failed',
+        fromStatus: 'processing',
+        toStatus: 'failed',
+        success: false,
+        errorMessage: `Failed at gate: ${gateResult.failedAt}`,
+        durationMs: gateResult.executionTimeMs,
+        payload: {
+          gateResults: gateResult.results,
+          failedAt: gateResult.failedAt,
+        },
+      });
 
       logger.warn(
         { candidateId: candidate.id, failedAt: gateResult.failedAt },

@@ -7,7 +7,6 @@ import {
   generateToken,
   UserRole,
 } from '@polyladder/core';
-import { findUserByEmail, updatePassword } from '@polyladder/db';
 import { getEnv } from '../../config/env';
 import { ErrorResponseSchema } from '../../schemas/common';
 
@@ -66,42 +65,84 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const { email, password } = request.body;
       const normalizedEmail = email.toLowerCase();
 
+      const userResult = await fastify.db.query<{
+        id: string;
+        email: string;
+        password_hash: string;
+        role: 'learner' | 'operator';
+        base_language: string;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `SELECT id, email, password_hash, role,
+                base_language, created_at, updated_at
+         FROM users
+         WHERE email = $1`,
+        [normalizedEmail]
+      );
+
+      const userRow = userResult.rows[0];
+
+      if (!userRow) {
+        const allUsersResult = await fastify.db.query<{ email: string }>(
+          'SELECT email FROM users LIMIT 10'
+        );
+        const databaseUrl = process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@');
+        const logData = {
+          email: normalizedEmail,
+          searchedEmail: normalizedEmail,
+          allUsers: allUsersResult.rows.map((r) => r.email),
+          databaseUrl,
+          rowCount: userResult.rowCount,
+        };
+        request.log.warn(logData, 'User not found during login');
+        return reply.status(401).send({
+          error: {
+            statusCode: 401,
+            message: 'Invalid email or password',
+            requestId: request.id,
+            code: 'INVALID_CREDENTIALS',
+          },
+        });
+      }
+
+      const user = {
+        id: userRow.id,
+        email: userRow.email,
+        passwordHash: userRow.password_hash,
+        role: userRow.role,
+        baseLanguage: userRow.base_language as 'EN' | 'IT' | 'PT' | 'SL' | 'ES',
+        createdAt: userRow.created_at,
+        updatedAt: userRow.updated_at,
+      };
+
+      const isValid = await verifyPassword(password, user.passwordHash);
+
+      if (!isValid) {
+        request.log.warn(
+          { email: normalizedEmail, userId: user.id },
+          'Password verification failed during login'
+        );
+        return reply.status(401).send({
+          error: {
+            statusCode: 401,
+            message: 'Invalid email or password',
+            requestId: request.id,
+            code: 'INVALID_CREDENTIALS',
+          },
+        });
+      }
+
       const client = await fastify.db.connect();
       try {
         await client.query('BEGIN');
 
-        const user = await findUserByEmail(normalizedEmail);
-
-        if (!user) {
-          await client.query('ROLLBACK');
-          return reply.status(401).send({
-            error: {
-              statusCode: 401,
-              message: 'Invalid email or password',
-              requestId: request.id,
-              code: 'INVALID_CREDENTIALS',
-            },
-          });
-        }
-
-        const isValid = await verifyPassword(password, user.passwordHash);
-
-        if (!isValid) {
-          await client.query('ROLLBACK');
-          return reply.status(401).send({
-            error: {
-              statusCode: 401,
-              message: 'Invalid email or password',
-              requestId: request.id,
-              code: 'INVALID_CREDENTIALS',
-            },
-          });
-        }
-
-        // Check if password needs rehashing
         if (needsRehash(user.passwordHash)) {
           const newHash = await hashPassword(password);
-          await updatePassword(user.id, newHash);
+          await client.query(
+            'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [newHash, user.id]
+          );
         }
 
         const tokenPayload = {

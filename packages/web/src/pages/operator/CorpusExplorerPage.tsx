@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Search, Download, Eye, Filter, ChevronLeft, ChevronRight, Database } from 'lucide-react';
@@ -125,7 +125,6 @@ export function CorpusExplorerPage() {
 
   const handleExport = () => {
     if (selectedItems.size === 0 || contentTypeFilter === 'all') {
-      alert('Please select a specific content type and items to export');
       return;
     }
 
@@ -152,8 +151,8 @@ export function CorpusExplorerPage() {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-      } catch {
-        alert('Export failed');
+      } catch (_error) {
+        void _error;
       }
     })();
   };

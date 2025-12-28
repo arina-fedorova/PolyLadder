@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowRight } from 'lucide-react';
 
 interface PipelineFlowChartProps {
@@ -21,7 +20,8 @@ export function PipelineFlowChart({ summary }: PipelineFlowChartProps) {
 
   const maxCount = summary.total || 1;
   const getWidthPercentage = (count: number) => {
-    return Math.max((count / maxCount) * 100, 10);
+    if (count === 0) return 0;
+    return (count / maxCount) * 100;
   };
 
   return (

@@ -133,3 +133,114 @@ export async function insertServiceState(
     [data.serviceName, '{}', data.lastCheckpoint ?? new Date()]
   );
 }
+
+export async function createTestDocument(
+  pool: Pool,
+  overrides: {
+    id?: string;
+    uploadedBy: string;
+    filename?: string;
+    language?: string;
+    targetLevel?: string;
+    status?: string;
+  }
+): Promise<{ id: string; original_filename: string }> {
+  const id = overrides.id ?? uuidv4();
+  const originalFilename = overrides.filename ?? `test-doc-${id}.pdf`;
+  const filename = `${id}.pdf`; // Sanitized filename for storage
+  const language = overrides.language ?? 'EN';
+  const targetLevel = overrides.targetLevel ?? 'A1';
+  const status = overrides.status ?? 'pending';
+
+  await pool.query(
+    `INSERT INTO document_sources
+     (id, filename, original_filename, mime_type, file_size_bytes, storage_path, language, target_level, document_type, status, uploaded_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'textbook', $9, $10)`,
+    [
+      id,
+      filename,
+      originalFilename,
+      'application/pdf',
+      1024,
+      `/test/${filename}`,
+      language,
+      targetLevel,
+      status,
+      overrides.uploadedBy,
+    ]
+  );
+
+  return { id, original_filename: originalFilename };
+}
+
+export async function createTestChunk(
+  pool: Pool,
+  data: {
+    id?: string;
+    documentId: string;
+    text?: string;
+  }
+): Promise<{ id: string }> {
+  const id = data.id ?? uuidv4();
+  const text = data.text ?? 'Test chunk text content';
+
+  await pool.query(
+    `INSERT INTO raw_content_chunks
+     (id, document_id, chunk_index, raw_text, created_at)
+     VALUES ($1, $2, 0, $3, CURRENT_TIMESTAMP)`,
+    [id, data.documentId, text]
+  );
+
+  return { id };
+}
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export async function createTestTopic(
+  pool: Pool,
+  data: {
+    id?: string;
+    levelId: string;
+    name?: string;
+  }
+): Promise<{ id: string }> {
+  const id = data.id ?? uuidv4();
+  const name = data.name ?? 'Test Topic';
+  const slug = generateSlug(name);
+
+  await pool.query(
+    `INSERT INTO curriculum_topics
+     (id, level_id, name, slug, description, content_type, estimated_items, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, 'Test description', 'vocabulary', 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    [id, data.levelId, name, slug]
+  );
+
+  return { id };
+}
+
+export async function createTestMapping(
+  pool: Pool,
+  data: {
+    id?: string;
+    chunkId: string;
+    topicId: string;
+    status?: string;
+  }
+): Promise<{ id: string }> {
+  const id = data.id ?? uuidv4();
+  const status = data.status ?? 'auto_mapped';
+
+  await pool.query(
+    `INSERT INTO content_topic_mappings
+     (id, chunk_id, topic_id, confidence_score, status, created_at)
+     VALUES ($1, $2, $3, 0.95, $4, CURRENT_TIMESTAMP)`,
+    [id, data.chunkId, data.topicId, status]
+  );
+
+  return { id };
+}

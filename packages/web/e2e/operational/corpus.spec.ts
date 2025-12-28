@@ -15,10 +15,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
-    await page.getByLabel('Password').fill('TestPassword123');
+    await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
 
     await page.goto('/operator/corpus');
     await expect(page.getByText('403')).toBeVisible();
@@ -34,10 +34,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
 
     await page.goto('/operator/corpus');
     await expect(page.getByRole('heading', { name: 'Approved Corpus Explorer' })).toBeVisible({
@@ -54,10 +54,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
     await page.goto('/operator/corpus');
 
     await expect(page.getByRole('heading', { name: 'Approved Corpus Explorer' })).toBeVisible({
@@ -77,10 +77,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
     await page.goto('/operator/corpus');
 
     await expect(page.getByRole('heading', { name: 'Approved Corpus Explorer' })).toBeVisible({
@@ -98,10 +98,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
     await expect(page.getByRole('link', { name: 'Corpus' })).toBeVisible({ timeout: 10000 });
   });
 
@@ -114,10 +114,10 @@ test.describe('Corpus Explorer', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
     await page.goto('/operator/corpus');
 
     await expect(page.getByRole('heading', { name: 'Approved Corpus Explorer' })).toBeVisible({

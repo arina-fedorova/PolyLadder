@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { CheckCircle, XCircle, Eye, Filter } from 'lucide-react';
@@ -35,7 +35,10 @@ export function ReviewQueuePage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [detailModalItem, setDetailModalItem] = useState<ValidatedItem | null>(null);
-  const [feedbackItem, setFeedbackItem] = useState<{ id: string; type: 'draft' | 'candidate' | 'mapping' } | null>(null);
+  const [feedbackItem, setFeedbackItem] = useState<{
+    id: string;
+    type: 'draft' | 'candidate' | 'mapping';
+  } | null>(null);
 
   const pageSize = 20;
 
@@ -70,7 +73,7 @@ export function ReviewQueuePage() {
       await apiClient.post(`/operational/approve/${itemId}`, { dataType: item.dataType });
     },
     onMutate: async (itemId) => {
-      await queryClient.cancelQueries(['review-queue']);
+      await queryClient.cancelQueries({ queryKey: ['review-queue'] });
 
       const previousData = queryClient.getQueryData<ReviewQueueResponse>([
         'review-queue',
@@ -94,8 +97,8 @@ export function ReviewQueuePage() {
       }
     },
     onSettled: () => {
-      void queryClient.invalidateQueries(['review-queue']);
-      void queryClient.invalidateQueries(['pipeline-health']);
+      void queryClient.invalidateQueries({ queryKey: ['review-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['pipeline-health'] });
     },
   });
 
@@ -119,7 +122,7 @@ export function ReviewQueuePage() {
       await apiClient.post(`/operational/reject/${itemId}`, { dataType: item.dataType, reason });
     },
     onMutate: async ({ itemId }) => {
-      await queryClient.cancelQueries(['review-queue']);
+      await queryClient.cancelQueries({ queryKey: ['review-queue'] });
 
       const previousData = queryClient.getQueryData<ReviewQueueResponse>([
         'review-queue',
@@ -143,8 +146,8 @@ export function ReviewQueuePage() {
       }
     },
     onSettled: () => {
-      void queryClient.invalidateQueries(['review-queue']);
-      void queryClient.invalidateQueries(['pipeline-health']);
+      void queryClient.invalidateQueries({ queryKey: ['review-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['pipeline-health'] });
     },
   });
 
@@ -185,7 +188,8 @@ export function ReviewQueuePage() {
   const handleReject = (itemId: string) => {
     const item = data?.items.find((i) => i.id === itemId);
     if (item) {
-      const itemType: 'draft' | 'candidate' | 'mapping' = item.dataType === 'meaning' || item.dataType === 'utterance' ? 'candidate' : 'draft';
+      const itemType: 'draft' | 'candidate' | 'mapping' =
+        item.dataType === 'meaning' || item.dataType === 'utterance' ? 'candidate' : 'draft';
       setFeedbackItem({ id: itemId, type: itemType });
     }
   };
@@ -457,7 +461,7 @@ export function ReviewQueuePage() {
           onClose={() => setFeedbackItem(null)}
           onSubmit={() => {
             setFeedbackItem(null);
-            void queryClient.invalidateQueries(['review-queue']);
+            void queryClient.invalidateQueries({ queryKey: ['review-queue'] });
             selectedItems.delete(feedbackItem.id);
             setSelectedItems(new Set(selectedItems));
           }}

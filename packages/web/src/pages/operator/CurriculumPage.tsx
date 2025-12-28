@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, GripVertical, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Edit2, ChevronDown, ChevronRight, Upload } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface CurriculumLevel {
@@ -35,7 +35,14 @@ export function CurriculumPage() {
   const [selectedLanguage, setSelectedLanguage] = useState('ES');
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
+  const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (selectedLanguage) {
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
+    }
+  }, [selectedLanguage, queryClient]);
 
   const { data: levels, isLoading: levelsLoading } = useQuery<{ levels: CurriculumLevel[] }>({
     queryKey: ['curriculum-levels', selectedLanguage],
@@ -45,17 +52,30 @@ export function CurriculumPage() {
       );
       return response.data;
     },
+    staleTime: 0,
   });
 
-  const { data: topics } = useQuery<{ topics: CurriculumTopic[] }>({
+  const {
+    data: topics,
+    isLoading: topicsLoading,
+    error: topicsError,
+  } = useQuery<{ topics: CurriculumTopic[] }>({
     queryKey: ['curriculum-topics', expandedLevel],
     queryFn: async () => {
+      if (!expandedLevel) {
+        throw new Error('Level ID is required');
+      }
+      const levelExists = levels?.levels.some((l) => l.id === expandedLevel);
+      if (!levelExists) {
+        throw new Error(`Level ${expandedLevel} not found. Please refresh the page.`);
+      }
       const response = await apiClient.get<{ topics: CurriculumTopic[] }>(
         `/operational/curriculum/topics/${expandedLevel}`
       );
       return response.data;
     },
-    enabled: !!expandedLevel,
+    enabled: !!expandedLevel && !!levels?.levels.length,
+    staleTime: 0,
   });
 
   const createTopicMutation = useMutation({
@@ -63,6 +83,7 @@ export function CurriculumPage() {
       apiClient.post('/operational/curriculum/topics', topic),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
     },
   });
 
@@ -71,6 +92,7 @@ export function CurriculumPage() {
       apiClient.put(`/operational/curriculum/topics/${id}`, updates),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
       setEditingTopic(null);
     },
   });
@@ -79,6 +101,23 @@ export function CurriculumPage() {
     mutationFn: (id: string) => apiClient.delete(`/operational/curriculum/topics/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-levels', selectedLanguage] });
+    },
+  });
+
+  const bulkCreateTopicsMutation = useMutation({
+    mutationFn: async (topics: Partial<CurriculumTopic>[]) => {
+      const response = await apiClient.post<{
+        created: number;
+        failed: number;
+        topics: CurriculumTopic[];
+        errors: string[];
+      }>('/operational/curriculum/topics/bulk', { topics });
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
+      setBulkImportLevel(null);
     },
   });
 
@@ -141,9 +180,11 @@ export function CurriculumPage() {
                   </div>
                 </div>
                 <div className="text-sm text-gray-500">
-                  {topics?.topics && expandedLevel === level.id
-                    ? `${topics.topics.length} topics`
-                    : ''}
+                  {expandedLevel === level.id && topicsLoading
+                    ? 'Loading...'
+                    : topics?.topics && expandedLevel === level.id
+                      ? `${topics.topics.length} topics`
+                      : ''}
                 </div>
               </button>
 
@@ -151,17 +192,37 @@ export function CurriculumPage() {
                 <div className="p-4 border-t bg-gray-50">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-medium text-gray-900">Topics</h3>
-                    <button
-                      onClick={() => handleCreateTopic(level.id)}
-                      disabled={createTopicMutation.isPending}
-                      className="btn btn-primary btn-sm flex items-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      {createTopicMutation.isPending ? 'Adding...' : 'Add Topic'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setBulkImportLevel(level.id)}
+                        className="btn btn-secondary btn-sm flex items-center gap-1"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Bulk Import
+                      </button>
+                      <button
+                        onClick={() => handleCreateTopic(level.id)}
+                        disabled={createTopicMutation.isPending}
+                        className="btn btn-primary btn-sm flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {createTopicMutation.isPending ? 'Adding...' : 'Add Topic'}
+                      </button>
+                    </div>
                   </div>
 
-                  {topics?.topics.length === 0 ? (
+                  {topicsError ? (
+                    <div className="text-center py-8 bg-white border border-red-300 rounded-lg">
+                      <p className="text-red-500 mb-2">Error loading topics</p>
+                      <p className="text-sm text-red-400">
+                        {topicsError instanceof Error ? topicsError.message : 'Unknown error'}
+                      </p>
+                    </div>
+                  ) : topicsLoading ? (
+                    <div className="text-center py-8 bg-white border border-dashed border-gray-300 rounded-lg">
+                      <p className="text-gray-500 mb-2">Loading topics...</p>
+                    </div>
+                  ) : !topics || !topics.topics || topics.topics.length === 0 ? (
                     <div className="text-center py-8 bg-white border border-dashed border-gray-300 rounded-lg">
                       <p className="text-gray-500 mb-2">No topics defined yet</p>
                       <p className="text-sm text-gray-400">
@@ -170,7 +231,7 @@ export function CurriculumPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {topics?.topics.map((topic: CurriculumTopic) => (
+                      {topics.topics.map((topic: CurriculumTopic) => (
                         <div
                           key={topic.id}
                           className="flex items-center gap-3 p-3 bg-white border rounded hover:shadow-sm transition-shadow"
@@ -236,6 +297,18 @@ export function CurriculumPage() {
           onSave={(updates) => {
             updateTopicMutation.mutate({ id: editingTopic.id, updates });
           }}
+        />
+      )}
+
+      {bulkImportLevel && (
+        <BulkImportModal
+          levelId={bulkImportLevel}
+          onClose={() => setBulkImportLevel(null)}
+          onImport={(topics) => {
+            bulkCreateTopicsMutation.mutate(topics);
+          }}
+          isPending={bulkCreateTopicsMutation.isPending}
+          result={bulkCreateTopicsMutation.data}
         />
       )}
     </div>
@@ -322,6 +395,214 @@ function TopicEditModal({ topic, onClose, onSave }: TopicEditModalProps) {
             <button type="submit" className="btn btn-primary">
               Save Changes
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface BulkImportModalProps {
+  levelId: string;
+  onClose: () => void;
+  onImport: (topics: Partial<CurriculumTopic>[]) => void;
+  isPending: boolean;
+  result?: { created: number; failed: number; topics: CurriculumTopic[]; errors: string[] };
+}
+
+function BulkImportModal({ levelId, onClose, onImport, isPending, result }: BulkImportModalProps) {
+  const [jsonInput, setJsonInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const exampleJson = JSON.stringify(
+    [
+      {
+        levelId,
+        name: 'Greetings',
+        description: 'Basic greeting phrases',
+        contentType: 'vocabulary',
+        estimatedItems: 10,
+        prerequisites: [],
+      },
+      {
+        levelId,
+        name: 'Numbers 1-20',
+        description: 'Learning numbers from one to twenty',
+        contentType: 'vocabulary',
+        estimatedItems: 20,
+        prerequisites: [],
+      },
+    ],
+    null,
+    2
+  );
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content) as unknown;
+        setJsonInput(JSON.stringify(parsed, null, 2));
+        setError(null);
+      } catch (err) {
+        setError(`Invalid JSON file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    try {
+      const parsed = JSON.parse(jsonInput) as unknown;
+      if (!Array.isArray(parsed)) {
+        setError('JSON must be an array of topics');
+        return;
+      }
+
+      const topics: Partial<CurriculumTopic>[] = parsed.map((topic: unknown) => {
+        const t = topic as Record<string, unknown>;
+        return {
+          ...t,
+          levelId,
+          contentType: (t.contentType as CurriculumTopic['contentType']) || 'vocabulary',
+          estimatedItems: (t.estimatedItems as number) || 0,
+          prerequisites: (t.prerequisites as string[]) || [],
+        } as Partial<CurriculumTopic>;
+      });
+
+      onImport(topics);
+    } catch (err) {
+      setError(`Invalid JSON: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">Bulk Import Topics</h2>
+
+        {result && (
+          <div
+            className={`mb-4 p-4 rounded-lg ${
+              result.failed === 0
+                ? 'bg-green-50 border border-green-200'
+                : 'bg-yellow-50 border border-yellow-200'
+            }`}
+          >
+            <div className="font-medium mb-2">
+              {result.failed === 0 ? '✅ Import Successful' : '⚠️ Partial Success'}
+            </div>
+            <div className="text-sm space-y-1">
+              <div>Created: {result.created} topics</div>
+              {result.failed > 0 && (
+                <div className="text-red-600">Failed: {result.failed} topics</div>
+              )}
+              {result.errors.length > 0 && (
+                <div className="mt-2">
+                  <div className="font-medium text-red-600">Errors:</div>
+                  <ul className="list-disc list-inside text-xs mt-1">
+                    {result.errors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Upload JSON File</label>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleFileUpload}
+              className="input w-full"
+              disabled={isPending}
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">Or Paste JSON</label>
+              <button
+                type="button"
+                onClick={() => setJsonInput(exampleJson)}
+                className="text-sm text-primary-600 hover:text-primary-700"
+                disabled={isPending}
+              >
+                Load Example
+              </button>
+            </div>
+            <textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              className="input w-full font-mono text-sm"
+              rows={15}
+              placeholder="Paste JSON array of topics here..."
+              disabled={isPending}
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
+            <div className="font-medium mb-1">Required fields for each topic:</div>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>
+                <code>name</code> (string, 1-200 chars)
+              </li>
+              <li>
+                <code>contentType</code> (vocabulary | grammar | orthography | mixed)
+              </li>
+            </ul>
+            <div className="font-medium mt-2 mb-1">Optional fields:</div>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>
+                <code>description</code> (string)
+              </li>
+              <li>
+                <code>estimatedItems</code> (number, default: 0)
+              </li>
+              <li>
+                <code>prerequisites</code> (array of topic UUIDs, default: [])
+              </li>
+            </ul>
+            <div className="mt-2">
+              <code>levelId</code> will be automatically set to the current level.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              disabled={isPending}
+            >
+              {result ? 'Close' : 'Cancel'}
+            </button>
+            {!result && (
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isPending || !jsonInput.trim()}
+              >
+                {isPending ? 'Importing...' : 'Import Topics'}
+              </button>
+            )}
           </div>
         </form>
       </div>

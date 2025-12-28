@@ -21,7 +21,7 @@ test.describe('Protected Routes', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
-    await page.getByLabel('Password').fill('TestPassword123');
+    await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
@@ -37,12 +37,12 @@ test.describe('Protected Routes', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
-    await page.getByLabel('Password').fill('TestPassword123');
+    await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL('/dashboard');
 
-    await page.goto('/operator/pipeline');
+    await page.goto('/operator/pipelines');
 
     await expect(page.getByText('403')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("You don't have permission to access this page.")).toBeVisible();
@@ -57,15 +57,13 @@ test.describe('Protected Routes', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('operator@example.com');
-    await page.getByLabel('Password').fill('OperatorPass123');
+    await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/dashboard');
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
 
-    await page.goto('/operator/pipeline');
+    await page.goto('/operator/pipelines');
 
-    await expect(page.getByText(/Pipeline Dashboard|Failed to load dashboard metrics/)).toBeVisible(
-      { timeout: 10000 }
-    );
+    await expect(page.getByText(/Document Pipelines/)).toBeVisible({ timeout: 10000 });
   });
 });

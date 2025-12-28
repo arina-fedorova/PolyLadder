@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AxiosError } from 'axios';
 
@@ -14,15 +15,16 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
-  const navigate = useNavigate();
   const { login } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
+    // @ts-expect-error - zod 4.x type incompatibility with react-hook-form resolvers
     resolver: zodResolver(loginSchema),
   });
 
@@ -30,8 +32,14 @@ export function LoginPage() {
     setApiError(null);
 
     try {
-      await login(data);
-      void navigate('/dashboard');
+      const loggedInUser = await login(data);
+      // Navigate immediately using window.location.href for full page reload
+      // This ensures ProtectedRoute sees the updated auth state from localStorage
+      if (loggedInUser.role === 'operator') {
+        window.location.href = '/operator/pipelines';
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;
       setApiError(axiosError.response?.data?.error?.message || 'Login failed. Please try again.');
@@ -83,14 +91,25 @@ export function LoginPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
             </label>
-            <input
-              {...register('password')}
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              className="input mt-1"
-              placeholder="••••••••"
-            />
+            <div className="relative mt-1">
+              <input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                autoComplete="current-password"
+                className="input pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 focus:outline-none z-10"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={0}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
             )}

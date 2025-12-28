@@ -70,8 +70,8 @@ test.describe('Register Page', () => {
     await registerPage.roleSelect.selectOption('operator');
     await registerPage.submitButton.click();
 
-    // Should navigate to dashboard after auto-login
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // Should navigate to operator pipeline after auto-login
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
   });
 
   test('should show error when email already exists', async ({ page }) => {

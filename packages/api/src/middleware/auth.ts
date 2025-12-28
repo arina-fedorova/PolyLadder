@@ -76,7 +76,7 @@ export function optionalAuthMiddleware(request: FastifyRequest): void {
         role: payload.role as 'learner' | 'operator',
       };
     }
-  } catch {
-    // Invalid token - ignore
+  } catch (_error) {
+    void _error;
   }
 }

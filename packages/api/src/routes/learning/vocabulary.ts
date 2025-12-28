@@ -69,7 +69,6 @@ interface CountRow {
 const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /learning/vocabulary - Get user's vocabulary with filtering
   void fastify.get<{ Querystring: VocabularyQuery }>(
     '/vocabulary',
     {
@@ -86,7 +85,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { limit = 20, offset = 0, language, state, search } = request.query;
 
-      // Check if user is learning this language
       const userLangResult = await fastify.db.query(
         'SELECT id FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -103,7 +101,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Build query conditions
       const conditions: string[] = ['user_id = $1', 'language = $2'];
       const values: unknown[] = [userId, language];
       let paramIndex = 3;
@@ -120,7 +117,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
 
       const whereClause = conditions.join(' AND ');
 
-      // Get stats for this language
       const statsResult = await fastify.db.query<StatsRow>(
         `SELECT
            COUNT(*) FILTER (WHERE state = 'unknown') as unknown_count,
@@ -137,14 +133,12 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
         known_count: '0',
       };
 
-      // Get total count
       const countResult = await fastify.db.query<CountRow>(
         `SELECT COUNT(*) as total FROM user_vocabulary WHERE ${whereClause}`,
         values
       );
       const total = parseInt(countResult.rows[0].total, 10);
 
-      // Get paginated vocabulary
       const vocabResult = await fastify.db.query<VocabularyRow>(
         `SELECT id, word, language, state, first_seen, last_reviewed, review_count
          FROM user_vocabulary
@@ -178,7 +172,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/vocabulary - Add or update vocabulary item
   void fastify.post<{ Body: UpdateVocabularyRequest }>(
     '/vocabulary',
     {
@@ -198,7 +191,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { word, language, state } = request.body;
 
-      // Check if user is learning this language
       const userLangResult = await fastify.db.query(
         'SELECT id FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -215,7 +207,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Upsert vocabulary item
       const result = await fastify.db.query<VocabularyRow>(
         `INSERT INTO user_vocabulary (user_id, word, language, state, first_seen, updated_at)
          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -242,7 +233,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/vocabulary/review - Record a vocabulary review
   void fastify.post<{ Body: { word: string; language: string; correct: boolean } }>(
     '/vocabulary/review',
     {
@@ -270,7 +260,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { word, language, correct } = request.body;
 
-      // Get current vocabulary state
       const vocabResult = await fastify.db.query<{ state: string; review_count: number }>(
         'SELECT state, review_count FROM user_vocabulary WHERE user_id = $1 AND word = $2 AND language = $3',
         [userId, word, language]
@@ -290,8 +279,6 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
       const current = vocabResult.rows[0];
       const reviewCount = current.review_count + 1;
 
-      // Determine new state based on review result
-      // State machine: unknown -> learning (first encounter) -> known (5+ correct reviews)
       let newState = current.state;
       if (correct) {
         if (current.state === 'unknown') {
@@ -300,13 +287,11 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
           newState = 'known';
         }
       } else {
-        // Incorrect review: demote state
         if (current.state === 'known') {
           newState = 'learning';
         }
       }
 
-      // Update vocabulary
       await fastify.db.query(
         `UPDATE user_vocabulary
          SET state = $4, review_count = $5, last_reviewed = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP

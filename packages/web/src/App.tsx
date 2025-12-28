@@ -1,6 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/pages/public/LoginPage';
@@ -13,6 +12,9 @@ import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
 import { DocumentLibraryPage } from '@/pages/operator/DocumentLibraryPage';
 import { MappingReviewPage } from '@/pages/operator/MappingReviewPage';
+import { PipelineTaskDetailPage } from '@/pages/operator/PipelineTaskDetailPage';
+import { PipelinesPage } from '@/pages/operator/PipelinesPage';
+import { PipelineDetailPage } from '@/pages/operator/PipelineDetailPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -30,6 +32,14 @@ const LandingPage = () => (
     </div>
   </div>
 );
+
+const DashboardRedirect = () => {
+  const { user } = useAuth();
+  if (user?.role === 'operator') {
+    return <Navigate to="/operator/pipelines" replace />;
+  }
+  return <DashboardPage />;
+};
 
 const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -57,7 +67,29 @@ export function App() {
             element={
               <ProtectedRoute>
                 <MainLayout>
-                  <DashboardPage />
+                  <DashboardRedirect />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/pipelines"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout>
+                  <PipelinesPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/pipelines/:pipelineId"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout>
+                  <PipelineDetailPage />
                 </MainLayout>
               </ProtectedRoute>
             }
@@ -74,15 +106,10 @@ export function App() {
             }
           />
 
+          <Route path="/operator" element={<Navigate to="/operator/pipelines" replace />} />
           <Route
             path="/operator/pipeline"
-            element={
-              <ProtectedRoute requiredRole="operator">
-                <MainLayout>
-                  <OperatorDashboardPage />
-                </MainLayout>
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/operator/pipelines" replace />}
           />
 
           <Route
@@ -146,6 +173,17 @@ export function App() {
               <ProtectedRoute requiredRole="operator">
                 <MainLayout>
                   <MappingReviewPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/operator/pipeline/tasks/:taskId"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout>
+                  <PipelineTaskDetailPage />
                 </MainLayout>
               </ProtectedRoute>
             }

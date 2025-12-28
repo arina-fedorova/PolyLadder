@@ -16,6 +16,8 @@ import { createApprovalRepository } from './pipeline/steps/approval.step';
 import { SemanticMapperService } from './services/semantic-mapper.service';
 import { ContentTransformerService } from './services/content-transformer.service';
 import { PromotionWorker } from './services/promotion-worker.service';
+import { DocumentProcessorService } from './services/document-processor.service';
+import { DocumentPipelineOrchestrator } from './services/document-pipeline-orchestrator.service';
 import {
   createCEFRConsistencyGate,
   createOrthographyGate,
@@ -49,6 +51,7 @@ function getDatabaseUrl(): string {
 interface DocumentProcessingContext {
   semanticMapper: SemanticMapperService | null;
   contentTransformer: ContentTransformerService | null;
+  documentProcessor: DocumentProcessorService;
   pool: Pool;
 }
 
@@ -63,12 +66,35 @@ interface MappingForTransformation {
 
 async function findDocumentWithUnmappedChunks(pool: Pool): Promise<UnmappedDocument | null> {
   const result = await pool.query<UnmappedDocument>(
-    `SELECT DISTINCT d.id, l.id as level_id
+    `SELECT DISTINCT d.id, 
+            COALESCE(
+              NULLIF((SELECT l.id FROM curriculum_levels l 
+                      WHERE l.language = d.language 
+                        AND l.cefr_level = NULLIF(d.target_level, '') 
+                      LIMIT 1), NULL),
+              (SELECT l.id FROM curriculum_levels l 
+               WHERE l.language = d.language 
+                 AND l.cefr_level = 'A1' 
+               ORDER BY l.sort_order 
+               LIMIT 1)
+            ) as level_id
      FROM document_sources d
-     JOIN curriculum_levels l ON d.language = l.language AND d.target_level = l.cefr_level
      JOIN raw_content_chunks c ON c.document_id = d.id
      LEFT JOIN content_topic_mappings m ON m.chunk_id = c.id
-     WHERE d.status = 'ready' AND m.id IS NULL
+     WHERE d.status = 'ready' 
+       AND m.id IS NULL
+       AND d.language IS NOT NULL
+       AND COALESCE(
+             NULLIF((SELECT l.id FROM curriculum_levels l 
+                     WHERE l.language = d.language 
+                       AND l.cefr_level = NULLIF(d.target_level, '') 
+                     LIMIT 1), NULL),
+             (SELECT l.id FROM curriculum_levels l 
+              WHERE l.language = d.language 
+                AND l.cefr_level = 'A1' 
+              ORDER BY l.sort_order 
+              LIMIT 1)
+           ) IS NOT NULL
      LIMIT 1`
   );
   return result.rows[0] ?? null;
@@ -109,9 +135,10 @@ async function mainLoop(
   checkpoint: CheckpointService,
   workPlanner: WorkPlanner,
   contentProcessor: ContentProcessor,
-  pipeline: PipelineOrchestrator,
+  _pipeline: PipelineOrchestrator,
   promotionWorker: PromotionWorker,
-  docContext: DocumentProcessingContext
+  docContext: DocumentProcessingContext,
+  pipelineOrchestrator: DocumentPipelineOrchestrator
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
 
@@ -124,10 +151,18 @@ async function mainLoop(
   }
 
   let consecutiveEmptyIterations = 0;
+  let lastHeartbeat = previousState?.timestamp ?? new Date();
+  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
 
   while (!isShuttingDown) {
     try {
       let workDone = false;
+
+      const pipelinesProcessed = await pipelineOrchestrator.processActivePipelines();
+      if (pipelinesProcessed > 0) {
+        workDone = true;
+        logger.info({ count: pipelinesProcessed }, 'Pipelines processed');
+      }
 
       const workItem = await workPlanner.getNextWork();
 
@@ -146,23 +181,24 @@ async function mainLoop(
         };
 
         await checkpoint.saveState(state);
+        lastHeartbeat = new Date();
         logger.debug({ workId: workItem.id }, 'Work completed and checkpoint saved');
         workDone = true;
       }
 
-      // Process candidates through quality gates
       const promoted = await promotionWorker.processBatch();
       if (promoted > 0) {
         workDone = true;
         logger.info({ count: promoted }, 'Candidates promoted to VALIDATED');
       }
 
-      await pipeline.processBatch();
-
       const docProcessed = await processDocumentPipeline(docContext);
       if (docProcessed) {
         workDone = true;
       }
+
+      const now = new Date();
+      const timeSinceHeartbeat = now.getTime() - lastHeartbeat.getTime();
 
       if (!workDone) {
         consecutiveEmptyIterations++;
@@ -170,6 +206,22 @@ async function mainLoop(
           getLoopInterval() * Math.pow(1.5, Math.min(consecutiveEmptyIterations, 5)),
           MAX_LOOP_INTERVAL_MS
         );
+
+        if (timeSinceHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+          const heartbeatState: CheckpointState = {
+            lastProcessedId: previousState?.lastProcessedId ?? undefined,
+            lastProcessedType: previousState?.lastProcessedType ?? undefined,
+            timestamp: now,
+            metadata: {
+              heartbeat: true,
+              consecutiveEmptyIterations,
+              status: 'idle',
+            },
+          };
+          await checkpoint.saveState(heartbeatState);
+          lastHeartbeat = now;
+          logger.debug('Heartbeat checkpoint saved');
+        }
 
         logger.debug(
           { intervalMs: currentLoopInterval },
@@ -256,13 +308,12 @@ async function start(): Promise<void> {
   const pipelineRepo = createPipelineRepository(pool);
   const validationRepo = createValidationRepository(pool);
   const approvalRepo = createApprovalRepository(pool);
-  const pipeline = new PipelineOrchestrator(pipelineRepo, validationRepo, approvalRepo, {
+  const pipeline = new PipelineOrchestrator(pipelineRepo, validationRepo, approvalRepo, pool, {
     autoApproval: process.env.AUTO_APPROVAL === 'true',
     retryAttempts: 3,
     batchSize: 10,
   });
 
-  // Create quality gates for promotion worker
   const qualityGates = [
     createCEFRConsistencyGate(),
     createOrthographyGate(),
@@ -274,11 +325,16 @@ async function start(): Promise<void> {
     'Promotion worker initialized with quality gates'
   );
 
+  const documentProcessor = new DocumentProcessorService(pool);
+  logger.info('Document processor initialized');
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   let semanticMapper: SemanticMapperService | null = null;
   let contentTransformer: ContentTransformerService | null = null;
 
-  if (anthropicKey) {
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('Test environment detected - LLM services disabled');
+  } else if (anthropicKey) {
     semanticMapper = new SemanticMapperService(pool, anthropicKey);
     contentTransformer = new ContentTransformerService(pool, anthropicKey);
     logger.info('LLM services initialized (semantic mapping and content transformation)');
@@ -289,8 +345,17 @@ async function start(): Promise<void> {
   const docContext: DocumentProcessingContext = {
     semanticMapper,
     contentTransformer,
+    documentProcessor,
     pool,
   };
+
+  const pipelineOrchestrator = new DocumentPipelineOrchestrator(
+    pool,
+    semanticMapper,
+    contentTransformer,
+    promotionWorker
+  );
+  logger.info('Document pipeline orchestrator initialized');
 
   process.on('SIGTERM', () => {
     void gracefulShutdown(pool, 'SIGTERM');
@@ -307,7 +372,8 @@ async function start(): Promise<void> {
       contentProcessor,
       pipeline,
       promotionWorker,
-      docContext
+      docContext,
+      pipelineOrchestrator
     );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
