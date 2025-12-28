@@ -183,7 +183,6 @@ export function PipelineDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
@@ -229,7 +228,6 @@ export function PipelineDetailPage() {
         </div>
       </div>
 
-      {/* Pipeline Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Pipeline Status</h2>
@@ -346,7 +344,6 @@ export function PipelineDetailPage() {
         </div>
       </div>
 
-      {/* Content Lifecycle Progress */}
       {contentStats.total > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
@@ -356,7 +353,6 @@ export function PipelineDetailPage() {
             </span>
           </div>
 
-          {/* Waiting for Approval Alert */}
           {isWaitingForApproval && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
@@ -375,7 +371,6 @@ export function PipelineDetailPage() {
             </div>
           )}
 
-          {/* Progress Bar */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 bg-gray-200 rounded-full h-3">
@@ -387,9 +382,7 @@ export function PipelineDetailPage() {
             </div>
           </div>
 
-          {/* Lifecycle Stages */}
           <div className="grid grid-cols-4 gap-4">
-            {/* DRAFT */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
@@ -407,7 +400,6 @@ export function PipelineDetailPage() {
               )}
             </div>
 
-            {/* CANDIDATE */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
@@ -425,7 +417,6 @@ export function PipelineDetailPage() {
               )}
             </div>
 
-            {/* VALIDATED */}
             <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">
@@ -443,7 +434,6 @@ export function PipelineDetailPage() {
               )}
             </div>
 
-            {/* APPROVED */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
@@ -462,7 +452,6 @@ export function PipelineDetailPage() {
             </div>
           </div>
 
-          {/* Flow Arrows */}
           <div className="flex items-center justify-center gap-2 mt-4 text-gray-400">
             <span className="text-xs">DRAFT</span>
             <span>→</span>
@@ -475,7 +464,6 @@ export function PipelineDetailPage() {
         </div>
       )}
 
-      {/* Error Message */}
       {pipeline.error_message && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-sm font-medium text-red-800">Pipeline Error</p>
@@ -483,7 +471,6 @@ export function PipelineDetailPage() {
         </div>
       )}
 
-      {/* Tasks */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Tasks ({tasks.length})</h2>
         {tasks.length === 0 ? (
@@ -536,7 +523,6 @@ export function PipelineDetailPage() {
         )}
       </div>
 
-      {/* Event Timeline */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Event Timeline ({events.length})

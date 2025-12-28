@@ -68,7 +68,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
 
       try {
         await withTransaction(client, async (txClient) => {
-          // Check item exists in validated table
           const itemResult = await txClient.query(
             `SELECT * FROM validated WHERE id = $1 AND data_type = $2 FOR UPDATE`,
             [id, dataType]
@@ -78,7 +77,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
             throw new Error(`Item not found in validated table`);
           }
 
-          // Create repositories for lifecycle transitions
           const transitionRepo: TransitionRepository = {
             async recordTransition(params) {
               return await recordTransition(txClient, params);
@@ -95,7 +93,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
 
           const approvalEventRepo = createApprovalEventRepository(txClient);
 
-          // Execute VALIDATED → APPROVED transition
           await executeTransitionSimple(transitionRepo, {
             itemId: id,
             itemType: dataType,
@@ -107,8 +104,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
             },
           });
 
-          // Record approval event
-
           await recordApproval(approvalEventRepo, {
             itemId: id,
             itemType: dataType,
@@ -117,7 +112,6 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
             notes,
           });
 
-          // Update review queue
           await txClient.query(
             `UPDATE review_queue
              SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approve'

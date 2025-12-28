@@ -95,7 +95,6 @@ export class ContentProcessor {
       await this.repository.trackGenerationCost(generated, workItem.type);
     }
 
-    // Transition each draft from DRAFT to CANDIDATE
     const transitionRepo = this.createTransitionRepository();
 
     for (const draftId of draftIds) {

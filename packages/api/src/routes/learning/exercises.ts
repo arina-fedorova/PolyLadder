@@ -50,7 +50,6 @@ interface ExerciseRow {
 const exercisesRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /learning/exercises - Fetch exercises for practice
   void fastify.get<{ Querystring: ExerciseQuery }>(
     '/exercises',
     {
@@ -70,7 +69,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { language, level, type, count = 10 } = request.query;
 
-      // Check if user is learning this language
       const userLangResult = await fastify.db.query(
         'SELECT orthography_completed FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -87,7 +85,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Build query conditions
       const conditions: string[] = ['languages ? $1'];
       const values: unknown[] = [language];
       let paramIndex = 2;
@@ -104,7 +101,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
 
       const whereClause = conditions.join(' AND ');
 
-      // Fetch random exercises (excluding correct_answer)
       const exercisesResult = await fastify.db.query<ExerciseRow>(
         `SELECT id, type, level, languages, prompt, options, metadata
          FROM approved_exercises
@@ -131,7 +127,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/exercises/submit - Submit exercise answer
   void fastify.post<{ Body: SubmitExerciseRequest }>(
     '/exercises/submit',
     {
@@ -148,7 +143,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { exerciseId, answer, timeSpentMs } = request.body;
 
-      // Fetch exercise with correct answer
       const exerciseResult = await fastify.db.query<{
         correct_answer: string;
         metadata: { explanation?: string };
@@ -172,12 +166,10 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
       const exercise = exerciseResult.rows[0];
       const correctAnswer = exercise.correct_answer;
 
-      // Compare answers (case-insensitive, trimmed)
       const normalizedAnswer = answer.trim().toLowerCase();
       const normalizedCorrect = correctAnswer.trim().toLowerCase();
       const correct = normalizedAnswer === normalizedCorrect;
 
-      // Record result for analytics
       const language = exercise.languages[0] || 'EN';
       await fastify.db.query(
         `INSERT INTO user_exercise_results
@@ -196,7 +188,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // GET /learning/exercises/stats - Get exercise performance stats
   void fastify.get<{ Querystring: { language: string } }>(
     '/exercises/stats',
     {
@@ -226,7 +217,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { language } = request.query;
 
-      // Get overall stats
       const overallResult = await fastify.db.query<{
         total: string;
         correct: string;
@@ -243,7 +233,6 @@ const exercisesRoute: FastifyPluginAsync = async (fastify) => {
       const totalAttempts = parseInt(overall.total, 10);
       const correctAttempts = parseInt(overall.correct, 10);
 
-      // Get stats by type
       const byTypeResult = await fastify.db.query<{
         exercise_type: string;
         attempts: string;

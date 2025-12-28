@@ -49,7 +49,6 @@ export class PromotionWorker {
   }
 
   async processBatch(batchSize = 10): Promise<number> {
-    // Find candidates that haven't been validated yet
     const result = await this.pool.query<CandidateRecord>(
       `SELECT id, data_type as "dataType", normalized_data as "normalizedData",
               draft_id as "draftId", created_at as "createdAt"
@@ -97,7 +96,7 @@ export class PromotionWorker {
       text,
       language,
       contentType: candidate.dataType,
-      level, // Pass level at top level for CEFR gate
+      level,
       metadata: {
         candidateId: candidate.id,
         dataType: candidate.dataType,
@@ -106,11 +105,9 @@ export class PromotionWorker {
       },
     };
 
-    // Run quality gates
     const gateResult = await runGatesByTier(this.gates, input);
 
     if (gateResult.allPassed) {
-      // Move candidate to validated table
       const validatedResult = await this.pool.query<{ id: string }>(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
          VALUES ($1, $2, $3, $4)
@@ -125,7 +122,6 @@ export class PromotionWorker {
 
       const validatedId = validatedResult.rows[0].id;
 
-      // Record transition
       const transitionRepo = this.createTransitionRepository();
       await executeTransitionSimple(transitionRepo, {
         itemId: candidate.id,
@@ -138,11 +134,6 @@ export class PromotionWorker {
         },
       });
 
-      // NOTE: We don't delete the candidate - it's kept for audit trail
-      // The validated table references it via candidate_id
-
-      // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
-      // CRITICAL: Update item_id to point to new validated ID, not candidate ID
       await this.pool.query(
         `UPDATE pipeline_tasks
          SET item_id = $1, item_type = 'validated', current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
@@ -173,7 +164,6 @@ export class PromotionWorker {
         'Candidate promoted to VALIDATED'
       );
     } else {
-      // Record failures
       await this.recordFailures(candidate.id, gateResult.results);
 
       await this.eventLogger.logEvent({

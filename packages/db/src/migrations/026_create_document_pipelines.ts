@@ -2,20 +2,7 @@ import { MigrationBuilder, ColumnDefinitions } from 'node-pg-migrate';
 
 export const shorthands: ColumnDefinitions | undefined = undefined;
 
-/**
- * Migration 026: Create Document Pipelines Architecture
- *
- * This migration creates a proper pipeline architecture where:
- * 1. Each document has exactly ONE pipeline
- * 2. Pipeline contains multiple tasks (extract, chunk, map, transform, validate, approve)
- * 3. Each task has multiple events (event sourcing)
- * 4. Operators see pipelines (not individual tasks)
- */
-
 export function up(pgm: MigrationBuilder): void {
-  // ============================================
-  // STEP 1: Create pipelines table (one per document)
-  // ============================================
   pgm.createTable('pipelines', {
     id: {
       type: 'uuid',
@@ -25,7 +12,7 @@ export function up(pgm: MigrationBuilder): void {
     document_id: {
       type: 'uuid',
       notNull: true,
-      unique: true, // One pipeline per document
+      unique: true,
       references: 'document_sources(id)',
       onDelete: 'CASCADE',
     },
@@ -39,7 +26,8 @@ export function up(pgm: MigrationBuilder): void {
       type: 'varchar(50)',
       notNull: true,
       default: 'created',
-      comment: 'Current stage: created, extracting, chunking, mapping, transforming, validating, approving, completed',
+      comment:
+        'Current stage: created, extracting, chunking, mapping, transforming, validating, approving, completed',
     },
     progress_percentage: {
       type: 'integer',
@@ -94,10 +82,6 @@ export function up(pgm: MigrationBuilder): void {
     },
   });
 
-  // ============================================
-  // STEP 2: Create document_processing_tasks table
-  // ============================================
-  // Separate table for document processing (NOT content processing)
   pgm.createTable('document_processing_tasks', {
     id: {
       type: 'uuid',
@@ -161,9 +145,6 @@ export function up(pgm: MigrationBuilder): void {
     },
   });
 
-  // ============================================
-  // STEP 3: Create indexes
-  // ============================================
   pgm.createIndex('pipelines', 'document_id');
   pgm.createIndex('pipelines', 'status');
   pgm.createIndex('pipelines', 'current_stage');
@@ -176,14 +157,10 @@ export function up(pgm: MigrationBuilder): void {
   pgm.createIndex('document_processing_tasks', 'depends_on_task_id');
   pgm.createIndex('document_processing_tasks', ['pipeline_id', 'status']);
 
-  // ============================================
-  // STEP 4: Create function to update pipeline status
-  // ============================================
   pgm.sql(`
     CREATE OR REPLACE FUNCTION update_pipeline_status()
     RETURNS TRIGGER AS $$
     BEGIN
-      -- Update pipeline statistics when document processing task status changes
       IF TG_OP = 'UPDATE' AND NEW.status != OLD.status THEN
         UPDATE pipelines
         SET
@@ -220,9 +197,6 @@ export function up(pgm: MigrationBuilder): void {
     $$ LANGUAGE plpgsql;
   `);
 
-  // ============================================
-  // STEP 5: Create trigger for auto-update
-  // ============================================
   pgm.sql(`
     CREATE TRIGGER update_pipeline_status_trigger
     AFTER UPDATE ON document_processing_tasks
@@ -230,9 +204,6 @@ export function up(pgm: MigrationBuilder): void {
     EXECUTE FUNCTION update_pipeline_status();
   `);
 
-  // ============================================
-  // STEP 6: Create updated_at trigger for pipelines
-  // ============================================
   pgm.sql(`
     CREATE OR REPLACE FUNCTION update_pipelines_updated_at()
     RETURNS TRIGGER AS $$
@@ -250,7 +221,9 @@ export function up(pgm: MigrationBuilder): void {
 }
 
 export function down(pgm: MigrationBuilder): void {
-  pgm.dropTrigger('document_processing_tasks', 'update_pipeline_status_trigger', { ifExists: true });
+  pgm.dropTrigger('document_processing_tasks', 'update_pipeline_status_trigger', {
+    ifExists: true,
+  });
   pgm.dropFunction('update_pipeline_status', []);
   pgm.dropTrigger('pipelines', 'update_pipelines_updated_at', { ifExists: true });
   pgm.dropFunction('update_pipelines_updated_at', []);

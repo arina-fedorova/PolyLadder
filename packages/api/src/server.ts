@@ -13,7 +13,6 @@ function getPool(): Pool {
   const env = getEnv();
   const connectionString = env.DATABASE_URL;
 
-  // Recreate pool if DATABASE_URL changed (for E2E tests)
   if (!pool || poolConnectionString !== connectionString) {
     if (pool) {
       void pool.end();
@@ -90,7 +89,6 @@ async function registerPlugins(server: FastifyInstance): Promise<void> {
     });
   }
 
-  // Skip rate limiting in test environment to avoid hangs
   if (env.NODE_ENV !== 'test') {
     await server.register(fastifyRateLimit, {
       max: env.RATE_LIMIT_MAX,
@@ -253,7 +251,6 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     });
   });
 
-  // Register API v1 routes
   await server.register(
     async (apiV1: FastifyInstance) => {
       const authRoutes = (await import('./routes/auth/index')).default;

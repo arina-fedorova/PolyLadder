@@ -62,7 +62,6 @@ const ORTHOGRAPHY_PASS_THRESHOLD = 80;
 const orthographyRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /learning/orthography/:language - Get orthography lessons
   void fastify.get<{ Params: { language: string } }>(
     '/orthography/:language',
     {
@@ -81,7 +80,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { language } = request.params;
 
-      // Check if user is learning this language
       const userLangResult = await fastify.db.query<UserLanguageRow>(
         'SELECT orthography_completed FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -100,7 +98,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
 
       const orthographyCompleted = userLangResult.rows[0].orthography_completed;
 
-      // Get orthography concepts from curriculum graph
       const conceptsResult = await fastify.db.query<CurriculumRow>(
         `SELECT concept_id, metadata
          FROM curriculum_graph
@@ -109,7 +106,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
         [language]
       );
 
-      // Get user progress on orthography concepts
       const progressResult = await fastify.db.query<ProgressRow>(
         `SELECT concept_id
          FROM user_progress
@@ -145,7 +141,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/orthography/complete - Mark orthography gate as complete
   void fastify.post<{ Body: CompleteOrthographyRequest }>(
     '/orthography/complete',
     {
@@ -163,7 +158,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { language, accuracy } = request.body;
 
-      // Check if user is learning this language
       const userLangResult = await fastify.db.query<UserLanguageRow>(
         'SELECT orthography_completed FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -180,7 +174,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Check if already completed
       if (userLangResult.rows[0].orthography_completed) {
         return reply.status(200).send({
           success: true,
@@ -190,10 +183,8 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Check if user passed the threshold
       const passed = accuracy >= ORTHOGRAPHY_PASS_THRESHOLD;
 
-      // Update orthography accuracy (always) and completion status (if passed)
       await fastify.db.query(
         `UPDATE user_languages
          SET orthography_accuracy = $3,
@@ -221,7 +212,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/orthography/progress - Mark individual lesson as complete
   void fastify.post<{ Body: { conceptId: string } }>(
     '/orthography/progress',
     {
@@ -242,7 +232,6 @@ const orthographyRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { conceptId } = request.body;
 
-      // Upsert progress record
       await fastify.db.query(
         `INSERT INTO user_progress (user_id, concept_id, status, completion_date)
          VALUES ($1, $2, 'completed', CURRENT_TIMESTAMP)

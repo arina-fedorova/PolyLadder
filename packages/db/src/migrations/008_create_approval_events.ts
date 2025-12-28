@@ -1,7 +1,6 @@
 import type { MigrationBuilder } from 'node-pg-migrate';
 
 export function up(pgm: MigrationBuilder): void {
-  // Drop the old approval_events table from migration 003 and recreate with new schema
   pgm.dropTable('approval_events', { ifExists: true });
 
   pgm.createTable('approval_events', {

@@ -46,7 +46,6 @@ interface CountRow {
 const srsRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /learning/srs/due - Get items due for review
   void fastify.get<{ Querystring: SRSDueQuery }>(
     '/srs/due',
     {
@@ -65,7 +64,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { itemType, limit = 20 } = request.query;
 
-      // Build query conditions
       const conditions: string[] = ['user_id = $1', 'due_date <= CURRENT_TIMESTAMP'];
       const values: unknown[] = [userId];
       let paramIndex = 2;
@@ -77,7 +75,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
 
       const whereClause = conditions.join(' AND ');
 
-      // Get due items
       const dueResult = await fastify.db.query<SRSRow>(
         `SELECT id, item_type, item_id, due_date, interval_days, ease_factor, repetitions
          FROM user_srs_schedule
@@ -87,7 +84,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
         [...values, limit]
       );
 
-      // Get total count
       const countResult = await fastify.db.query<CountRow>(
         `SELECT COUNT(*) as total FROM user_srs_schedule WHERE ${whereClause}`,
         values
@@ -110,7 +106,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/srs/review - Record SRS review result
   void fastify.post<{ Body: SRSReviewRequest }>(
     '/srs/review',
     {
@@ -132,7 +127,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { itemId, itemType, quality } = request.body;
 
-      // Get current SRS state
       const srsResult = await fastify.db.query<SRSRow>(
         `SELECT id, interval_days, ease_factor, repetitions
          FROM user_srs_schedule
@@ -146,7 +140,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
       let isNew = false;
 
       if (srsResult.rows.length === 0) {
-        // Create new SRS entry
         isNew = true;
         intervalDays = 1;
         easeFactor = 2.5;
@@ -158,14 +151,10 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
         repetitions = current.repetitions;
       }
 
-      // SM-2 Algorithm implementation
-      // quality: 0-2 = incorrect, 3-5 = correct (with varying ease)
       if (quality < 3) {
-        // Incorrect: reset interval
         intervalDays = 1;
         repetitions = 0;
       } else {
-        // Correct: calculate new interval
         if (repetitions === 0) {
           intervalDays = 1;
         } else if (repetitions === 1) {
@@ -175,20 +164,16 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
         }
         repetitions += 1;
 
-        // Cap interval at 180 days
         intervalDays = Math.min(intervalDays, 180);
       }
 
-      // Update ease factor based on quality
       easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
       easeFactor = Math.max(1.3, easeFactor); // Minimum ease factor
 
-      // Calculate next due date
       const nextDueDate = new Date();
       nextDueDate.setDate(nextDueDate.getDate() + intervalDays);
 
       if (isNew) {
-        // Insert new record
         await fastify.db.query(
           `INSERT INTO user_srs_schedule
            (user_id, item_type, item_id, due_date, interval_days, ease_factor, repetitions)
@@ -196,7 +181,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
           [userId, itemType, itemId, nextDueDate, intervalDays, easeFactor, repetitions]
         );
       } else {
-        // Update existing record
         await fastify.db.query(
           `UPDATE user_srs_schedule
            SET due_date = $4, interval_days = $5, ease_factor = $6, repetitions = $7, updated_at = CURRENT_TIMESTAMP
@@ -219,7 +203,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // GET /learning/srs/stats - Get SRS statistics
   void fastify.get(
     '/srs/stats',
     {
@@ -244,7 +227,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const userId = request.user!.userId;
 
-      // Get overall stats
       const statsResult = await fastify.db.query<{
         total: string;
         due_today: string;
@@ -261,7 +243,6 @@ const srsRoute: FastifyPluginAsync = async (fastify) => {
 
       const stats = statsResult.rows[0] || { total: '0', due_today: '0', due_week: '0' };
 
-      // Get stats by type
       const byTypeResult = await fastify.db.query<{
         item_type: string;
         count: string;

@@ -280,7 +280,6 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
 
       const document = result.rows[0] as DocumentRow;
 
-      // Create pipeline for this document
       await fastify.db.query(
         `INSERT INTO pipelines (document_id, status, current_stage, metadata)
          VALUES ($1, 'pending', 'created', $2)`,

@@ -6,21 +6,6 @@ import { SemanticMapperService } from './semantic-mapper.service';
 import { ContentTransformerService } from './content-transformer.service';
 import { PromotionWorker } from './promotion-worker.service';
 
-/**
- * Document Pipeline Orchestrator
- *
- * Orchestrates the complete document processing pipeline:
- * 1. Document Upload → Create Pipeline
- * 2. Extract Text → Create extraction tasks
- * 3. Chunk Text → Create chunking tasks
- * 4. Map Chunks to Topics → Create mapping tasks
- * 5. Transform to Learning Content → Create transformation tasks (draft creation)
- * 6. Validate Content → Promote drafts → candidates → validated
- * 7. Approve Content → Move to approved tables
- *
- * Each stage creates tasks in the pipeline, ensuring full traceability.
- */
-
 export class DocumentPipelineOrchestrator {
   private pipelineManager: DocumentPipelineManager;
   private documentProcessor: DocumentProcessorService;
@@ -41,14 +26,9 @@ export class DocumentPipelineOrchestrator {
     this.promotionWorker = promotionWorker;
   }
 
-  /**
-   * Process all active pipelines
-   * This is called in the main loop
-   */
   async processActivePipelines(): Promise<number> {
     let processedCount = 0;
 
-    // Get all processing pipelines
     const processingPipelines = await this.pipelineManager.getPipelinesByStatus('processing', 10);
 
     for (const pipeline of processingPipelines) {
@@ -67,7 +47,6 @@ export class DocumentPipelineOrchestrator {
       }
     }
 
-    // Also check completed pipelines in 'mapping', 'transforming', or 'completed' stage - they might have newly confirmed mappings
     const mappingPipelines = await this.pool.query<{ id: string }>(
       `SELECT id FROM pipelines
        WHERE status = 'completed'
@@ -89,7 +68,6 @@ export class DocumentPipelineOrchestrator {
       }
     }
 
-    // Also check for pending pipelines and start them
     const pendingPipelines = await this.pipelineManager.getPipelinesByStatus('pending', 5);
 
     for (const pipeline of pendingPipelines) {
@@ -107,9 +85,6 @@ export class DocumentPipelineOrchestrator {
     return processedCount;
   }
 
-  /**
-   * Start a pending pipeline
-   */
   async startPipeline(pipelineId: string): Promise<void> {
     const pipeline = await this.pipelineManager.getPipeline(pipelineId);
     if (!pipeline) {
@@ -117,30 +92,22 @@ export class DocumentPipelineOrchestrator {
     }
 
     if (pipeline.status !== 'pending') {
-      return; // Already started
+      return;
     }
 
     logger.info({ pipelineId, documentId: pipeline.documentId }, 'Starting pipeline');
 
-    // Update pipeline to processing
     await this.pipelineManager.updatePipelineStage(pipelineId, 'extracting', 'processing');
 
-    // Start document extraction
     await this.processDocumentExtraction(pipeline.documentId, pipelineId);
   }
 
-  /**
-   * Process a single pipeline - execute next available task
-   */
   async processPipeline(pipelineId: string): Promise<boolean> {
     const pipeline = await this.pipelineManager.getPipeline(pipelineId);
     if (!pipeline) {
       return false;
     }
 
-    // IMPORTANT: Check if we need to create transformation tasks for confirmed mappings
-    // Do this BEFORE checking terminal state, because operator might confirm mappings
-    // after the pipeline has already completed its mapping stage
     if (
       pipeline.currentStage === 'mapping' ||
       pipeline.currentStage === 'transforming' ||
@@ -149,17 +116,13 @@ export class DocumentPipelineOrchestrator {
       await this.createTransformationTasksForConfirmedMappings(pipelineId);
     }
 
-    // Check if pipeline is in terminal state (but only for failed, not completed)
-    // because completed pipelines might need to restart for transformation
     if (pipeline.status === 'failed') {
       return false;
     }
 
-    // Get next task to process (respects dependencies)
     const nextTask = await this.pipelineManager.getNextTask(pipelineId);
 
     if (!nextTask) {
-      // No more tasks - check if all completed
       const allTasks = await this.pipelineManager.getPipelineTasks(pipelineId);
       const allCompleted = allTasks.every((t) => t.status === 'completed');
       const anyFailed = allTasks.some((t) => t.status === 'failed');
@@ -170,7 +133,6 @@ export class DocumentPipelineOrchestrator {
       }
 
       if (allCompleted && allTasks.length > 0) {
-        // Check if there are confirmed mappings waiting for transformation
         const pipelineResult = await this.pool.query<{ document_id: string }>(
           `SELECT document_id FROM pipelines WHERE id = $1`,
           [pipelineId]
@@ -208,7 +170,6 @@ export class DocumentPipelineOrchestrator {
           }
         }
 
-        // Check if all pipeline_tasks (content lifecycle tasks) have reached APPROVED status
         const pipelineTasksResult = await this.pool.query<{
           count: number;
           approved_count: number;
@@ -227,7 +188,6 @@ export class DocumentPipelineOrchestrator {
         };
 
         if (count > 0 && approved_count < count) {
-          // Pipeline has content tasks but not all are approved yet
           logger.info(
             { pipelineId, totalContent: count, approvedContent: approved_count },
             'Pipeline document processing complete, waiting for content approval'
@@ -235,22 +195,17 @@ export class DocumentPipelineOrchestrator {
           return false;
         }
 
-        // All document processing tasks completed AND all content approved (or no content yet)
         await this.pipelineManager.completePipeline(pipelineId, true);
         return false;
       }
 
-      return false; // Still waiting for tasks to be created
+      return false;
     }
 
-    // Process the task based on its type
     await this.processTask(nextTask);
     return true;
   }
 
-  /**
-   * Process a single task
-   */
   private async processTask(task: DocumentTask): Promise<void> {
     logger.info(
       { taskId: task.id, taskType: task.taskType, pipelineId: task.pipelineId },
@@ -306,11 +261,7 @@ export class DocumentPipelineOrchestrator {
     }
   }
 
-  /**
-   * Stage 1: Extract text from document
-   */
   private async processDocumentExtraction(documentId: string, pipelineId: string): Promise<void> {
-    // Check if document is in pending status
     const docResult = await this.pool.query<{ id: string; status: string }>(
       `SELECT id, status FROM document_sources WHERE id = $1`,
       [documentId]
@@ -321,7 +272,6 @@ export class DocumentPipelineOrchestrator {
       return;
     }
 
-    // Create extraction task
     const task = await this.pipelineManager.createTask({
       pipelineId,
       itemId: documentId,
@@ -337,15 +287,13 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Document ID is required for extraction task');
     }
 
-    // Use DocumentProcessorService to extract
     await this.documentProcessor.extractText(documentId);
 
-    // After extraction, create chunking task
     await this.pipelineManager.createTask({
       pipelineId: task.pipelineId,
       itemId: documentId,
       taskType: 'chunk',
-      dependsOnTaskId: task.id, // Depends on extraction
+      dependsOnTaskId: task.id,
     });
 
     await this.pipelineManager.updatePipelineStage(task.pipelineId, 'chunking');
@@ -357,17 +305,14 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Document ID is required for chunking task');
     }
 
-    // Use DocumentProcessorService to chunk
     await this.documentProcessor.chunkDocument(documentId);
 
-    // After chunking, check if we need mapping
     const chunksResult = await this.pool.query<{ id: string }>(
       `SELECT id FROM raw_content_chunks WHERE document_id = $1 LIMIT 1`,
       [documentId]
     );
 
     if (chunksResult.rows.length > 0 && this.semanticMapper) {
-      // Create mapping task for the document
       await this.pipelineManager.createTask({
         pipelineId: task.pipelineId,
         itemId: documentId,
@@ -389,7 +334,6 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Document ID is required for mapping task');
     }
 
-    // Get level_id for mapping
     const docResult = await this.pool.query<{ level_id: string }>(
       `SELECT
         COALESCE(
@@ -408,11 +352,8 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Cannot find curriculum level for document');
     }
 
-    // Map chunks to topics
     await this.semanticMapper.mapChunksToTopics(documentId, levelId);
 
-    // Update pipeline stage to 'mapping' - this will trigger creation of transformation tasks
-    // when mappings are confirmed by operator
     await this.pipelineManager.updatePipelineStage(task.pipelineId, 'mapping');
 
     logger.info(
@@ -431,11 +372,8 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Mapping ID is required for transformation task');
     }
 
-    // Transform mapping to learning content (creates drafts)
     await this.contentTransformer.transformMapping(mappingId);
 
-    // After transformation, find all created drafts and create pipeline_tasks for them
-    // Find drafts by matching transformation_job_id
     const transformationJobResult = await this.pool.query<{ id: string }>(
       `SELECT id FROM transformation_jobs WHERE mapping_id = $1`,
       [mappingId]
@@ -459,7 +397,6 @@ export class DocumentPipelineOrchestrator {
       [transformationJobId]
     );
 
-    // Create pipeline_task for each draft (these will track draft → candidate → validated → approved)
     for (const draft of draftsResult.rows) {
       logger.info(
         {
@@ -484,26 +421,16 @@ export class DocumentPipelineOrchestrator {
       );
     }
 
-    // Update pipeline stage to validating
     await this.pipelineManager.updatePipelineStage(task.pipelineId, 'validating');
   }
 
   private async executeValidationTask(_task: DocumentTask): Promise<void> {
-    // Run promotion worker to validate candidates
     await this.promotionWorker.processBatch(10);
   }
 
-  private async executeApprovalTask(_task: DocumentTask): Promise<void> {
-    // This would be manual approval by operator
-    // For auto-approval, implement here
-  }
+  private async executeApprovalTask(_task: DocumentTask): Promise<void> {}
 
-  /**
-   * Create transformation tasks when mappings are confirmed
-   * Called from semantic mapper after confirmation
-   */
   async createTransformationTasksForMapping(mappingId: string): Promise<void> {
-    // Get the document_id and pipeline_id for this mapping
     const result = await this.pool.query<{
       document_id: string;
       pipeline_id: string;
@@ -524,7 +451,6 @@ export class DocumentPipelineOrchestrator {
 
     const { pipeline_id } = result.rows[0];
 
-    // Create transformation task
     await this.pipelineManager.createTask({
       pipelineId: pipeline_id,
       itemId: mappingId,
@@ -534,12 +460,7 @@ export class DocumentPipelineOrchestrator {
     logger.info({ mappingId, pipelineId: pipeline_id }, 'Created transformation task');
   }
 
-  /**
-   * Create transformation tasks for all confirmed mappings that don't have tasks yet
-   * Called during pipeline processing
-   */
   private async createTransformationTasksForConfirmedMappings(pipelineId: string): Promise<void> {
-    // Get pipeline to find document_id
     const pipelineResult = await this.pool.query<{ document_id: string }>(
       `SELECT document_id FROM pipelines WHERE id = $1`,
       [pipelineId]
@@ -551,7 +472,6 @@ export class DocumentPipelineOrchestrator {
 
     const documentId = pipelineResult.rows[0].document_id;
 
-    // Find all confirmed mappings that don't have transformation tasks yet
     const mappingsResult = await this.pool.query<{ id: string }>(
       `SELECT m.id
        FROM content_topic_mappings m
@@ -567,7 +487,6 @@ export class DocumentPipelineOrchestrator {
       [documentId, pipelineId]
     );
 
-    // Create transformation task for each confirmed mapping
     for (const row of mappingsResult.rows) {
       await this.pipelineManager.createTask({
         pipelineId,
@@ -581,7 +500,6 @@ export class DocumentPipelineOrchestrator {
       );
     }
 
-    // If we created tasks, update pipeline stage to transforming and status to processing
     if (mappingsResult.rows.length > 0) {
       await this.pipelineManager.updatePipelineStage(pipelineId, 'transforming', 'processing');
       logger.info(

@@ -65,8 +65,6 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const { email, password } = request.body;
       const normalizedEmail = email.toLowerCase();
 
-      // Find user without transaction (read-only operation doesn't need transaction)
-
       const userResult = await fastify.db.query<{
         id: string;
         email: string;
@@ -86,7 +84,6 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
       const userRow = userResult.rows[0];
 
       if (!userRow) {
-        // Check all users for debugging
         const allUsersResult = await fastify.db.query<{ email: string }>(
           'SELECT email FROM users LIMIT 10'
         );
@@ -136,12 +133,10 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
-      // Use transaction only for write operations
       const client = await fastify.db.connect();
       try {
         await client.query('BEGIN');
 
-        // Check if password needs rehashing
         if (needsRehash(user.passwordHash)) {
           const newHash = await hashPassword(password);
           await client.query(

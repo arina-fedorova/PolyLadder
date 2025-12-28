@@ -158,7 +158,6 @@ async function mainLoop(
     try {
       let workDone = false;
 
-      // NEW: Process active document pipelines (1 document = 1 pipeline)
       const pipelinesProcessed = await pipelineOrchestrator.processActivePipelines();
       if (pipelinesProcessed > 0) {
         workDone = true;
@@ -187,23 +186,11 @@ async function mainLoop(
         workDone = true;
       }
 
-      // Process candidates through quality gates
       const promoted = await promotionWorker.processBatch();
       if (promoted > 0) {
         workDone = true;
         logger.info({ count: promoted }, 'Candidates promoted to VALIDATED');
       }
-
-      // OLD: Generic pipeline processing - now handled by DocumentPipelineOrchestrator
-      // This creates pipeline_tasks without pipeline_id which breaks the UI
-      // await pipeline.processBatch();
-
-      // OLD: Direct document processing - now handled by DocumentPipelineOrchestrator
-      // const pendingProcessed = await docContext.documentProcessor.processPendingDocuments();
-      // if (pendingProcessed > 0) {
-      //   workDone = true;
-      //   logger.info({ count: pendingProcessed }, 'Pending documents processed');
-      // }
 
       const docProcessed = await processDocumentPipeline(docContext);
       if (docProcessed) {
@@ -327,7 +314,6 @@ async function start(): Promise<void> {
     batchSize: 10,
   });
 
-  // Create quality gates for promotion worker
   const qualityGates = [
     createCEFRConsistencyGate(),
     createOrthographyGate(),
@@ -363,7 +349,6 @@ async function start(): Promise<void> {
     pool,
   };
 
-  // Create document pipeline orchestrator (1 document = 1 pipeline)
   const pipelineOrchestrator = new DocumentPipelineOrchestrator(
     pool,
     semanticMapper,

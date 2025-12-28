@@ -182,7 +182,6 @@ export function PipelinesPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card">
           <div className="flex items-center justify-between">
@@ -230,7 +229,6 @@ export function PipelinesPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-gray-500" />
@@ -252,7 +250,6 @@ export function PipelinesPage() {
         </select>
       </div>
 
-      {/* Pipelines Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -388,7 +385,6 @@ export function PipelinesPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {data.total > data.limit && (
           <div className="flex items-center justify-between px-6 py-3 bg-gray-50 border-t border-gray-200">
             <div className="text-sm text-gray-700">

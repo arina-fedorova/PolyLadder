@@ -17,7 +17,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user is already logged in on mount
   useEffect(() => {
     const initAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
@@ -27,7 +26,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const currentUser = await authApi.getCurrentUser();
           setUser(currentUser);
         } catch {
-          // Token invalid, clear it
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
         }
@@ -42,11 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (credentials: LoginRequest): Promise<User> => {
     const response = await authApi.login(credentials);
 
-    // Store tokens
     localStorage.setItem('accessToken', response.accessToken);
     localStorage.setItem('refreshToken', response.refreshToken);
 
-    // Set user - React will batch this update
     setUser(response.user);
     return response.user;
   };
@@ -54,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: RegisterRequest): Promise<User> => {
     await authApi.register(data);
 
-    // After registration, log the user in
     return await login({ email: data.email, password: data.password });
   };
 
@@ -67,7 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear tokens and user state regardless of API call success
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setUser(null);

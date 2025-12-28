@@ -1,13 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { authMiddleware } from '../../middleware/auth';
 
-/**
- * Pipelines API Routes
- *
- * Operator-facing API for viewing and managing document pipelines.
- * Each document has exactly ONE pipeline containing all processing tasks.
- */
-
 interface PipelineQuery {
   page?: string;
   limit?: string;
@@ -25,19 +18,12 @@ interface RetryPipelineBody {
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * GET /operational/pipelines
-   *
-   * List all pipelines with filters
-   * Returns pipelines with document info and progress
-   */
   fastify.get<{ Querystring: PipelineQuery }>(
     '/pipelines',
     {
       preHandler: [authMiddleware],
     },
     async (request, reply) => {
-      // Check operator role
       if (request.user?.role !== 'operator') {
         return reply.status(403).send({
           error: {
@@ -120,11 +106,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  /**
-   * GET /operational/pipelines/:pipelineId
-   *
-   * Get detailed pipeline info with all tasks and events
-   */
   fastify.get<{ Params: PipelineParams }>(
     '/pipelines/:pipelineId',
     {
@@ -144,7 +125,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { pipelineId } = request.params;
 
-      // Get pipeline info
       const pipelineResult = await fastify.db.query<{
         id: string;
         document_id: string;
@@ -189,7 +169,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const pipeline = pipelineResult.rows[0];
 
-      // Get all tasks for this pipeline
       const tasksResult = await fastify.db.query<{
         id: string;
         pipeline_id: string | null;
@@ -246,7 +225,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         [pipelineId]
       );
 
-      // Get content lifecycle statistics (DRAFT → CANDIDATE → VALIDATED → APPROVED)
       const contentStatsResult = await fastify.db.query<{
         current_stage: string;
         count: string;
@@ -303,11 +281,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  /**
-   * GET /operational/pipelines/document/:documentId
-   *
-   * Get pipeline by document ID
-   */
   fastify.get<{ Params: { documentId: string } }>(
     '/pipelines/document/:documentId',
     {
@@ -368,11 +341,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  /**
-   * POST /operational/pipelines/:pipelineId/retry
-   *
-   * Retry failed tasks in a pipeline
-   */
   fastify.post<{ Params: PipelineParams; Body: RetryPipelineBody }>(
     '/pipelines/:pipelineId/retry',
     {
@@ -393,7 +361,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       const { pipelineId } = request.params;
       const { force = false } = request.body;
 
-      // Check pipeline exists
       const pipelineResult = await fastify.db.query<{
         id: string;
         status: string;
@@ -415,7 +382,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Get the document_id for this pipeline
       const docResult = await fastify.db.query<{ document_id: string }>(
         `SELECT document_id FROM pipelines WHERE id = $1`,
         [pipelineId]
@@ -429,23 +395,17 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const documentId = docResult.rows[0].document_id;
 
-      // Clean up old data from previous attempts to avoid constraint violations
-      // Delete mappings first (foreign key dependency)
       await fastify.db.query(
         `DELETE FROM content_topic_mappings
          WHERE chunk_id IN (SELECT id FROM raw_content_chunks WHERE document_id = $1)`,
         [documentId]
       );
-      // Then delete chunks
       await fastify.db.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [documentId]);
 
-      // Delete all document processing tasks for this pipeline (we'll recreate them)
       await fastify.db.query(`DELETE FROM document_processing_tasks WHERE pipeline_id = $1`, [
         pipelineId,
       ]);
 
-      // Reset or delete pipeline_tasks (content lifecycle tasks)
-      // Count tasks that can be retried (retry_count < 3)
       const retriableTasksResult = await fastify.db.query<{ count: string }>(
         `SELECT COUNT(*) as count
          FROM pipeline_tasks
@@ -456,7 +416,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       );
       const retriableCount = parseInt(retriableTasksResult.rows[0]?.count || '0', 10);
 
-      // Reset retriable tasks
       await fastify.db.query(
         `UPDATE pipeline_tasks
          SET current_status = 'pending',
@@ -469,12 +428,10 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         [pipelineId]
       );
 
-      // Delete tasks that exceeded max retries or delete all if force flag
       if (force) {
         await fastify.db.query(`DELETE FROM pipeline_tasks WHERE pipeline_id = $1`, [pipelineId]);
       }
 
-      // Reset pipeline status to pending so it gets picked up by orchestrator
       await fastify.db.query(
         `UPDATE pipelines
          SET status = 'processing',
@@ -499,12 +456,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  /**
-   * DELETE /operational/pipelines/:pipelineId
-   *
-   * Cancel and delete a pipeline
-   * WARNING: This will delete the document and all associated data
-   */
   fastify.delete<{ Params: PipelineParams }>(
     '/pipelines/:pipelineId',
     {
@@ -524,7 +475,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { pipelineId } = request.params;
 
-      // Get pipeline with document
       const pipelineResult = await fastify.db.query<{
         id: string;
         document_id: string;
@@ -548,7 +498,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.db.query('BEGIN');
 
       try {
-        // Log deletion event
         await fastify.db.query(
           `INSERT INTO pipeline_events
            (task_id, item_id, item_type, event_type, stage, status, success, payload)
@@ -563,7 +512,6 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
           ]
         );
 
-        // Delete document (cascade will delete pipeline, tasks, events)
         await fastify.db.query(`DELETE FROM document_sources WHERE id = $1`, [
           pipeline.document_id,
         ]);

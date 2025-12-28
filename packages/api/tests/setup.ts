@@ -132,8 +132,8 @@ export async function cleanupTestData(): Promise<void> {
   for (const table of tables) {
     try {
       await pool.query(`DELETE FROM ${table}`);
-    } catch {
-      // Table might not exist yet, ignore
+    } catch (_error) {
+      void _error;
     }
   }
 
@@ -141,14 +141,14 @@ export async function cleanupTestData(): Promise<void> {
     await pool.query(
       "DELETE FROM users WHERE email NOT IN ('operator@test.com', 'learner@test.com')"
     );
-  } catch {
-    // Table might not exist yet, ignore
+  } catch (_error) {
+    void _error;
   }
 
   try {
     await pool.query('DELETE FROM refresh_tokens');
-  } catch {
-    // Table might not exist yet, ignore
+  } catch (_error) {
+    void _error;
   }
 }
 

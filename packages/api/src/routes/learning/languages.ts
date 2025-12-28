@@ -53,7 +53,6 @@ interface VocabCountRow {
 const languagesRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /learning/languages - Get user's languages with progress
   void fastify.get(
     '/languages',
     {
@@ -114,7 +113,6 @@ const languagesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /learning/languages - Start learning a new language
   void fastify.post<{ Body: AddLanguageRequest }>(
     '/languages',
     {
@@ -132,7 +130,6 @@ const languagesRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { language } = request.body;
 
-      // Check if already learning this language
       const existing = await fastify.db.query(
         'SELECT id FROM user_languages WHERE user_id = $1 AND language = $2',
         [userId, language]
@@ -149,7 +146,6 @@ const languagesRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Add language
       await fastify.db.query(
         `INSERT INTO user_languages (user_id, language, started_at, orthography_completed)
          VALUES ($1, $2, CURRENT_TIMESTAMP, false)`,
@@ -165,7 +161,6 @@ const languagesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // DELETE /learning/languages/:language - Stop learning a language
   void fastify.delete<{ Params: { language: string } }>(
     '/languages/:language',
     {
