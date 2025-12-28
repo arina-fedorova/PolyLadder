@@ -106,13 +106,15 @@ export function CurriculumPage() {
   });
 
   const bulkCreateTopicsMutation = useMutation({
-    mutationFn: (topics: Partial<CurriculumTopic>[]) =>
-      apiClient.post<{
+    mutationFn: async (topics: Partial<CurriculumTopic>[]) => {
+      const response = await apiClient.post<{
         created: number;
         failed: number;
         topics: CurriculumTopic[];
         errors: string[];
-      }>('/operational/curriculum/topics/bulk', { topics }),
+      }>('/operational/curriculum/topics/bulk', { topics });
+      return response.data;
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['curriculum-topics', expandedLevel] });
       setBulkImportLevel(null);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Clock, CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, Trash2 } from 'lucide-react';
@@ -177,7 +176,7 @@ export function TransformationJobsList() {
                       {job.tokens_input && job.tokens_output && (
                         <span>Tokens: {job.tokens_input + job.tokens_output}</span>
                       )}
-                      {job.cost_usd && <span>Cost: ${parseFloat(job.cost_usd).toFixed(4)}</span>}
+                      {job.cost_usd && <span>Cost: ${job.cost_usd.toFixed(4)}</span>}
                       {job.duration_ms && (
                         <span>Duration: {(job.duration_ms / 1000).toFixed(2)}s</span>
                       )}

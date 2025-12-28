@@ -1,4 +1,3 @@
-import React from 'react';
 import { Activity, AlertCircle, Clock } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 

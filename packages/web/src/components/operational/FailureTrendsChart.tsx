@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart,
@@ -101,7 +101,7 @@ export function FailureTrendsChart() {
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip
               labelFormatter={(value: string) => new Date(value).toLocaleDateString()}
-              formatter={(value: number, name: string) => [value, DATA_TYPE_LABELS[name] ?? name]}
+              formatter={(value, name) => [value ?? 0, DATA_TYPE_LABELS[name as string] ?? name]}
             />
             <Legend formatter={(value: string) => DATA_TYPE_LABELS[value] ?? value} />
             {Object.keys(DATA_TYPE_COLORS).map((dataType) => (

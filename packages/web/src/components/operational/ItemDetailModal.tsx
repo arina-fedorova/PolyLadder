@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 interface ItemDetailModalProps {

@@ -59,6 +59,12 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
           401: ErrorResponseSchema,
         },
       },
+      onRequest: (_request) => {
+        // Log all login requests in E2E tests
+        if (process.env.NODE_ENV === 'test') {
+          process.stderr.write(`[E2E LOGIN] POST /login request received\n`);
+        }
+      },
     },
     async (request, reply) => {
       const env = getEnv();
@@ -67,7 +73,10 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
 
       // Log all login attempts in E2E tests
       if (process.env.NODE_ENV === 'test') {
-        process.stderr.write(`[E2E LOGIN] Login attempt for: ${normalizedEmail}\n`);
+        process.stderr.write(`[E2E LOGIN] ===== LOGIN REQUEST START =====\n`);
+        process.stderr.write(`[E2E LOGIN] Email: ${normalizedEmail}\n`);
+        process.stderr.write(`[E2E LOGIN] Password length: ${password.length}\n`);
+        process.stderr.write(`[E2E LOGIN] Request ID: ${request.id}\n`);
       }
 
       // Find user without transaction (read-only operation doesn't need transaction)
@@ -132,13 +141,32 @@ const loginRoute: FastifyPluginAsync = async function (fastify) {
         updatedAt: userRow.updated_at,
       };
 
+      // Debug password verification in E2E tests
+      if (process.env.NODE_ENV === 'test') {
+        process.stderr.write(
+          `[E2E LOGIN] Password hash from DB: ${user.passwordHash.substring(0, 20)}... (length: ${user.passwordHash.length})\n`
+        );
+        process.stderr.write(`[E2E LOGIN] Attempting to verify password...\n`);
+      }
+
       const isValid = await verifyPassword(password, user.passwordHash);
+
+      if (process.env.NODE_ENV === 'test') {
+        process.stderr.write(
+          `[E2E LOGIN] Password verification result: ${isValid ? 'SUCCESS' : 'FAILED'}\n`
+        );
+      }
 
       if (!isValid) {
         request.log.warn(
           { email: normalizedEmail, userId: user.id },
           'Password verification failed during login'
         );
+        if (process.env.NODE_ENV === 'test') {
+          process.stderr.write(
+            `[E2E LOGIN ERROR] Password verification failed for ${normalizedEmail}\n`
+          );
+        }
         return reply.status(401).send({
           error: {
             statusCode: 401,

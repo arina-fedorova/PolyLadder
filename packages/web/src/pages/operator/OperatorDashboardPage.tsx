@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';

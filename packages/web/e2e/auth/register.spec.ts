@@ -71,7 +71,7 @@ test.describe('Register Page', () => {
     await registerPage.submitButton.click();
 
     // Should navigate to operator pipeline after auto-login
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
   });
 
   test('should show error when email already exists', async ({ page }) => {

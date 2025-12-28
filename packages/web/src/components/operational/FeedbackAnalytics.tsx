@@ -1,9 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle } from 'lucide-react';
 import api from '../../api/client';
 
-const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6', '#f97316'];
+const COLORS = [
+  '#ef4444',
+  '#f59e0b',
+  '#10b981',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#6b7280',
+  '#14b8a6',
+  '#f97316',
+];
 
 interface FeedbackStats {
   totalFeedback: number;
@@ -50,9 +70,7 @@ export function FeedbackAnalytics() {
             <CheckCircle className="w-4 h-4" />
             Retry Success Rate
           </div>
-          <div className="text-2xl font-bold">
-            {(stats?.retrySuccessRate || 0).toFixed(1)}%
-          </div>
+          <div className="text-2xl font-bold">{(stats?.retrySuccessRate || 0).toFixed(1)}%</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border">
@@ -68,9 +86,7 @@ export function FeedbackAnalytics() {
             <TrendingDown className="w-4 h-4" />
             Active Reviewers
           </div>
-          <div className="text-2xl font-bold">
-            {Object.keys(stats?.byOperator || {}).length}
-          </div>
+          <div className="text-2xl font-bold">{Object.keys(stats?.byOperator || {}).length}</div>
         </div>
       </div>
 
@@ -86,9 +102,7 @@ export function FeedbackAnalytics() {
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ name, percent }) =>
-                  `${name} (${(percent * 100).toFixed(0)}%)`
-                }
+                label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
               >
                 {categoryData.map((_, index) => (
                   <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -132,4 +146,3 @@ export function FeedbackAnalytics() {
     </div>
   );
 }
-

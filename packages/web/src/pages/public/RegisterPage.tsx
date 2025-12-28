@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,7 +30,6 @@ const registerSchema = z
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterPage() {
-  const navigate = useNavigate();
   const { register: registerUser } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +40,7 @@ export function RegisterPage() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
+    // @ts-expect-error - zod 4.x type incompatibility with react-hook-form resolvers
     resolver: zodResolver(registerSchema),
     defaultValues: {
       role: 'learner',
@@ -58,11 +58,12 @@ export function RegisterPage() {
         baseLanguage: data.baseLanguage,
         role: data.role,
       });
-      // Navigate immediately after registration - state is already updated via flushSync
+      // Navigate immediately using window.location.href for full page reload
+      // This ensures ProtectedRoute sees the updated auth state from localStorage
       if (registeredUser.role === 'operator') {
-        void navigate('/operator/pipeline');
+        window.location.href = '/operator/pipelines';
       } else {
-        void navigate('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       const axiosError = error as AxiosError<{ error: { message: string } }>;

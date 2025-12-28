@@ -1,4 +1,3 @@
-import React from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { X, RefreshCw, AlertCircle } from 'lucide-react';

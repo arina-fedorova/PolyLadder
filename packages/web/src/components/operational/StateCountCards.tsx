@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileText, Clock, CheckCircle, Shield } from 'lucide-react';
 
 interface StateCountCardsProps {

@@ -18,7 +18,7 @@ test.describe('Review Queue', () => {
     await page.getByPlaceholder('••••••••').fill('TestPassword123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
     await expect(page.getByText('403')).toBeVisible();
@@ -37,7 +37,7 @@ test.describe('Review Queue', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
     await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible({
@@ -58,7 +58,7 @@ test.describe('Review Queue', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
     await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible({
@@ -86,7 +86,7 @@ test.describe('Review Queue', () => {
     await page.getByPlaceholder('••••••••').fill('OperatorPass123');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
 
     await page.goto('/operator/review-queue');
     await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible({

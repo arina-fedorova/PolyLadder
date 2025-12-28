@@ -29,9 +29,6 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    env: {
-      VITE_API_URL: process.env.VITE_API_URL || 'http://localhost:3001/api/v1',
-    },
+    reuseExistingServer: false, // Force restart to pick up changes
   },
 });

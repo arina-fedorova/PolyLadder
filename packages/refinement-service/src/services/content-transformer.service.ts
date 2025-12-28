@@ -63,7 +63,7 @@ export class ContentTransformerService {
       const result = await this.executeTransformation(input, jobId, startTime);
 
       await this.completeJob(jobId);
-      await this.createDrafts(result, input);
+      await this.createDrafts(result, input, jobId);
 
       return result;
     } catch (error) {
@@ -228,7 +228,8 @@ Include: title, content, examples where available.`;
 
   private async createDrafts(
     result: TransformationResult,
-    _input: TransformationInput
+    _input: TransformationInput,
+    transformationJobId: string
   ): Promise<void> {
     interface MappingRow {
       document_id: string;
@@ -260,11 +261,18 @@ Include: title, content, examples where available.`;
       };
 
       const draftResult = await this.pool.query<{ id: string }>(
-        `INSERT INTO drafts 
-         (data_type, raw_data, source, document_id, chunk_id, topic_id)
-         VALUES ($1, $2, 'document_transform', $3, $4, $5)
+        `INSERT INTO drafts
+         (data_type, raw_data, source, document_id, chunk_id, topic_id, transformation_job_id)
+         VALUES ($1, $2, 'document_transform', $3, $4, $5, $6)
          RETURNING id`,
-        [result.dataType, JSON.stringify(enrichedItem), document_id, chunk_id, topic_id]
+        [
+          result.dataType,
+          JSON.stringify(enrichedItem),
+          document_id,
+          chunk_id,
+          topic_id,
+          transformationJobId,
+        ]
       );
 
       const draftId = draftResult.rows[0].id;

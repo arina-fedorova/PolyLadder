@@ -194,7 +194,9 @@ async function mainLoop(
         logger.info({ count: promoted }, 'Candidates promoted to VALIDATED');
       }
 
-      await pipeline.processBatch();
+      // OLD: Generic pipeline processing - now handled by DocumentPipelineOrchestrator
+      // This creates pipeline_tasks without pipeline_id which breaks the UI
+      // await pipeline.processBatch();
 
       // OLD: Direct document processing - now handled by DocumentPipelineOrchestrator
       // const pendingProcessed = await docContext.documentProcessor.processPendingDocuments();

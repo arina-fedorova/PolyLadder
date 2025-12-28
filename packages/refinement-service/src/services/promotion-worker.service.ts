@@ -73,7 +73,14 @@ export class PromotionWorker {
         await this.processCandidate(candidate);
         processed++;
       } catch (error) {
-        logger.error({ candidateId: candidate.id, error }, 'Failed to process candidate');
+        logger.error(
+          {
+            candidateId: candidate.id,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          'Failed to process candidate'
+        );
       }
     }
 
@@ -86,10 +93,11 @@ export class PromotionWorker {
     const language = (normalizedData.language as string) ?? 'EN';
     const level = (normalizedData.level as string) ?? 'A1';
 
-    const input: GateInput = {
+    const input: GateInput & { level: string } = {
       text,
       language,
       contentType: candidate.dataType,
+      level, // Pass level at top level for CEFR gate
       metadata: {
         candidateId: candidate.id,
         dataType: candidate.dataType,
@@ -103,9 +111,10 @@ export class PromotionWorker {
 
     if (gateResult.allPassed) {
       // Move candidate to validated table
-      await this.pool.query(
+      const validatedResult = await this.pool.query<{ id: string }>(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
-         VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
         [
           candidate.dataType,
           JSON.stringify(candidate.normalizedData),
@@ -114,16 +123,7 @@ export class PromotionWorker {
         ]
       );
 
-      // Delete candidate
-      await this.pool.query('DELETE FROM candidates WHERE id = $1', [candidate.id]);
-
-      // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
-      await this.pool.query(
-        `UPDATE pipeline_tasks
-         SET current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
-         WHERE item_id = $1 AND current_stage = 'CANDIDATE'`,
-        [candidate.draftId]
-      );
+      const validatedId = validatedResult.rows[0].id;
 
       // Record transition
       const transitionRepo = this.createTransitionRepository();
@@ -137,6 +137,18 @@ export class PromotionWorker {
           executionTimeMs: gateResult.executionTimeMs,
         },
       });
+
+      // NOTE: We don't delete the candidate - it's kept for audit trail
+      // The validated table references it via candidate_id
+
+      // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
+      // CRITICAL: Update item_id to point to new validated ID, not candidate ID
+      await this.pool.query(
+        `UPDATE pipeline_tasks
+         SET item_id = $1, item_type = 'validated', current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
+         WHERE item_id = $2 AND current_stage = 'CANDIDATE'`,
+        [validatedId, candidate.id]
+      );
 
       await this.eventLogger.logEvent({
         itemId: candidate.id,

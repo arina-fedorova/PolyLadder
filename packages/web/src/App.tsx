@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -108,7 +107,10 @@ export function App() {
           />
 
           <Route path="/operator" element={<Navigate to="/operator/pipelines" replace />} />
-          <Route path="/operator/pipeline" element={<Navigate to="/operator/pipelines" replace />} />
+          <Route
+            path="/operator/pipeline"
+            element={<Navigate to="/operator/pipelines" replace />}
+          />
 
           <Route
             path="/operator/review-queue"

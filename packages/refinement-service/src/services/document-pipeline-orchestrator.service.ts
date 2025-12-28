@@ -67,11 +67,11 @@ export class DocumentPipelineOrchestrator {
       }
     }
 
-    // Also check completed pipelines in 'mapping' or 'transforming' stage - they might have newly confirmed mappings
+    // Also check completed pipelines in 'mapping', 'transforming', or 'completed' stage - they might have newly confirmed mappings
     const mappingPipelines = await this.pool.query<{ id: string }>(
       `SELECT id FROM pipelines
        WHERE status = 'completed'
-         AND (current_stage = 'mapping' OR current_stage = 'transforming')
+         AND (current_stage = 'mapping' OR current_stage = 'transforming' OR current_stage = 'completed')
        LIMIT 10`
     );
 
@@ -141,7 +141,11 @@ export class DocumentPipelineOrchestrator {
     // IMPORTANT: Check if we need to create transformation tasks for confirmed mappings
     // Do this BEFORE checking terminal state, because operator might confirm mappings
     // after the pipeline has already completed its mapping stage
-    if (pipeline.currentStage === 'mapping' || pipeline.currentStage === 'transforming') {
+    if (
+      pipeline.currentStage === 'mapping' ||
+      pipeline.currentStage === 'transforming' ||
+      pipeline.currentStage === 'completed'
+    ) {
       await this.createTransformationTasksForConfirmedMappings(pipelineId);
     }
 
@@ -166,6 +170,44 @@ export class DocumentPipelineOrchestrator {
       }
 
       if (allCompleted && allTasks.length > 0) {
+        // Check if there are confirmed mappings waiting for transformation
+        const pipelineResult = await this.pool.query<{ document_id: string }>(
+          `SELECT document_id FROM pipelines WHERE id = $1`,
+          [pipelineId]
+        );
+
+        if (pipelineResult.rows.length > 0) {
+          const documentId = pipelineResult.rows[0].document_id;
+
+          const confirmedMappingsResult = await this.pool.query<{ count: string }>(
+            `SELECT COUNT(*) as count
+             FROM content_topic_mappings m
+             JOIN raw_content_chunks c ON c.id = m.chunk_id
+             WHERE c.document_id = $1
+               AND m.status = 'confirmed'
+               AND NOT EXISTS (
+                 SELECT 1 FROM document_processing_tasks t
+                 WHERE t.pipeline_id = $2
+                   AND t.task_type = 'transform'
+                   AND t.item_id = m.id
+               )`,
+            [documentId, pipelineId]
+          );
+
+          const confirmedMappingsCount = parseInt(
+            confirmedMappingsResult.rows[0]?.count || '0',
+            10
+          );
+
+          if (confirmedMappingsCount > 0) {
+            logger.info(
+              { pipelineId, confirmedMappings: confirmedMappingsCount },
+              'Pipeline has confirmed mappings waiting for transformation - will process on next cycle'
+            );
+            return false;
+          }
+        }
+
         // Check if all pipeline_tasks (content lifecycle tasks) have reached APPROVED status
         const pipelineTasksResult = await this.pool.query<{
           count: number;
@@ -393,23 +435,42 @@ export class DocumentPipelineOrchestrator {
     await this.contentTransformer.transformMapping(mappingId);
 
     // After transformation, find all created drafts and create pipeline_tasks for them
+    // Find drafts by matching transformation_job_id
+    const transformationJobResult = await this.pool.query<{ id: string }>(
+      `SELECT id FROM transformation_jobs WHERE mapping_id = $1`,
+      [mappingId]
+    );
+
+    if (transformationJobResult.rows.length === 0) {
+      logger.warn({ mappingId }, 'No transformation job found for mapping');
+      return;
+    }
+
+    const transformationJobId = transformationJobResult.rows[0].id;
+
     const draftsResult = await this.pool.query<{
       id: string;
       data_type: string;
       item_type: string;
     }>(
-      `SELECT id, 'meaning' as data_type, 'draft' as item_type FROM meanings WHERE mapping_id = $1 AND state = 'DRAFT'
-       UNION ALL
-       SELECT id, 'utterance' as data_type, 'draft' as item_type FROM utterances WHERE mapping_id = $1 AND state = 'DRAFT'
-       UNION ALL
-       SELECT id, 'rule' as data_type, 'draft' as item_type FROM rules WHERE mapping_id = $1 AND state = 'DRAFT'
-       UNION ALL
-       SELECT id, 'exercise' as data_type, 'draft' as item_type FROM exercises WHERE mapping_id = $1 AND state = 'DRAFT'`,
-      [mappingId]
+      `SELECT id, data_type, 'draft' as item_type
+       FROM drafts
+       WHERE transformation_job_id = $1`,
+      [transformationJobId]
     );
 
     // Create pipeline_task for each draft (these will track draft → candidate → validated → approved)
     for (const draft of draftsResult.rows) {
+      logger.info(
+        {
+          pipelineId: task.pipelineId,
+          draftId: draft.id,
+          dataType: draft.data_type,
+          mappingId,
+        },
+        'Creating pipeline_task for draft'
+      );
+
       await this.pool.query(
         `INSERT INTO pipeline_tasks
          (pipeline_id, item_id, item_type, data_type, current_status, current_stage, mapping_id)
@@ -520,9 +581,13 @@ export class DocumentPipelineOrchestrator {
       );
     }
 
-    // If we created tasks, update pipeline stage to transforming
+    // If we created tasks, update pipeline stage to transforming and status to processing
     if (mappingsResult.rows.length > 0) {
-      await this.pipelineManager.updatePipelineStage(pipelineId, 'transforming');
+      await this.pipelineManager.updatePipelineStage(pipelineId, 'transforming', 'processing');
+      logger.info(
+        { pipelineId, tasksCreated: mappingsResult.rows.length },
+        'Re-opened completed pipeline for transformation'
+      );
     }
   }
 }

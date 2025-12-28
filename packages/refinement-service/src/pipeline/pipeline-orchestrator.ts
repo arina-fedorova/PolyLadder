@@ -379,20 +379,24 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
       try {
         await client.query('BEGIN');
 
-        await client.query(
+        const candidateResult = await client.query<{ id: string }>(
           `INSERT INTO candidates (data_type, normalized_data, draft_id)
-           VALUES ($1, $2, $3)`,
+           VALUES ($1, $2, $3)
+           RETURNING id`,
           [item.dataType, JSON.stringify(item.data), item.id]
         );
+
+        const candidateId = candidateResult.rows[0].id;
 
         await client.query(`DELETE FROM drafts WHERE id = $1`, [item.id]);
 
         // Update pipeline_tasks to track DRAFT → CANDIDATE transition
+        // IMPORTANT: Update item_id to point to new candidate ID, not deleted draft ID
         await client.query(
           `UPDATE pipeline_tasks
-           SET current_stage = 'CANDIDATE', updated_at = CURRENT_TIMESTAMP
-           WHERE item_id = $1 AND current_stage = 'DRAFT'`,
-          [item.id]
+           SET item_id = $1, item_type = 'candidate', current_stage = 'CANDIDATE', updated_at = CURRENT_TIMESTAMP
+           WHERE item_id = $2 AND current_stage = 'DRAFT'`,
+          [candidateId, item.id]
         );
 
         await client.query('COMMIT');
@@ -417,9 +421,10 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
       // Store draft_id in validated_data so we can track it to APPROVED stage
       const validatedData = { ...item.data, __draft_id: draftId };
 
-      await pool.query(
+      const validatedResult = await pool.query<{ id: string }>(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
-         VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
         [
           item.dataType,
           JSON.stringify(validatedData),
@@ -428,15 +433,16 @@ export function createPipelineRepository(pool: Pool): PipelineRepository {
         ]
       );
 
+      const validatedId = validatedResult.rows[0].id;
+
       // Update pipeline_tasks to track CANDIDATE → VALIDATED transition
-      if (draftId) {
-        await pool.query(
-          `UPDATE pipeline_tasks
-           SET current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
-           WHERE item_id = $1 AND current_stage = 'CANDIDATE'`,
-          [draftId]
-        );
-      }
+      // IMPORTANT: Update item_id to point to validated ID, not candidate ID
+      await pool.query(
+        `UPDATE pipeline_tasks
+         SET item_id = $1, item_type = 'validated', current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
+         WHERE item_id = $2 AND current_stage = 'CANDIDATE'`,
+        [validatedId, candidateId]
+      );
     },
 
     async copyToApproved(item: PipelineItem): Promise<string> {

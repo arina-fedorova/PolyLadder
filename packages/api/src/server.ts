@@ -63,6 +63,13 @@ export async function buildServer(): Promise<FastifyInstance> {
     trustProxy: true,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
+  // Log all requests in E2E tests for debugging
+  if (env.NODE_ENV === 'test') {
+    server.addHook('onRequest', (request) => {
+      process.stderr.write(`[E2E API] ${request.method} ${request.url} from ${request.ip}\n`);
+    });
+  }
+
   server.decorate('db', getPool());
 
   await registerPlugins(server);

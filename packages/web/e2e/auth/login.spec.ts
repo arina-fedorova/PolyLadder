@@ -80,32 +80,11 @@ test.describe('Login Page', () => {
     // Wait for login form to be ready
     await expect(loginPage.emailInput).toBeVisible();
 
-    // Monitor network requests
-    const loginResponse = page.waitForResponse(
-      (response) =>
-        response.url().includes('/auth/login') && response.request().method() === 'POST',
-      { timeout: 15000 }
-    );
-
     await loginPage.emailInput.fill('testuser@example.com');
     await loginPage.passwordInput.fill('TestPassword123');
     await loginPage.submitButton.click();
 
-    // Wait for login response
-    const response = await loginResponse;
-    const responseBody = (await response.json()) as {
-      error?: { statusCode: number; message: string; code: string };
-    };
-
-    // Check if login was successful
-    if (response.status() !== 200) {
-      throw new Error(
-        `Login failed with status ${response.status()}: ${JSON.stringify(responseBody)}\n` +
-          `User created: ${JSON.stringify(user)}`
-      );
-    }
-
-    // Should navigate to dashboard
+    // Should navigate to dashboard after successful login
     await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
   });
 
@@ -135,6 +114,6 @@ test.describe('Login Page', () => {
     await loginPage.submitButton.click();
 
     // Should navigate to operator pipeline
-    await expect(page).toHaveURL('/operator/pipeline', { timeout: 15000 });
+    await expect(page).toHaveURL('/operator/pipelines', { timeout: 15000 });
   });
 });

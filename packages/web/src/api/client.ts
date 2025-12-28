@@ -1,6 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+// TEMPORARY HACK: Always use port 3001 for E2E tests
+// TODO: Fix environment variable configuration properly
+const API_URL = 'http://localhost:3001/api/v1';
+
+// Force log before creating client
+alert('Creating axios client with baseURL: ' + API_URL);
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -13,6 +18,13 @@ export const apiClient = axios.create({
 // Request interceptor: Add JWT to Authorization header
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // Debug logging for all requests - use console.error so it shows up in Playwright
+    console.error(
+      '[API Request]',
+      config.method?.toUpperCase(),
+      (config.baseURL || '') + (config.url || '')
+    );
+
     const accessToken = localStorage.getItem('accessToken');
 
     if (accessToken && config.headers) {

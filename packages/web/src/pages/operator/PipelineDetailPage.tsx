@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
@@ -137,12 +136,17 @@ export function PipelineDetailPage() {
 
   const getTaskTypeColor = (taskType: string) => {
     const colors: Record<string, string> = {
+      // Document processing task types
       extract: 'bg-purple-100 text-purple-800',
       chunk: 'bg-blue-100 text-blue-800',
       map: 'bg-yellow-100 text-yellow-800',
       transform: 'bg-green-100 text-green-800',
       validate: 'bg-indigo-100 text-indigo-800',
       approve: 'bg-pink-100 text-pink-800',
+      // Content lifecycle item types
+      draft: 'bg-gray-100 text-gray-800',
+      candidate: 'bg-blue-100 text-blue-800',
+      validated: 'bg-yellow-100 text-yellow-800',
     };
     return colors[taskType] || 'bg-gray-100 text-gray-800';
   };
@@ -501,9 +505,9 @@ export function PipelineDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTaskTypeColor(task.task_type || 'unknown')}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTaskTypeColor(task.task_type || task.item_type)}`}
                       >
-                        {task.task_type || 'unknown'}
+                        {task.task_type || task.item_type}
                       </span>
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${taskStatusConfig.bgColor} ${taskStatusConfig.color}`}

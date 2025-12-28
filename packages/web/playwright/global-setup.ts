@@ -41,14 +41,14 @@ function getProjectRoot(): string {
 }
 
 async function startDockerDatabase(projectRoot: string): Promise<void> {
-  console.log('📦 Starting PostgreSQL container...');
+  console.warn('📦 Starting PostgreSQL container...');
   await execAsync('docker compose -f docker/docker-compose.e2e.yml up -d', {
     cwd: projectRoot,
   });
   global.dockerStarted = true;
-  console.log('✅ PostgreSQL container started');
+  console.warn('✅ PostgreSQL container started');
 
-  console.log('⏳ Waiting for database to be ready...');
+  console.warn('⏳ Waiting for database to be ready...');
   const maxAttempts = 30;
   const intervalMs = 1000;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -59,7 +59,7 @@ async function startDockerDatabase(projectRoot: string): Promise<void> {
       });
       await testPool.query('SELECT 1');
       await testPool.end();
-      console.log('✅ Database is ready');
+      console.warn('✅ Database is ready');
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -70,11 +70,11 @@ async function startDockerDatabase(projectRoot: string): Promise<void> {
 
 async function runMigrations(projectRoot: string): Promise<void> {
   const isCI = process.env.CI === 'true';
-  console.log(`🔧 Running migrations${isCI ? ' (CI mode)' : ''}...`);
+  console.warn(`🔧 Running migrations${isCI ? ' (CI mode)' : ''}...`);
 
   const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
 
-  const env = {
+  const env: Record<string, string | undefined> = {
     ...process.env,
     DATABASE_URL: databaseUrl,
   };
@@ -87,14 +87,14 @@ async function runMigrations(projectRoot: string): Promise<void> {
     cwd: projectRoot,
     env,
   });
-  console.log('✅ Migrations completed');
+  console.warn('✅ Migrations completed');
 }
 
 function startApiServer(projectRoot: string): ChildProcess {
-  console.log('🌐 Starting API server...');
+  console.warn('🌐 Starting API server...');
 
   const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
-  const env = {
+  const env: Record<string, string | undefined> = {
     ...process.env,
     DATABASE_URL: databaseUrl,
     JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-min-32-chars-long',
@@ -114,22 +114,14 @@ function startApiServer(projectRoot: string): ChildProcess {
 
   apiProcess.stdout?.on('data', (data: Buffer) => {
     const output = String(data);
-    // Show all output in test mode for debugging, especially login-related
-    if (
-      process.env.NODE_ENV === 'test' ||
-      output.includes('Error') ||
-      output.includes('error') ||
-      output.includes('warn') ||
-      output.includes('User not found') ||
-      output.includes('E2E LOGIN DEBUG') ||
-      output.includes('Attempting login')
-    ) {
-      console.error('API server output:', output);
-    }
+    // Show all output in test mode for debugging
+    console.error('API server stdout:', output);
   });
 
   apiProcess.stderr?.on('data', (data: Buffer) => {
-    console.error('API server error:', String(data));
+    const output = String(data);
+    // Show all stderr output for debugging
+    console.error('API server stderr:', output);
   });
 
   apiProcess.on('error', (error) => {
@@ -184,16 +176,19 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   const apiUrl = 'http://localhost:3001/health';
   const databaseUrl = 'postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e';
 
+  // Set DATABASE_URL for both API and test helpers
   process.env.DATABASE_URL = databaseUrl;
+  // Also set NODE_ENV to test so helpers know they're in test mode
+  process.env.NODE_ENV = 'test';
 
-  console.log('\n🚀 Starting E2E test environment setup...\n');
-  console.log(`   Project root: ${projectRoot}`);
-  console.log(`   CI mode: ${isCI}\n`);
-  console.log(`   Database URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}\n`);
+  console.warn('\n🚀 Starting E2E test environment setup...\n');
+  console.warn(`   Project root: ${projectRoot}`);
+  console.warn(`   CI mode: ${isCI}\n`);
+  console.warn(`   Database URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}\n`);
 
   // Always setup database and API for E2E tests to ensure correct configuration
   // Kill any existing process on port 3001 to ensure clean start
-  console.log('🛑 Checking for existing API server on port 3001...');
+  console.warn('🛑 Checking for existing API server on port 3001...');
   await killProcessOnPort(3001);
 
   try {
@@ -208,15 +203,15 @@ async function globalSetup(_config: FullConfig): Promise<void> {
 
   global.apiProcess = startApiServer(projectRoot);
 
-  console.log('⏳ Waiting for API server...');
+  console.warn('⏳ Waiting for API server...');
   const apiReady = await waitForService(apiUrl, 60, 1000);
 
   if (!apiReady) {
     throw new Error('API server failed to start within 60 seconds');
   }
 
-  console.log('✅ API server is ready');
-  console.log('\n✨ E2E test environment ready!\n');
+  console.warn('✅ API server is ready');
+  console.warn('\n✨ E2E test environment ready!\n');
 }
 
 export default globalSetup;
