@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { OnboardingCheck } from '@/components/auth/OnboardingCheck';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/pages/public/LoginPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
 import { DashboardPage } from '@/pages/learner/DashboardPage';
+import { OnboardingPage } from '@/pages/learner/OnboardingPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
@@ -61,12 +63,23 @@ export function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           <Route
+            path="/onboarding/*"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <MainLayout>
-                  <DashboardRedirect />
-                </MainLayout>
+                <OnboardingCheck>
+                  <MainLayout>
+                    <DashboardRedirect />
+                  </MainLayout>
+                </OnboardingCheck>
               </ProtectedRoute>
             }
           />
