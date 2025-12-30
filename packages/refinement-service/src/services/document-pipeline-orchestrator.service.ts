@@ -2,26 +2,26 @@ import { Pool } from 'pg';
 import { logger } from '../utils/logger';
 import { DocumentPipelineManager, type DocumentTask } from './document-pipeline-manager.service';
 import { DocumentProcessorService } from './document-processor.service';
-import { SemanticMapperService } from './semantic-mapper.service';
+import { SemanticSplitService } from './semantic-split.service';
 import { ContentTransformerService } from './content-transformer.service';
 import { PromotionWorker } from './promotion-worker.service';
 
 export class DocumentPipelineOrchestrator {
   private pipelineManager: DocumentPipelineManager;
   private documentProcessor: DocumentProcessorService;
-  private semanticMapper: SemanticMapperService | null;
+  private semanticSplitService: SemanticSplitService | null;
   private contentTransformer: ContentTransformerService | null;
   private promotionWorker: PromotionWorker;
 
   constructor(
     private readonly pool: Pool,
-    semanticMapper: SemanticMapperService | null,
+    semanticSplitService: SemanticSplitService | null,
     contentTransformer: ContentTransformerService | null,
     promotionWorker: PromotionWorker
   ) {
     this.pipelineManager = new DocumentPipelineManager(pool);
     this.documentProcessor = new DocumentProcessorService(pool);
-    this.semanticMapper = semanticMapper;
+    this.semanticSplitService = semanticSplitService;
     this.contentTransformer = contentTransformer;
     this.promotionWorker = promotionWorker;
   }
@@ -108,14 +108,6 @@ export class DocumentPipelineOrchestrator {
       return false;
     }
 
-    if (
-      pipeline.currentStage === 'mapping' ||
-      pipeline.currentStage === 'transforming' ||
-      pipeline.currentStage === 'completed'
-    ) {
-      await this.createTransformationTasksForConfirmedMappings(pipelineId);
-    }
-
     if (pipeline.status === 'failed') {
       return false;
     }
@@ -141,32 +133,59 @@ export class DocumentPipelineOrchestrator {
         if (pipelineResult.rows.length > 0) {
           const documentId = pipelineResult.rows[0].document_id;
 
-          const confirmedMappingsResult = await this.pool.query<{ count: string }>(
+          // Check if all drafts are processed (have candidates)
+          const unprocessedDraftsResult = await this.pool.query<{ count: string }>(
             `SELECT COUNT(*) as count
-             FROM content_topic_mappings m
-             JOIN raw_content_chunks c ON c.id = m.chunk_id
-             WHERE c.document_id = $1
-               AND m.status = 'confirmed'
+             FROM drafts d
+             WHERE d.document_id = $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM candidates c WHERE c.draft_id = d.id
+               )`,
+            [documentId]
+          );
+
+          const unprocessedDraftsCount = parseInt(
+            unprocessedDraftsResult.rows[0]?.count || '0',
+            10
+          );
+
+          if (unprocessedDraftsCount > 0) {
+            logger.info(
+              { pipelineId, unprocessedDrafts: unprocessedDraftsCount },
+              'Pipeline has unprocessed drafts - waiting for normalization'
+            );
+            return false;
+          }
+
+          const unprocessedCandidatesResult = await this.pool.query<{ count: string }>(
+            `SELECT COUNT(*) as count
+             FROM candidates c
+             JOIN drafts d ON d.id = c.draft_id
+             WHERE d.document_id = $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM validated v WHERE v.candidate_id = c.id
+               )
                AND NOT EXISTS (
                  SELECT 1 FROM document_processing_tasks t
                  WHERE t.pipeline_id = $2
                    AND t.task_type = 'transform'
-                   AND t.item_id = m.id
+                   AND t.item_id = c.id
                )`,
             [documentId, pipelineId]
           );
 
-          const confirmedMappingsCount = parseInt(
-            confirmedMappingsResult.rows[0]?.count || '0',
+          const unprocessedCandidatesCount = parseInt(
+            unprocessedCandidatesResult.rows[0]?.count || '0',
             10
           );
 
-          if (confirmedMappingsCount > 0) {
+          if (unprocessedCandidatesCount > 0) {
+            await this.createTransformationTasksForCandidates(pipelineId, documentId);
             logger.info(
-              { pipelineId, confirmedMappings: confirmedMappingsCount },
-              'Pipeline has confirmed mappings waiting for transformation - will process on next cycle'
+              { pipelineId, candidatesToTransform: unprocessedCandidatesCount },
+              'Created transformation tasks for candidates'
             );
-            return false;
+            return true;
           }
         }
 
@@ -268,7 +287,32 @@ export class DocumentPipelineOrchestrator {
     );
 
     const doc = docResult.rows[0];
-    if (!doc || doc.status !== 'pending') {
+    if (!doc) {
+      logger.warn({ documentId }, 'Document not found for extraction');
+      return;
+    }
+
+    if (doc.status !== 'pending' && doc.status !== 'extracting' && doc.status !== 'chunking') {
+      logger.info(
+        { documentId, status: doc.status },
+        'Document already processed or in incompatible status, skipping extraction task creation'
+      );
+      return;
+    }
+
+    const existingTaskResult = await this.pool.query<{ id: string }>(
+      `SELECT id FROM document_processing_tasks
+       WHERE pipeline_id = $1
+         AND task_type = 'extract'
+         AND status IN ('pending', 'processing')`,
+      [pipelineId]
+    );
+
+    if (existingTaskResult.rows.length > 0) {
+      logger.info(
+        { documentId, pipelineId, taskId: existingTaskResult.rows[0].id },
+        'Extraction task already exists, skipping creation'
+      );
       return;
     }
 
@@ -308,58 +352,72 @@ export class DocumentPipelineOrchestrator {
     await this.documentProcessor.chunkDocument(documentId);
 
     const chunksResult = await this.pool.query<{ id: string }>(
-      `SELECT id FROM raw_content_chunks WHERE document_id = $1 LIMIT 1`,
+      `SELECT id FROM raw_content_chunks WHERE document_id = $1`,
       [documentId]
     );
 
-    if (chunksResult.rows.length > 0 && this.semanticMapper) {
-      await this.pipelineManager.createTask({
-        pipelineId: task.pipelineId,
-        itemId: documentId,
-        taskType: 'map',
-        dependsOnTaskId: task.id,
-      });
+    if (chunksResult.rows.length > 0 && this.semanticSplitService) {
+      for (const chunk of chunksResult.rows) {
+        await this.pipelineManager.createTask({
+          pipelineId: task.pipelineId,
+          itemId: chunk.id,
+          taskType: 'map',
+          dependsOnTaskId: task.id,
+        });
+      }
 
       await this.pipelineManager.updatePipelineStage(task.pipelineId, 'mapping');
     }
   }
 
   private async executeMappingTask(task: DocumentTask): Promise<void> {
-    if (!this.semanticMapper) {
-      throw new Error('Semantic mapper not configured');
+    if (!this.semanticSplitService) {
+      throw new Error('Semantic split service not configured');
     }
 
-    const documentId = task.itemId;
-    if (!documentId) {
-      throw new Error('Document ID is required for mapping task');
+    const chunkId = task.itemId;
+    if (!chunkId) {
+      throw new Error('Chunk ID is required for mapping task');
     }
 
-    const docResult = await this.pool.query<{ level_id: string }>(
-      `SELECT
-        COALESCE(
-          (SELECT l.id FROM curriculum_levels l
-           WHERE l.language = d.language AND l.cefr_level = d.target_level LIMIT 1),
-          (SELECT l.id FROM curriculum_levels l
-           WHERE l.language = d.language AND l.cefr_level = 'A1' LIMIT 1)
-        ) as level_id
-       FROM document_sources d
-       WHERE d.id = $1`,
-      [documentId]
+    const draftsCreated = await this.semanticSplitService.splitChunk(chunkId, task.pipelineId);
+
+    if (draftsCreated > 0) {
+      logger.info(
+        { pipelineId: task.pipelineId, chunkId, draftsCreated },
+        'Semantic split completed - drafts created'
+      );
+    } else {
+      logger.info(
+        { pipelineId: task.pipelineId, chunkId },
+        'Semantic split completed - no drafts created (may already exist or no matching topics)'
+      );
+    }
+
+    const remainingChunksResult = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) as count
+       FROM raw_content_chunks c
+       JOIN pipelines p ON p.document_id = c.document_id
+       WHERE p.id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM document_processing_tasks t
+           WHERE t.pipeline_id = $1
+             AND t.task_type = 'map'
+             AND t.status = 'completed'
+             AND t.item_id = c.id
+         )`,
+      [task.pipelineId]
     );
 
-    const levelId = docResult.rows[0]?.level_id;
-    if (!levelId) {
-      throw new Error('Cannot find curriculum level for document');
+    const remainingChunks = parseInt(remainingChunksResult.rows[0]?.count || '0', 10);
+
+    if (remainingChunks === 0) {
+      await this.pipelineManager.updatePipelineStage(task.pipelineId, 'draft_review');
+      logger.info(
+        { pipelineId: task.pipelineId },
+        'All chunks processed - waiting for draft review'
+      );
     }
-
-    await this.semanticMapper.mapChunksToTopics(documentId, levelId);
-
-    await this.pipelineManager.updatePipelineStage(task.pipelineId, 'mapping');
-
-    logger.info(
-      { pipelineId: task.pipelineId, documentId },
-      'Mapping completed - waiting for operator to confirm mappings'
-    );
   }
 
   private async executeTransformationTask(task: DocumentTask): Promise<void> {
@@ -367,61 +425,48 @@ export class DocumentPipelineOrchestrator {
       throw new Error('Content transformer not configured');
     }
 
-    const mappingId = task.itemId;
-    if (!mappingId) {
-      throw new Error('Mapping ID is required for transformation task');
+    const candidateId = task.itemId;
+    if (!candidateId) {
+      throw new Error('Candidate ID is required for transformation task');
     }
 
-    await this.contentTransformer.transformMapping(mappingId);
+    const result = await this.contentTransformer.transformCandidate(candidateId);
 
-    const transformationJobResult = await this.pool.query<{ id: string }>(
-      `SELECT id FROM transformation_jobs WHERE mapping_id = $1`,
-      [mappingId]
-    );
-
-    if (transformationJobResult.rows.length === 0) {
-      logger.warn({ mappingId }, 'No transformation job found for mapping');
+    if (!result) {
+      logger.warn({ candidateId }, 'Transformation returned no result');
       return;
     }
 
-    const transformationJobId = transformationJobResult.rows[0].id;
-
-    const draftsResult = await this.pool.query<{
-      id: string;
-      data_type: string;
-      item_type: string;
-    }>(
-      `SELECT id, data_type, 'draft' as item_type
-       FROM drafts
-       WHERE transformation_job_id = $1`,
-      [transformationJobId]
+    logger.info(
+      {
+        pipelineId: task.pipelineId,
+        candidateId,
+        validatedId: result.validatedId,
+      },
+      'Candidate transformed to validated'
     );
 
-    for (const draft of draftsResult.rows) {
-      logger.info(
-        {
-          pipelineId: task.pipelineId,
-          draftId: draft.id,
-          dataType: draft.data_type,
-          mappingId,
-        },
-        'Creating pipeline_task for draft'
-      );
+    const remainingCandidatesResult = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) as count
+       FROM candidates c
+       JOIN drafts d ON d.id = c.draft_id
+       JOIN pipelines p ON p.document_id = d.document_id
+       WHERE p.id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM validated v WHERE v.candidate_id = c.id
+         )`,
+      [task.pipelineId]
+    );
 
-      await this.pool.query(
-        `INSERT INTO pipeline_tasks
-         (pipeline_id, item_id, item_type, data_type, current_status, current_stage, mapping_id)
-         VALUES ($1, $2, $3, $4, 'pending', 'DRAFT', $5)`,
-        [task.pipelineId, draft.id, draft.item_type, draft.data_type, mappingId]
-      );
+    const remainingCandidates = parseInt(remainingCandidatesResult.rows[0]?.count || '0', 10);
 
+    if (remainingCandidates === 0) {
+      await this.pipelineManager.updatePipelineStage(task.pipelineId, 'validating');
       logger.info(
-        { draftId: draft.id, dataType: draft.data_type, pipelineId: task.pipelineId },
-        'Created pipeline task for draft - will track DRAFT → CANDIDATE → VALIDATED → APPROVED'
+        { pipelineId: task.pipelineId },
+        'All candidates transformed - moving to validation stage'
       );
     }
-
-    await this.pipelineManager.updatePipelineStage(task.pipelineId, 'validating');
   }
 
   private async executeValidationTask(_task: DocumentTask): Promise<void> {
@@ -430,81 +475,42 @@ export class DocumentPipelineOrchestrator {
 
   private async executeApprovalTask(_task: DocumentTask): Promise<void> {}
 
-  async createTransformationTasksForMapping(mappingId: string): Promise<void> {
-    const result = await this.pool.query<{
-      document_id: string;
-      pipeline_id: string;
-    }>(
-      `SELECT
-        c.document_id,
-        p.id as pipeline_id
-       FROM content_topic_mappings m
-       JOIN raw_content_chunks c ON c.id = m.chunk_id
-       JOIN pipelines p ON p.document_id = c.document_id
-       WHERE m.id = $1`,
-      [mappingId]
-    );
-
-    if (result.rows.length === 0) {
-      return;
-    }
-
-    const { pipeline_id } = result.rows[0];
-
-    await this.pipelineManager.createTask({
-      pipelineId: pipeline_id,
-      itemId: mappingId,
-      taskType: 'transform',
-    });
-
-    logger.info({ mappingId, pipelineId: pipeline_id }, 'Created transformation task');
-  }
-
-  private async createTransformationTasksForConfirmedMappings(pipelineId: string): Promise<void> {
-    const pipelineResult = await this.pool.query<{ document_id: string }>(
-      `SELECT document_id FROM pipelines WHERE id = $1`,
-      [pipelineId]
-    );
-
-    if (pipelineResult.rows.length === 0) {
-      return;
-    }
-
-    const documentId = pipelineResult.rows[0].document_id;
-
-    const mappingsResult = await this.pool.query<{ id: string }>(
-      `SELECT m.id
-       FROM content_topic_mappings m
-       JOIN raw_content_chunks c ON c.id = m.chunk_id
-       WHERE c.document_id = $1
-         AND m.status = 'confirmed'
+  private async createTransformationTasksForCandidates(
+    pipelineId: string,
+    documentId: string
+  ): Promise<void> {
+    const candidatesResult = await this.pool.query<{ id: string }>(
+      `SELECT c.id
+       FROM candidates c
+       JOIN drafts d ON d.id = c.draft_id
+       WHERE d.document_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM validated v WHERE v.candidate_id = c.id
+         )
          AND NOT EXISTS (
            SELECT 1 FROM document_processing_tasks t
            WHERE t.pipeline_id = $2
              AND t.task_type = 'transform'
-             AND t.item_id = m.id
+             AND t.item_id = c.id
          )`,
       [documentId, pipelineId]
     );
 
-    for (const row of mappingsResult.rows) {
+    for (const row of candidatesResult.rows) {
       await this.pipelineManager.createTask({
         pipelineId,
         itemId: row.id,
         taskType: 'transform',
       });
 
-      logger.info(
-        { mappingId: row.id, pipelineId },
-        'Created transformation task for confirmed mapping'
-      );
+      logger.info({ candidateId: row.id, pipelineId }, 'Created transformation task for candidate');
     }
 
-    if (mappingsResult.rows.length > 0) {
+    if (candidatesResult.rows.length > 0) {
       await this.pipelineManager.updatePipelineStage(pipelineId, 'transforming', 'processing');
       logger.info(
-        { pipelineId, tasksCreated: mappingsResult.rows.length },
-        'Re-opened completed pipeline for transformation'
+        { pipelineId, tasksCreated: candidatesResult.rows.length },
+        'Created transformation tasks for candidates'
       );
     }
   }

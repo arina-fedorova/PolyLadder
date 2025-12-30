@@ -48,7 +48,8 @@ export async function moveItemToState(
   itemId: string,
   itemType: string,
   fromState: LifecycleState,
-  toState: LifecycleState
+  toState: LifecycleState,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   // If pool is already a client (in transaction), use it directly
   const isPoolClient = (p: Pool | PoolClient): p is PoolClient =>
@@ -104,10 +105,14 @@ export async function moveItemToState(
         throw new Error(`Item type mismatch: expected ${itemType}, got ${data_type}`);
       }
 
+      const validationResults = metadata?.gateResults
+        ? { passed: true, gateResults: metadata.gateResults }
+        : {};
+
       await client.query(
         `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
          VALUES ($1, $2, $3, $4)`,
-        [data_type, normalized_data, itemId, JSON.stringify({})]
+        [data_type, normalized_data, itemId, JSON.stringify(validationResults)]
       );
     }
     // VALIDATED -> APPROVED: move to approved tables
@@ -128,12 +133,63 @@ export async function moveItemToState(
         throw new Error(`Item type mismatch: expected ${itemType}, got ${data_type}`);
       }
 
-      const tableName = `approved_${data_type}s`;
-
       // Insert into appropriate approved table based on data_type
-      await client.query(`INSERT INTO ${tableName} SELECT * FROM jsonb_to_record($1)`, [
-        validated_data,
-      ]);
+      if (data_type === 'rule') {
+        const data = validated_data as Record<string, unknown>;
+        await client.query(
+          `INSERT INTO approved_rules (id, language, level, category, title, explanation, examples)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)`,
+          [
+            data.language,
+            data.level,
+            data.category || 'general',
+            data.title,
+            data.explanation,
+            JSON.stringify(data.examples || []),
+          ]
+        );
+      } else if (data_type === 'exercise') {
+        const data = validated_data as Record<string, unknown>;
+        await client.query(
+          `INSERT INTO approved_exercises (type, level, languages, prompt, correct_answer, options, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            data.type,
+            data.level,
+            JSON.stringify(data.languages || []),
+            data.prompt,
+            data.correctAnswer || data.correct_answer,
+            JSON.stringify(data.options || null),
+            JSON.stringify(data.metadata || {}),
+          ]
+        );
+      } else if (data_type === 'meaning') {
+        const data = validated_data as Record<string, unknown>;
+        await client.query(
+          `INSERT INTO approved_meanings (id, level, tags)
+           VALUES ($1, $2, $3)`,
+          [data.id, data.level, JSON.stringify(data.tags || [])]
+        );
+      } else if (data_type === 'utterance') {
+        const data = validated_data as Record<string, unknown>;
+        await client.query(
+          `INSERT INTO approved_utterances (meaning_id, language, text, register, usage_notes, audio_url)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            data.meaningId || data.meaning_id,
+            data.language,
+            data.text,
+            data.register || null,
+            data.usageNotes || data.usage_notes || null,
+            data.audioUrl || data.audio_url || null,
+          ]
+        );
+      } else {
+        throw new Error(`Unknown data_type: ${data_type}`);
+      }
+
+      // Delete from validated after moving to approved
+      await client.query('DELETE FROM validated WHERE id = $1', [itemId]);
     }
 
     if (shouldManageTransaction) {

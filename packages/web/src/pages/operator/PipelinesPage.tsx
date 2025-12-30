@@ -93,6 +93,12 @@ export function PipelinesPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pipelines'] });
     },
+    onError: (error) => {
+      console.error('Failed to delete pipeline:', error);
+      alert(
+        `Failed to delete pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    },
   });
 
   const getStatusConfig = (status: string) => {

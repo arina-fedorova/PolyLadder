@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, GripVertical, Trash2, Edit2, ChevronDown, ChevronRight, Upload } from 'lucide-react';
+import {
+  Plus,
+  GripVertical,
+  Trash2,
+  Edit2,
+  ChevronDown,
+  ChevronRight,
+  Upload,
+  Eye,
+} from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface CurriculumLevel {
@@ -21,6 +30,7 @@ interface CurriculumTopic {
   contentType: 'vocabulary' | 'grammar' | 'orthography' | 'mixed';
   sortOrder: number;
   estimatedItems: number;
+  actualItems: number;
   prerequisites: string[];
 }
 
@@ -36,6 +46,7 @@ export function CurriculumPage() {
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
   const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
+  const [viewingApprovedItems, setViewingApprovedItems] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -231,56 +242,89 @@ export function CurriculumPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {topics.topics.map((topic: CurriculumTopic) => (
-                        <div
-                          key={topic.id}
-                          className="flex items-center gap-3 p-3 bg-white border rounded hover:shadow-sm transition-shadow"
-                        >
-                          <GripVertical className="w-4 h-4 text-gray-400 cursor-grab flex-shrink-0" />
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
-                              topic.contentType === 'vocabulary'
-                                ? 'bg-blue-100 text-blue-700'
-                                : topic.contentType === 'grammar'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : topic.contentType === 'orthography'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-700'
-                            }`}
+                      {topics.topics.map((topic: CurriculumTopic) => {
+                        const progress =
+                          topic.estimatedItems > 0
+                            ? Math.min(topic.actualItems / topic.estimatedItems, 1)
+                            : 0;
+                        const progressColor =
+                          progress === 0
+                            ? 'bg-white'
+                            : progress < 0.5
+                              ? 'bg-gradient-to-r from-orange-50 to-orange-100'
+                              : progress < 1
+                                ? 'bg-gradient-to-r from-yellow-50 to-green-100'
+                                : 'bg-gradient-to-r from-green-100 to-green-200';
+
+                        return (
+                          <div
+                            key={topic.id}
+                            className={`flex items-center gap-3 p-3 border rounded hover:shadow-sm transition-shadow ${progressColor}`}
                           >
-                            {topic.contentType}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{topic.name}</span>
-                            {topic.description && (
-                              <p className="text-sm text-gray-600 truncate mt-0.5">
-                                {topic.description}
-                              </p>
-                            )}
+                            <GripVertical className="w-4 h-4 text-gray-400 cursor-grab flex-shrink-0" />
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
+                                topic.contentType === 'vocabulary'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : topic.contentType === 'grammar'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : topic.contentType === 'orthography'
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {topic.contentType}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium">{topic.name}</span>
+                              {topic.description && (
+                                <p className="text-sm text-gray-600 truncate mt-0.5">
+                                  {topic.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-sm flex-shrink-0">
+                              <span
+                                className={`font-medium ${
+                                  topic.actualItems >= topic.estimatedItems
+                                    ? 'text-green-600'
+                                    : topic.actualItems > 0
+                                      ? 'text-yellow-600'
+                                      : 'text-gray-400'
+                                }`}
+                              >
+                                {topic.actualItems}
+                              </span>
+                              <span className="text-gray-400">/{topic.estimatedItems}</span>
+                            </span>
+                            <button
+                              onClick={() => setViewingApprovedItems(topic.id)}
+                              className="p-1.5 hover:bg-blue-100 text-blue-600 rounded flex-shrink-0"
+                              title="View approved items"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingTopic(topic)}
+                              className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0"
+                              title="Edit topic"
+                            >
+                              <Edit2 className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete "${topic.name}"?`)) {
+                                  deleteTopicMutation.mutate(topic.id);
+                                }
+                              }}
+                              className="p-1.5 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
+                              title="Delete topic"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <span className="text-sm text-gray-500 flex-shrink-0">
-                            ~{topic.estimatedItems} items
-                          </span>
-                          <button
-                            onClick={() => setEditingTopic(topic)}
-                            className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0"
-                            title="Edit topic"
-                          >
-                            <Edit2 className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete "${topic.name}"?`)) {
-                                deleteTopicMutation.mutate(topic.id);
-                              }
-                            }}
-                            className="p-1.5 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
-                            title="Delete topic"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -309,6 +353,14 @@ export function CurriculumPage() {
           }}
           isPending={bulkCreateTopicsMutation.isPending}
           result={bulkCreateTopicsMutation.data}
+        />
+      )}
+
+      {viewingApprovedItems && (
+        <ApprovedItemsModal
+          topicId={viewingApprovedItems}
+          topicName={topics?.topics.find((t) => t.id === viewingApprovedItems)?.name || 'Unknown'}
+          onClose={() => setViewingApprovedItems(null)}
         />
       )}
     </div>
@@ -605,6 +657,312 @@ function BulkImportModal({ levelId, onClose, onImport, isPending, result }: Bulk
             )}
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+interface ApprovedItemsModalProps {
+  topicId: string;
+  topicName: string;
+  onClose: () => void;
+}
+
+function ApprovedItemsModal({ topicId, topicName, onClose }: ApprovedItemsModalProps) {
+  const queryClient = useQueryClient();
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+
+  interface ApprovedItemsResponse {
+    meanings: Array<{
+      id: string;
+      type: 'meaning';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+    rules: Array<{ id: string; type: 'rule'; content: Record<string, unknown>; createdAt: string }>;
+    utterances: Array<{
+      id: string;
+      type: 'utterance';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+    exercises: Array<{
+      id: string;
+      type: 'exercise';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+  }
+
+  const { data, isLoading } = useQuery<ApprovedItemsResponse>({
+    queryKey: ['approved-items', topicId],
+    queryFn: async () => {
+      const response = await apiClient.get<ApprovedItemsResponse>(
+        `/operational/curriculum/topics/${topicId}/approved-items`
+      );
+      return response.data;
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, dataType }: { id: string; dataType: string }) => {
+      await apiClient.delete(`/operational/curriculum/approved-items/${id}?dataType=${dataType}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['approved-items', topicId] });
+      alert('Item deleted successfully');
+    },
+    onError: (error) => {
+      alert(`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    },
+  });
+
+  const getContentString = (value: unknown): string => {
+    if (value === null || value === undefined) return 'N/A';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return JSON.stringify(value);
+  };
+
+  const allItems = [
+    ...(data?.meanings.map((item) => ({ ...item, dataType: 'meaning' as const })) || []),
+    ...(data?.rules.map((item) => ({ ...item, dataType: 'rule' as const })) || []),
+    ...(data?.utterances.map((item) => ({ ...item, dataType: 'utterance' as const })) || []),
+    ...(data?.exercises.map((item) => ({ ...item, dataType: 'exercise' as const })) || []),
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Approved Items for "{topicName}"</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <span className="text-2xl">&times;</span>
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-8">Loading approved items...</div>
+        ) : allItems.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">No approved items for this topic yet</div>
+        ) : (
+          <div className="space-y-3">
+            {allItems.map((item) => {
+              const isExpanded = expandedItemId === item.id;
+
+              return (
+                <div key={item.id} className="border rounded-lg bg-gray-50 overflow-hidden">
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
+                          item.dataType === 'meaning' || item.dataType === 'utterance'
+                            ? 'bg-blue-100 text-blue-700'
+                            : item.dataType === 'rule'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {item.dataType}
+                      </span>
+                      <span className="font-medium truncate">
+                        {item.dataType === 'meaning' && getContentString(item.content.word)}
+                        {item.dataType === 'rule' && getContentString(item.content.title)}
+                        {item.dataType === 'utterance' && getContentString(item.content.text)}
+                        {item.dataType === 'exercise' && getContentString(item.content.prompt)}
+                      </span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Are you sure you want to delete this ${item.dataType}?`)) {
+                            deleteMutation.mutate({ id: item.id, dataType: item.dataType });
+                          }
+                        }}
+                        className="p-2 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
+                        title="Delete"
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4 border-t bg-white">
+                      <div className="pt-4 space-y-3">
+                        {item.dataType === 'meaning' && (
+                          <>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Word:</span>
+                              <p className="text-xl font-semibold">
+                                {getContentString(item.content.word)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Definition:</span>
+                              <p className="text-gray-900">
+                                {getContentString(item.content.definition)}
+                              </p>
+                            </div>
+                            {item.content.partOfSpeech && (
+                              <div>
+                                <span className="text-sm font-medium text-gray-600">
+                                  Part of Speech:
+                                </span>
+                                <p className="text-gray-700">
+                                  {getContentString(item.content.partOfSpeech)}
+                                </p>
+                              </div>
+                            )}
+                            {item.content.usageNotes && (
+                              <div>
+                                <span className="text-sm font-medium text-gray-600">
+                                  Usage Notes:
+                                </span>
+                                <p className="text-gray-700">
+                                  {getContentString(item.content.usageNotes)}
+                                </p>
+                              </div>
+                            )}
+                            {item.content.examples &&
+                              Array.isArray(item.content.examples) &&
+                              item.content.examples.length > 0 && (
+                                <div>
+                                  <span className="text-sm font-medium text-gray-600">
+                                    Examples:
+                                  </span>
+                                  <ul className="list-disc list-inside text-gray-700 mt-1">
+                                    {item.content.examples.map((ex, i) => (
+                                      <li key={i}>{getContentString(ex)}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                          </>
+                        )}
+
+                        {item.dataType === 'rule' && (
+                          <>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Title:</span>
+                              <p className="text-lg font-semibold">
+                                {getContentString(item.content.title)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">
+                                Explanation:
+                              </span>
+                              <p className="text-gray-900 whitespace-pre-wrap">
+                                {getContentString(item.content.explanation)}
+                              </p>
+                            </div>
+                            {item.content.examples &&
+                              Array.isArray(item.content.examples) &&
+                              item.content.examples.length > 0 && (
+                                <div>
+                                  <span className="text-sm font-medium text-gray-600">
+                                    Examples:
+                                  </span>
+                                  <div className="space-y-2 mt-2">
+                                    {item.content.examples.map((ex, i) => {
+                                      if (typeof ex === 'object' && ex !== null) {
+                                        const exObj = ex as {
+                                          correct?: string;
+                                          incorrect?: string;
+                                          note?: string;
+                                        };
+                                        return (
+                                          <div
+                                            key={i}
+                                            className="bg-gray-50 p-3 rounded border-l-4 border-green-400"
+                                          >
+                                            <p className="text-green-700 font-medium">
+                                              ✓ {getContentString(exObj.correct)}
+                                            </p>
+                                            {exObj.incorrect && (
+                                              <p className="text-red-600 line-through mt-1">
+                                                ✗ {getContentString(exObj.incorrect)}
+                                              </p>
+                                            )}
+                                            {exObj.note && (
+                                              <p className="text-gray-600 text-sm italic mt-1">
+                                                {getContentString(exObj.note)}
+                                              </p>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <p key={i} className="text-gray-700">
+                                          {getContentString(ex)}
+                                        </p>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            {item.content.commonMistakes && (
+                              <div>
+                                <span className="text-sm font-medium text-gray-600">
+                                  Common Mistakes:
+                                </span>
+                                <p className="text-gray-700 bg-red-50 p-2 rounded mt-1">
+                                  {getContentString(item.content.commonMistakes)}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {item.dataType === 'utterance' && (
+                          <>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Text:</span>
+                              <p className="text-lg">{getContentString(item.content.text)}</p>
+                            </div>
+                            {item.content.translation && (
+                              <div>
+                                <span className="text-sm font-medium text-gray-600">
+                                  Translation:
+                                </span>
+                                <p className="text-gray-700">
+                                  {getContentString(item.content.translation)}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {item.dataType === 'exercise' && (
+                          <>
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Prompt:</span>
+                              <p className="text-lg">{getContentString(item.content.prompt)}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

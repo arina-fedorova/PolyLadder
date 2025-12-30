@@ -2,9 +2,6 @@ import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema } from '../../schemas/common';
-import { withTransaction } from '../../utils/db.utils';
-import { recordApproval, ApprovalType } from '@polyladder/core';
-import { createApprovalEventRepository } from '@polyladder/db';
 
 const ValidationResultSchema = Type.Object({
   gate: Type.String(),
@@ -40,6 +37,10 @@ const ReviewQueueResponseSchema = Type.Object({
   pageSize: Type.Number(),
 });
 
+interface PipelineParams {
+  pipelineId: string;
+}
+
 const QuerystringSchema = Type.Object({
   page: Type.Optional(Type.Number({ minimum: 1 })),
   pageSize: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
@@ -50,11 +51,11 @@ const QuerystringSchema = Type.Object({
 
 type ReviewQueueQuery = Static<typeof QuerystringSchema>;
 
-const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
+const pipelineReviewQueueRoute: FastifyPluginAsync = async function (fastify) {
   await Promise.resolve();
 
-  fastify.get<{ Querystring: ReviewQueueQuery }>(
-    '/review-queue',
+  fastify.get<{ Params: PipelineParams; Querystring: ReviewQueueQuery }>(
+    '/pipelines/:pipelineId/review-queue',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -63,6 +64,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           200: ReviewQueueResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -78,10 +80,30 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
+      const { pipelineId } = request.params;
       const page = request.query.page ?? 1;
       const pageSize = request.query.pageSize ?? 20;
       const contentTypeFilter = request.query.contentType;
       const offset = (page - 1) * pageSize;
+
+      // Get pipeline's document_id
+      const pipelineResult = await fastify.db.query<{ document_id: string }>(
+        `SELECT document_id FROM pipelines WHERE id = $1`,
+        [pipelineId]
+      );
+
+      if (pipelineResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: 'Pipeline not found',
+            requestId: request.id,
+            code: 'NOT_FOUND',
+          },
+        });
+      }
+
+      const documentId = pipelineResult.rows[0].document_id;
 
       type DataType = 'meaning' | 'utterance' | 'rule' | 'exercise';
       type ContentType = 'vocabulary' | 'grammar' | 'orthography';
@@ -114,6 +136,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
 
       const dataTypes = filteredTables.map((t) => t.dataType);
 
+      // Count query - only items from this pipeline's document
       const countQuery = `
         WITH filtered_items AS (
           SELECT DISTINCT ON (
@@ -127,16 +150,22 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           ) v.id
           FROM review_queue rq
           JOIN validated v ON v.id = rq.item_id
+          JOIN candidates c ON v.candidate_id = c.id
+          JOIN drafts d ON c.draft_id = d.id
           WHERE rq.data_type = ANY($1::text[])
             AND rq.reviewed_at IS NULL
+            AND d.document_id = $2
             AND NOT EXISTS (SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar)
-            AND NOT EXISTS (SELECT 1 FROM rejected_items ri WHERE ri.validated_id = v.id)
         )
         SELECT COUNT(*)::int as total FROM filtered_items
       `;
-      const countResult = await fastify.db.query<{ total: number }>(countQuery, [dataTypes]);
+      const countResult = await fastify.db.query<{ total: number }>(countQuery, [
+        dataTypes,
+        documentId,
+      ]);
       const total = countResult.rows[0]?.total ?? 0;
 
+      // Items query - only items from this pipeline's document
       const itemsQuery = `
         SELECT DISTINCT ON (
           CASE
@@ -162,12 +191,14 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           v.validation_results
         FROM review_queue rq
         JOIN validated v ON v.id = rq.item_id
+        JOIN candidates c ON v.candidate_id = c.id
+        JOIN drafts d ON c.draft_id = d.id
         WHERE rq.data_type = ANY($1::text[])
           AND rq.reviewed_at IS NULL
+          AND d.document_id = $2
           AND NOT EXISTS (SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar)
-          AND NOT EXISTS (SELECT 1 FROM rejected_items ri WHERE ri.validated_id = v.id)
         ORDER BY (
-          CASE 
+          CASE
             WHEN v.data_type = 'meaning' THEN v.validated_data->>'word'
             WHEN v.data_type = 'utterance' THEN v.validated_data->>'text'
             WHEN v.data_type = 'rule' THEN v.validated_data->>'title'
@@ -175,7 +206,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
             ELSE v.id::text
           END || '|' || COALESCE(v.validated_data->>'language', 'EN') || '|' || COALESCE(v.validated_data->>'level', 'A1')
         ), rq.priority DESC, rq.queued_at ASC
-        LIMIT $2 OFFSET $3
+        LIMIT $3 OFFSET $4
       `;
 
       const itemsResult = await fastify.db.query<{
@@ -192,7 +223,7 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
           passed: boolean;
           score?: number;
         }>;
-      }>(itemsQuery, [dataTypes, pageSize, offset]);
+      }>(itemsQuery, [dataTypes, documentId, pageSize, offset]);
 
       const response = itemsResult.rows.map((row) => {
         const validationResults = Array.isArray(row.validation_results)
@@ -227,111 +258,6 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
       });
     }
   );
-
-  const BulkApproveBodySchema = Type.Object({
-    pipelineId: Type.Optional(Type.String()),
-  });
-
-  type BulkApproveBody = Static<typeof BulkApproveBodySchema>;
-
-  fastify.post<{ Body: BulkApproveBody }>(
-    '/review-queue/bulk-approve',
-    {
-      preHandler: [authMiddleware],
-      schema: {
-        body: BulkApproveBodySchema,
-        response: {
-          200: Type.Object({
-            approved: Type.Number(),
-            failed: Type.Number(),
-            errors: Type.Array(Type.String()),
-          }),
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      if (request.user?.role !== 'operator') {
-        return reply.status(403).send({
-          error: {
-            statusCode: 403,
-            message: 'Operator role required',
-            requestId: request.id,
-            code: 'FORBIDDEN',
-          },
-        });
-      }
-
-      const operatorId = request.user.userId;
-      const { pipelineId } = request.body;
-
-      let itemsQuery = `
-        SELECT DISTINCT v.id, v.data_type
-        FROM review_queue rq
-        JOIN validated v ON v.id = rq.item_id
-        WHERE rq.reviewed_at IS NULL
-          AND NOT EXISTS (SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar)
-          AND NOT EXISTS (SELECT 1 FROM rejected_items ri WHERE ri.validated_id = v.id)
-      `;
-
-      const params: (string | undefined)[] = [];
-
-      if (pipelineId) {
-        itemsQuery += `
-          AND EXISTS (
-            SELECT 1 FROM candidates c
-            JOIN drafts d ON c.draft_id = d.id
-            JOIN document_sources ds ON d.document_id = ds.id
-            JOIN pipelines p ON p.document_id = ds.id
-            WHERE c.id = v.candidate_id AND p.id = $1
-          )
-        `;
-        params.push(pipelineId);
-      }
-
-      const itemsResult = await fastify.db.query<{ id: string; data_type: string }>(
-        itemsQuery,
-        params
-      );
-
-      let approved = 0;
-      let failed = 0;
-      const errors: string[] = [];
-
-      for (const item of itemsResult.rows) {
-        const client = await fastify.db.connect();
-        try {
-          await withTransaction(client, async (txClient) => {
-            const approvalEventRepo = createApprovalEventRepository(txClient);
-
-            await recordApproval(approvalEventRepo, {
-              itemId: item.id,
-              itemType: item.data_type,
-              operatorId,
-              approvalType: ApprovalType.MANUAL,
-              notes: 'Bulk approved',
-            });
-
-            await txClient.query(
-              `UPDATE review_queue SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approve' WHERE item_id = $1`,
-              [item.id]
-            );
-          });
-          approved++;
-        } catch (error) {
-          failed++;
-          errors.push(`${item.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        } finally {
-          client.release();
-        }
-      }
-
-      request.log.info({ approved, failed, pipelineId, operatorId }, 'Bulk approve completed');
-
-      return reply.status(200).send({ approved, failed, errors });
-    }
-  );
 };
 
-export default reviewQueueRoute;
+export default pipelineReviewQueueRoute;

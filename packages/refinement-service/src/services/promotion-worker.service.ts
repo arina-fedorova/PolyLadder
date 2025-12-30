@@ -1,8 +1,5 @@
 import { Pool } from 'pg';
 import {
-  runGatesByTier,
-  type QualityGate,
-  type GateInput,
   executeTransitionSimple,
   LifecycleState,
   type StateTransition,
@@ -22,12 +19,10 @@ export interface CandidateRecord {
 
 export class PromotionWorker {
   private pool: Pool;
-  private gates: QualityGate[];
   private eventLogger: PipelineEventLogger;
 
-  constructor(pool: Pool, gates: QualityGate[]) {
+  constructor(pool: Pool) {
     this.pool = pool;
-    this.gates = gates;
     this.eventLogger = new PipelineEventLogger(pool);
   }
 
@@ -41,20 +36,26 @@ export class PromotionWorker {
         itemId: string,
         itemType: string,
         fromState: LifecycleState,
-        toState: LifecycleState
+        toState: LifecycleState,
+        metadata?: Record<string, unknown>
       ): Promise<void> {
-        return await moveItemToState(pool, itemId, itemType, fromState, toState);
+        return await moveItemToState(pool, itemId, itemType, fromState, toState, metadata);
       },
     };
   }
 
   async processBatch(batchSize = 10): Promise<number> {
     const result = await this.pool.query<CandidateRecord>(
-      `SELECT id, data_type as "dataType", normalized_data as "normalizedData",
-              draft_id as "draftId", created_at as "createdAt"
-       FROM candidates
-       WHERE id NOT IN (SELECT candidate_id FROM validated)
-       ORDER BY created_at ASC
+      `SELECT c.id, c.data_type as "dataType", c.normalized_data as "normalizedData",
+              c.draft_id as "draftId", c.created_at as "createdAt"
+       FROM candidates c
+       WHERE c.id NOT IN (SELECT candidate_id FROM validated)
+         AND NOT EXISTS (
+           SELECT 1 FROM drafts d
+           WHERE d.id = c.draft_id
+             AND d.document_id IS NOT NULL
+         )
+       ORDER BY c.created_at ASC
        LIMIT $1`,
       [batchSize]
     );
@@ -88,52 +89,69 @@ export class PromotionWorker {
 
   private async processCandidate(candidate: CandidateRecord): Promise<void> {
     const normalizedData = candidate.normalizedData as Record<string, unknown>;
-    const text = this.extractTextFromNormalizedData(normalizedData);
-    const language = (normalizedData.language as string) ?? 'EN';
-    const level = (normalizedData.level as string) ?? 'A1';
 
-    const input: GateInput & { level: string } = {
-      text,
-      language,
-      contentType: candidate.dataType,
-      level,
-      metadata: {
-        candidateId: candidate.id,
-        dataType: candidate.dataType,
-        draftId: candidate.draftId,
-        level,
-      },
-    };
+    const contentKey =
+      candidate.dataType === 'meaning'
+        ? normalizedData.word
+        : candidate.dataType === 'rule'
+          ? normalizedData.title
+          : candidate.dataType === 'utterance'
+            ? normalizedData.text
+            : normalizedData.prompt;
 
-    const gateResult = await runGatesByTier(this.gates, input);
-
-    if (gateResult.allPassed) {
-      const validatedResult = await this.pool.query<{ id: string }>(
-        `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [
-          candidate.dataType,
-          JSON.stringify(candidate.normalizedData),
-          candidate.id,
-          JSON.stringify({ passed: true, gateResults: gateResult.results }),
-        ]
+    if (contentKey) {
+      const wasRejected = await this.pool.query<{ id: string }>(
+        `SELECT 1 FROM rejected_items ri
+         JOIN validated v ON ri.validated_id = v.id
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE ri.data_type = $1
+           AND d.topic_id = (
+             SELECT topic_id FROM drafts WHERE id = $2
+           )
+           AND (
+             (ri.data_type = 'meaning' AND ri.rejected_data->>'word' = $3)
+             OR (ri.data_type = 'rule' AND ri.rejected_data->>'title' = $4)
+             OR (ri.data_type = 'utterance' AND ri.rejected_data->>'text' = $5)
+             OR (ri.data_type = 'exercise' AND ri.rejected_data->>'prompt' = $6)
+           )
+         LIMIT 1`,
+        [candidate.dataType, candidate.draftId, contentKey, contentKey, contentKey, contentKey]
       );
 
-      const validatedId = validatedResult.rows[0].id;
+      if (wasRejected.rows.length > 0) {
+        logger.warn(
+          {
+            candidateId: candidate.id,
+            dataType: candidate.dataType,
+            contentKey,
+            draftId: candidate.draftId,
+          },
+          'Skipping promotion to validated - content was previously rejected for this topic'
+        );
+        return;
+      }
+    }
 
-      const transitionRepo = this.createTransitionRepository();
-      await executeTransitionSimple(transitionRepo, {
-        itemId: candidate.id,
-        itemType: candidate.dataType,
-        fromState: LifecycleState.CANDIDATE,
-        toState: LifecycleState.VALIDATED,
-        metadata: {
-          gateResults: gateResult.results,
-          executionTimeMs: gateResult.executionTimeMs,
-        },
-      });
+    const transitionRepo = this.createTransitionRepository();
+    await executeTransitionSimple(transitionRepo, {
+      itemId: candidate.id,
+      itemType: candidate.dataType,
+      fromState: LifecycleState.CANDIDATE,
+      toState: LifecycleState.VALIDATED,
+      metadata: {
+        promotedAt: new Date().toISOString(),
+      },
+    });
 
+    const validatedResult = await this.pool.query<{ id: string }>(
+      `SELECT id FROM validated WHERE candidate_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [candidate.id]
+    );
+
+    const validatedId = validatedResult.rows[0]?.id;
+
+    if (validatedId) {
       await this.pool.query(
         `UPDATE pipeline_tasks
          SET item_id = $1, item_type = 'validated', current_stage = 'VALIDATED', updated_at = CURRENT_TIMESTAMP
@@ -141,94 +159,47 @@ export class PromotionWorker {
         [validatedId, candidate.id]
       );
 
-      await this.eventLogger.logEvent({
-        itemId: candidate.id,
-        itemType: 'candidate',
-        eventType: 'quality_gates_passed',
-        fromStage: 'CANDIDATE',
-        toStage: 'VALIDATED',
-        fromStatus: 'processing',
-        toStatus: 'completed',
-        stage: 'VALIDATED',
-        status: 'completed',
-        success: true,
-        durationMs: gateResult.executionTimeMs,
-        payload: {
-          gateResults: gateResult.results,
-          gatesPassed: gateResult.results.length,
-        },
-      });
-
-      logger.info(
-        { candidateId: candidate.id, gates: gateResult.results.length },
-        'Candidate promoted to VALIDATED'
-      );
-    } else {
-      await this.recordFailures(candidate.id, gateResult.results);
-
-      await this.eventLogger.logEvent({
-        itemId: candidate.id,
-        itemType: 'candidate',
-        eventType: 'quality_gates_failed',
-        stage: 'CANDIDATE',
-        status: 'failed',
-        fromStatus: 'processing',
-        toStatus: 'failed',
-        success: false,
-        errorMessage: `Failed at gate: ${gateResult.failedAt}`,
-        durationMs: gateResult.executionTimeMs,
-        payload: {
-          gateResults: gateResult.results,
-          failedAt: gateResult.failedAt,
-        },
-      });
-
-      logger.warn(
-        { candidateId: candidate.id, failedAt: gateResult.failedAt },
-        'Candidate failed quality gates'
-      );
-    }
-  }
-
-  private extractTextFromNormalizedData(normalizedData: Record<string, unknown>): string {
-    if (typeof normalizedData.text === 'string') {
-      return normalizedData.text;
-    }
-    if (typeof normalizedData.content === 'string') {
-      return normalizedData.content;
-    }
-    if (typeof normalizedData.prompt === 'string') {
-      return normalizedData.prompt;
-    }
-    if (typeof normalizedData.title === 'string') {
-      return normalizedData.title;
-    }
-    if (typeof normalizedData.explanation === 'string') {
-      return normalizedData.explanation;
-    }
-    if (Array.isArray(normalizedData.examples) && normalizedData.examples.length > 0) {
-      return String(normalizedData.examples[0]);
-    }
-    return JSON.stringify(normalizedData);
-  }
-
-  private async recordFailures(
-    candidateId: string,
-    results: import('@polyladder/core').QualityGateResult[]
-  ): Promise<void> {
-    const failedResults = results.filter((r) => !r.passed);
-
-    for (const result of failedResults) {
+      const priority = this.calculateReviewPriority(candidate.dataType);
       await this.pool.query(
-        `INSERT INTO validation_failures (candidate_id, gate_name, failure_reason, failure_details)
-         VALUES ($1, $2, $3, $4)`,
-        [
-          candidateId,
-          result.gateName,
-          result.reason ?? 'Validation failed',
-          JSON.stringify(result.details ?? {}),
-        ]
+        `INSERT INTO review_queue (item_id, data_type, queued_at, priority)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+         ON CONFLICT (item_id) DO UPDATE SET priority = $3, reviewed_at = NULL`,
+        [validatedId, candidate.dataType, priority]
       );
     }
+
+    await this.eventLogger.logEvent({
+      itemId: candidate.id,
+      itemType: 'candidate',
+      eventType: 'promoted_to_validated',
+      fromStage: 'CANDIDATE',
+      toStage: 'VALIDATED',
+      fromStatus: 'processing',
+      toStatus: 'completed',
+      stage: 'VALIDATED',
+      status: 'completed',
+      success: true,
+      payload: {
+        validatedId,
+      },
+    });
+
+    logger.info({ candidateId: candidate.id, validatedId }, 'Candidate promoted to VALIDATED');
+  }
+
+  private calculateReviewPriority(dataType: string): number {
+    if (dataType === 'rule') {
+      return 1;
+    }
+    if (dataType === 'meaning') {
+      return 2;
+    }
+    if (dataType === 'utterance') {
+      return 3;
+    }
+    if (dataType === 'exercise') {
+      return 4;
+    }
+    return 10;
   }
 }

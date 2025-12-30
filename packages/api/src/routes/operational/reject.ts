@@ -90,16 +90,34 @@ const rejectRoute: FastifyPluginAsync = async function (fastify) {
         });
       }
 
+      const validatedItemResult = await fastify.db.query<{
+        id: string;
+        validated_data: Record<string, unknown>;
+      }>(`SELECT id, validated_data FROM validated WHERE id = $1 AND data_type = $2`, [
+        id,
+        dataType,
+      ]);
+
+      if (validatedItemResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: `Item not found in validated table`,
+            requestId: request.id,
+            code: 'NOT_FOUND',
+          },
+        });
+      }
+
+      const validatedItem = validatedItemResult.rows[0];
       const client = await fastify.db.connect();
 
       try {
         await withTransaction(client, async (txClient) => {
-          await txClient.query(`DELETE FROM validated WHERE id = $1`, [id]);
-
           await txClient.query(
-            `INSERT INTO approval_events (item_id, item_type, operator_id, approval_type, notes, created_at)
-             VALUES ($1, $2, $3, 'MANUAL', $4, CURRENT_TIMESTAMP)`,
-            [id, dataType, operatorId, reason]
+            `INSERT INTO rejected_items (validated_id, data_type, operator_id, reason, rejected_data)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [id, dataType, operatorId, reason, JSON.stringify(validatedItem.validated_data)]
           );
 
           await txClient.query(
@@ -108,6 +126,8 @@ const rejectRoute: FastifyPluginAsync = async function (fastify) {
              WHERE item_id = $1`,
             [id]
           );
+
+          await txClient.query(`DELETE FROM validated WHERE id = $1`, [id]);
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Rejection failed';

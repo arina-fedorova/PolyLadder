@@ -108,6 +108,16 @@ export function createApprovalRepository(pool: Pool): ApprovalRepository {
     },
 
     async queueForReview(itemId: string, dataType: string, priority: number): Promise<void> {
+      const isRejected = await pool.query<{ id: string }>(
+        `SELECT 1 FROM rejected_items WHERE validated_id = $1 LIMIT 1`,
+        [itemId]
+      );
+
+      if (isRejected.rows.length > 0) {
+        logger.warn({ itemId, dataType }, 'Skipping queueForReview - item was rejected');
+        return;
+      }
+
       await pool.query(
         `INSERT INTO review_queue (item_id, data_type, queued_at, priority)
          VALUES ($1, $2, CURRENT_TIMESTAMP, $3)

@@ -64,6 +64,13 @@ export class SemanticMapperService {
       .map((t, i) => `${i + 1}. ${t.name} (${t.contentType}): ${t.description || 'No description'}`)
       .join('\n');
 
+    const chunkTypeHint =
+      chunk.chunkType === 'vocabulary_section'
+        ? '\n\n## IMPORTANT: This chunk is detected as a VOCABULARY SECTION. Prioritize vocabulary topics over grammar topics when the chunk contains word lists or vocabulary definitions.'
+        : chunk.chunkType === 'grammar_explanation'
+          ? '\n\n## IMPORTANT: This chunk is detected as a GRAMMAR EXPLANATION. Prioritize grammar topics when the chunk explains grammatical rules.'
+          : '';
+
     const prompt = `You are analyzing educational content for language learning. 
 Given a text chunk from a textbook, find ALL relevant curriculum topics it covers.
 
@@ -72,13 +79,15 @@ ${topicList}
 
 ## Text Chunk:
 "${chunk.cleanedText.substring(0, 2000)}"
+${chunkTypeHint}
 
 ## Instructions:
 1. Analyze the content of the chunk thoroughly
-2. Identify ALL topics that are relevant to this chunk (a chunk can cover multiple topics)
-3. For each relevant topic, provide a confidence score (0.0-1.0)
-4. Only include topics with confidence >= 0.3
-5. A chunk can map to multiple topics if it covers multiple concepts
+2. Consider the chunk type (${chunk.chunkType}) when matching to topics - vocabulary sections should primarily map to vocabulary topics, grammar explanations to grammar topics
+3. Identify ALL topics that are relevant to this chunk (a chunk can cover multiple topics)
+4. For each relevant topic, provide a confidence score (0.0-1.0)
+5. Only include topics with confidence >= 0.3
+6. A chunk can map to multiple topics if it covers multiple concepts, but prioritize topics that match the chunk type
 
 Respond in JSON format:
 {
@@ -109,7 +118,14 @@ Example: If a chunk covers both "Present tense verbs" and "Basic vocabulary", re
     if (content.type !== 'text') return [];
 
     try {
-      const parsed = JSON.parse(content.text) as {
+      let jsonText = content.text.trim();
+
+      const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim();
+      }
+
+      const parsed = JSON.parse(jsonText) as {
         mappings?: Array<{
           topic_index: number;
           confidence: number;

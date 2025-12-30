@@ -8,12 +8,17 @@ import failuresRoute from './failures';
 import failureTrendsRoute from './failure-trends';
 import activityLogRoute from './activity-log';
 import corpusRoute from './corpus';
+import pipelineStatsRoute from './pipeline-stats';
 import { curriculumRoutes } from './curriculum';
 import { documentRoutes } from './documents';
 import { mappingRoutes } from './mappings';
 import { feedbackRoutes } from './feedback';
+import { draftRoutes } from './drafts';
 import { pipelineTasksRoutes } from './pipeline-tasks';
 import { pipelinesRoutes } from './pipelines';
+import pipelineMappingsRoute from './pipeline-mappings';
+import pipelineReviewQueueRoute from './pipeline-review-queue';
+import pipelineFailuresRoute from './pipeline-failures';
 
 const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -25,12 +30,17 @@ const operationalRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(failuresRoute);
   await fastify.register(activityLogRoute);
   await fastify.register(corpusRoute);
+  await fastify.register(pipelineStatsRoute);
   await fastify.register(curriculumRoutes);
   await fastify.register(documentRoutes);
   await fastify.register(mappingRoutes);
   await fastify.register(feedbackRoutes);
+  await fastify.register(draftRoutes);
   await fastify.register(pipelineTasksRoutes);
   await fastify.register(pipelinesRoutes);
+  await fastify.register(pipelineMappingsRoute);
+  await fastify.register(pipelineReviewQueueRoute);
+  await fastify.register(pipelineFailuresRoute);
 };
 
 export default operationalRoutes;

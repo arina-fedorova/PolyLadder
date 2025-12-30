@@ -60,7 +60,8 @@ test.describe('Operator Dashboard', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('link', { name: 'Pipeline' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Review Queue' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Corpus' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Curriculum' })).toBeVisible();
     await expect(page.getByText('operator@example.com')).toBeVisible();
   });
 });

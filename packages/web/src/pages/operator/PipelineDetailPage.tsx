@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
@@ -11,6 +12,9 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
+import { PipelineReviewQueue } from '@/components/operator/PipelineReviewQueue';
+import { PipelineFailures } from '@/components/operator/PipelineFailures';
+import { PipelineDraftReview } from '@/components/operator/PipelineDraftReview';
 
 interface PipelineDetail {
   pipeline: {
@@ -82,6 +86,9 @@ export function PipelineDetailPage() {
   const { pipelineId } = useParams<{ pipelineId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'overview' | 'drafts' | 'review' | 'failures'>(
+    'overview'
+  );
 
   const { data, isLoading, error } = useQuery<PipelineDetail>({
     queryKey: ['pipeline', pipelineId],
@@ -116,6 +123,12 @@ export function PipelineDetailPage() {
     },
     onSuccess: () => {
       void navigate('/operator/pipelines');
+    },
+    onError: (error) => {
+      console.error('Failed to delete pipeline:', error);
+      alert(
+        `Failed to delete pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     },
   });
 
@@ -471,110 +484,198 @@ export function PipelineDetailPage() {
         </div>
       )}
 
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Tasks ({tasks.length})</h2>
-        {tasks.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No tasks created yet</p>
-        ) : (
-          <div className="space-y-3">
-            {tasks.map((task, index) => {
-              const taskStatusConfig = getStatusConfig(task.current_status);
-              const TaskStatusIcon = taskStatusConfig.icon;
-
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                >
-                  <div className="flex-shrink-0 w-8 h-8 bg-white border-2 border-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-medium text-gray-600">{index + 1}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTaskTypeColor(task.task_type || task.item_type)}`}
-                      >
-                        {task.task_type || task.item_type}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${taskStatusConfig.bgColor} ${taskStatusConfig.color}`}
-                      >
-                        <TaskStatusIcon className="w-3 h-3" />
-                        {task.current_status}
-                      </span>
-                      <span className="text-xs text-gray-500 capitalize">{task.current_stage}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      {task.data_type} • Created {new Date(task.created_at).toLocaleString()}
-                    </p>
-                    {task.error_message && (
-                      <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">
-                        {task.error_message}
-                      </p>
-                    )}
-                    {task.retry_count > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">Retries: {task.retry_count}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-4">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('drafts')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'drafts'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Drafts
+            {contentStats.draft > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
+                {contentStats.draft}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('review')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'review'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Review Queue
+            {contentStats.validated > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full">
+                {contentStats.validated}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('failures')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'failures'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Failures
+          </button>
+        </nav>
       </div>
 
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Event Timeline ({events.length})
-        </h2>
-        {events.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No events recorded</p>
-        ) : (
-          <div className="relative">
-            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-            <div className="space-y-6">
-              {events.map((event) => (
-                <div key={event.id} className="relative pl-12">
-                  <div
-                    className={`absolute left-0 top-1 w-8 h-8 rounded-full flex items-center justify-center ${
-                      event.success
-                        ? 'bg-green-100 border-2 border-green-500'
-                        : 'bg-red-100 border-2 border-red-500'
-                    }`}
-                  >
-                    {event.success ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900">{event.event_type}</span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(event.created_at).toLocaleString()}
-                      </span>
+      {activeTab === 'drafts' && pipelineId && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Draft Review</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Review semantic splits from LLM. Approve to promote to candidates, reject to discard, or
+            re-run with feedback.
+          </p>
+          <PipelineDraftReview pipelineId={pipelineId} />
+        </div>
+      )}
+
+      {activeTab === 'review' && pipelineId && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Review Queue</h2>
+          <PipelineReviewQueue pipelineId={pipelineId} />
+        </div>
+      )}
+
+      {activeTab === 'failures' && pipelineId && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quality Gate Failures</h2>
+          <PipelineFailures pipelineId={pipelineId} />
+        </div>
+      )}
+
+      {activeTab === 'overview' && (
+        <>
+          <div className="card">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Tasks ({tasks.length})</h2>
+            {tasks.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No tasks created yet</p>
+            ) : (
+              <div className="space-y-3">
+                {tasks.map((task, index) => {
+                  const taskStatusConfig = getStatusConfig(task.current_status);
+                  const TaskStatusIcon = taskStatusConfig.icon;
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 bg-white border-2 border-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-gray-600">{index + 1}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTaskTypeColor(task.task_type || task.item_type)}`}
+                          >
+                            {task.task_type || task.item_type}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${taskStatusConfig.bgColor} ${taskStatusConfig.color}`}
+                          >
+                            <TaskStatusIcon className="w-3 h-3" />
+                            {task.current_status}
+                          </span>
+                          <span className="text-xs text-gray-500 capitalize">
+                            {task.current_stage}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {task.data_type} • Created {new Date(task.created_at).toLocaleString()}
+                        </p>
+                        {task.error_message && (
+                          <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">
+                            {task.error_message}
+                          </p>
+                        )}
+                        {task.retry_count > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">Retries: {task.retry_count}</p>
+                        )}
+                      </div>
                     </div>
-                    {event.stage && (
-                      <p className="text-sm text-gray-600 capitalize">
-                        Stage: {event.stage.replace('_', ' ')}
-                      </p>
-                    )}
-                    {event.error_message && (
-                      <p className="text-sm text-red-600 bg-red-50 p-2 rounded mt-2">
-                        {event.error_message}
-                      </p>
-                    )}
-                    {event.duration_ms && (
-                      <p className="text-xs text-gray-500 mt-1">Duration: {event.duration_ms}ms</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          <div className="card">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Event Timeline ({events.length})
+            </h2>
+            {events.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No events recorded</p>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                <div className="space-y-6">
+                  {events.map((event) => (
+                    <div key={event.id} className="relative pl-12">
+                      <div
+                        className={`absolute left-0 top-1 w-8 h-8 rounded-full flex items-center justify-center ${
+                          event.success
+                            ? 'bg-green-100 border-2 border-green-500'
+                            : 'bg-red-100 border-2 border-red-500'
+                        }`}
+                      >
+                        {event.success ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        )}
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-gray-900">{event.event_type}</span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(event.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        {event.stage && (
+                          <p className="text-sm text-gray-600 capitalize">
+                            Stage: {event.stage.replace('_', ' ')}
+                          </p>
+                        )}
+                        {event.error_message && (
+                          <p className="text-sm text-red-600 bg-red-50 p-2 rounded mt-2">
+                            {event.error_message}
+                          </p>
+                        )}
+                        {event.duration_ms && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Duration: {event.duration_ms}ms
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

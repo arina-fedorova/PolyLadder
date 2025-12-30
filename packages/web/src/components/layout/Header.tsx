@@ -60,18 +60,6 @@ export function Header() {
                   Pipeline
                 </Link>
                 <Link
-                  to="/operator/review-queue"
-                  className="text-gray-700 hover:text-primary-600 transition-colors"
-                >
-                  Review Queue
-                </Link>
-                <Link
-                  to="/operator/failures"
-                  className="text-red-600 hover:text-red-700 transition-colors"
-                >
-                  Failures
-                </Link>
-                <Link
                   to="/operator/corpus"
                   className="text-gray-700 hover:text-primary-600 transition-colors"
                 >
@@ -88,12 +76,6 @@ export function Header() {
                   className="text-gray-700 hover:text-primary-600 transition-colors"
                 >
                   Documents
-                </Link>
-                <Link
-                  to="/operator/mappings"
-                  className="text-gray-700 hover:text-primary-600 transition-colors"
-                >
-                  Mappings
                 </Link>
               </>
             )}
@@ -181,20 +163,6 @@ export function Header() {
                   Pipeline
                 </Link>
                 <Link
-                  to="/operator/review-queue"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Review Queue
-                </Link>
-                <Link
-                  to="/operator/failures"
-                  className="block px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Failures
-                </Link>
-                <Link
                   to="/operator/corpus"
                   className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                   onClick={() => setMobileMenuOpen(false)}
@@ -214,13 +182,6 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Documents
-                </Link>
-                <Link
-                  to="/operator/mappings"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Mappings
                 </Link>
               </>
             )}

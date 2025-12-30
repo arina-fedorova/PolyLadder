@@ -246,32 +246,44 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 
 #### 3.2.4 Refinement Service (`@polyladder/refinement-service`)
 
-**Purpose**: Background process that continuously grows the shared knowledge base.
+**Purpose**: Background process that processes documents into structured learning content.
 
 **Responsibilities**:
 
-- Work planning (decide what to generate next)
-- Data generation (via LLMs, parsers, rules)
-- Data normalization (DRAFT → CANDIDATE)
-- Automated validation (CANDIDATE → VALIDATED)
-- Automated approval (VALIDATED → APPROVED, if configured)
-- State persistence (resumability)
-- Progress tracking
+- Document processing (PDF extraction, chunking)
+- Semantic Split (LLM #1): categorize chunks into drafts
+- Content Transformation (LLM #2): convert approved candidates into lessons
+- Pipeline orchestration and state tracking
 - Error handling and retry logic
 
 **Technology**: TypeScript/Node.js standalone process. No HTTP server. Direct database access.
+
+**Pipeline Flow**:
+
+```
+PDF → Chunk → Semantic Split (LLM#1) → DRAFTS
+                                         ↓
+                              [Operator Review via UI]
+                                         ↓
+DRAFTS (approved) → CANDIDATES → Transform (LLM#2) → VALIDATED
+                                                        ↓
+                                           [Operator Review via UI]
+                                                        ↓
+                                              APPROVED (immutable)
+```
 
 **Lifecycle**:
 
 1. Start → Load state from database
 2. Loop:
-   - Determine next work unit
-   - Generate/process data
+   - Find pending documents → process (extract, chunk)
+   - Find ready chunks → semantic split (LLM #1)
+   - Find approved candidates → transform (LLM #2)
    - Save checkpoint
    - Sleep or yield
 3. On shutdown → Save state, graceful exit
 
-**Interaction with other components**: None directly. Writes to database. API and Operational UI observe results.
+**Interaction with other components**: None directly. Writes to database. API and Operational UI observe results and manage approvals.
 
 #### 3.2.5 Frontend Application (`@polyladder/web`)
 
@@ -299,8 +311,11 @@ All user-specific tables include `user_id` foreign key referencing `users.id`.
 - `/practice` - Mixed practice modes
 - `/progress` - Statistics and tracking
 - `/operator/dashboard` - Operator dashboard (role-restricted)
-- `/operator/pipeline` - Browse candidates (role-restricted)
-- `/operator/failures` - Validation failures (role-restricted)
+- `/operator/documents` - Document library (role-restricted)
+- `/operator/pipelines` - Pipeline management (role-restricted)
+- `/operator/drafts` - Draft review queue (role-restricted)
+- `/operator/review-queue` - Validated items review (role-restricted)
+- `/operator/curriculum` - Curriculum management (role-restricted)
 
 **Authentication flow**:
 
@@ -1931,7 +1946,7 @@ Features are organized into phases. Each phase groups related features that buil
 
 - PostgreSQL schema design
 - Migration framework setup (node-pg-migrate)
-- Initial tables: users, approved*\*, pipeline*_, user\__
+- Initial tables: users, approved*\*, pipeline*\_, user\_\_
 - Database seeding for development
 - Connection pooling configuration
 
@@ -2020,29 +2035,35 @@ Features are organized into phases. Each phase groups related features that buil
 - Format validation (URLs, language codes)
 - Validation error messages
 
-**F011: Quality Gates Implementation (Part 1)**
+**F011: Quality Gates Implementation (Part 1)** ⏸️ DEFERRED
 
-- Duplication detection gate
-- Language standard enforcement gate (US English, PT-PT, etc.)
-- Orthography consistency gate
-- Gate execution framework
-- Gate failure recording
+> **Note**: Quality Gates are deferred. Manual operator review at Draft and Validated stages provides quality control. Gates can be reintroduced when needed.
 
-**F012: Quality Gates Implementation (Part 2)**
+- ~~Duplication detection gate~~
+- ~~Language standard enforcement gate~~
+- ~~Orthography consistency gate~~
+- ~~Gate execution framework~~
+- ~~Gate failure recording~~
 
-- CEFR level consistency checker
-- Prerequisite consistency validation
-- Content safety filtering (profanity, unsafe content)
-- Gate orchestration (run all gates, collect results)
-- Pass/fail determination
+**F012: Quality Gates Implementation (Part 2)** ⏸️ DEFERRED
 
-**F013: Validation Failure Recording & Reporting**
+> **Note**: See F011. Quality control is currently handled via operator review.
 
-- Detailed failure logs (which gate, why)
-- Failure storage in validation_failures table
-- Retry mechanism
-- Failure trends analysis
-- Operator visibility in UI
+- ~~CEFR level consistency checker~~
+- ~~Prerequisite consistency validation~~
+- ~~Content safety filtering~~
+- ~~Gate orchestration~~
+- ~~Pass/fail determination~~
+
+**F013: Validation Failure Recording & Reporting** ⏸️ DEFERRED
+
+> **Note**: With gates deferred, this is also deferred. Rejection tracking exists in `operator_feedback` and `rejected_items` tables.
+
+- ~~Detailed failure logs~~
+- ~~Failure storage~~
+- ~~Retry mechanism~~
+- ~~Failure trends analysis~~
+- ~~Operator visibility in UI~~
 
 ---
 
@@ -2074,31 +2095,54 @@ Features are organized into phases. Each phase groups related features that buil
 - Document library UI (browse, reprocess, delete documents)
 - OCR support for scanned PDFs (tesseract.js)
 
-**F016: Content Transformation Engine**
+**F016: Content Transformation Engine** (REVISED v2.0)
 
-- Semantic mapping: raw chunks → curriculum topics (operator-defined)
-- LLM-based topic classification ("Which topic does this chunk belong to?")
-- Confidence scoring and operator confirmation UI
-- Database schema: `content_topic_mappings` table
-- LLM transformation: raw text → structured format (NOT generation!)
-- Transformation prompts: include raw text + topic context + document metadata
-- DRAFT creation with source traceability (document_id, chunk_id, topic_id)
-- Batch processing: transform multiple chunks efficiently
-- Enhanced pipeline: DRAFT → CANDIDATE → VALIDATED with source tracking
-- Cost optimization: transformation vs generation (90% savings)
+Two-stage LLM pipeline with operator review:
+
+**Stage 1: Semantic Split (LLM #1)**
+
+- LLM analyzes chunk + full curriculum schema
+- Creates DRAFTS with: original_content, topic_id, level, content_type
+- LLM does NOT modify content, only categorizes
+- If no topic match → item not created
+
+**Stage 2: Draft Review (Operator UI)**
+
+- Approve → Draft moves to Candidate
+- Reject → Draft deleted permanently
+- Re-run → Re-process chunk with operator comment
+- Bulk approve/reject supported
+- Override topic/level before approving
+
+**Stage 3: Transform (LLM #2)**
+
+- Approved Candidates → LLM creates structured lesson
+- explanation, notes, commonMistakes → Base language (English)
+- examples, words → Target language
+- Output: VALIDATED items
+
+**Database schema additions**:
+
+- `drafts.approval_status`, `drafts.suggested_topic_id`, `drafts.original_content`
+- `draft_review_queue` table
+
+**Benefits**:
+
+- ~50-70% fewer LLM#2 calls (only approved drafts transformed)
+- Clear audit trail: chunk → draft → candidate → validated → approved
+- Operator catches mapping errors BEFORE expensive transformation
 
 **F017: Operator Feedback & Iteration System**
 
 - Rejection with detailed comments (operator explains corrections needed)
-- Database schema: `operator_feedback` table
+- Database schema: `operator_feedback`, `rejected_items` tables
 - Feedback UI: rejection dialog with text input
-- Retry mechanism: reprocess rejected items with feedback context
-- Feedback-aware LLM prompts: include previous rejection reasons
-- Iterative improvement tracking (version history per item)
+- Re-run mechanism for drafts: reprocess with operator comment
+- Feedback templates for common issues
+- Version history tracking per item
 - Feedback analytics: common rejection patterns
-- Bulk retry operations
+- Bulk operations (approve/reject multiple items)
 - Quality improvement metrics (approval rate over time)
-- Operator feedback library (reusable correction templates)
 
 ---
 
