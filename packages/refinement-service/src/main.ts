@@ -16,7 +16,6 @@ import { createApprovalRepository } from './pipeline/steps/approval.step';
 import { SemanticMapperService } from './services/semantic-mapper.service';
 import { ContentTransformerService } from './services/content-transformer.service';
 import { PromotionWorker } from './services/promotion-worker.service';
-import { DocumentProcessorService } from './services/document-processor.service';
 import { DocumentPipelineOrchestrator } from './services/document-pipeline-orchestrator.service';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
@@ -43,96 +42,12 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-interface DocumentProcessingContext {
-  semanticMapper: SemanticMapperService | null;
-  contentTransformer: ContentTransformerService | null;
-  documentProcessor: DocumentProcessorService;
-  pool: Pool;
-}
-
-interface UnmappedDocument {
-  id: string;
-  level_id: string;
-}
-
-interface MappingForTransformation {
-  id: string;
-}
-
-async function findDocumentWithUnmappedChunks(pool: Pool): Promise<UnmappedDocument | null> {
-  const result = await pool.query<UnmappedDocument>(
-    `SELECT DISTINCT d.id, 
-            COALESCE(
-              NULLIF((SELECT l.id FROM curriculum_levels l 
-                      WHERE l.language = d.language 
-                        AND l.cefr_level = NULLIF(d.target_level, '') 
-                      LIMIT 1), NULL),
-              (SELECT l.id FROM curriculum_levels l 
-               WHERE l.language = d.language 
-                 AND l.cefr_level = 'A1' 
-               ORDER BY l.sort_order 
-               LIMIT 1)
-            ) as level_id
-     FROM document_sources d
-     JOIN raw_content_chunks c ON c.document_id = d.id
-     LEFT JOIN content_topic_mappings m ON m.chunk_id = c.id
-     WHERE d.status = 'ready' 
-       AND m.id IS NULL
-       AND d.language IS NOT NULL
-       AND COALESCE(
-             NULLIF((SELECT l.id FROM curriculum_levels l 
-                     WHERE l.language = d.language 
-                       AND l.cefr_level = NULLIF(d.target_level, '') 
-                     LIMIT 1), NULL),
-             (SELECT l.id FROM curriculum_levels l 
-              WHERE l.language = d.language 
-                AND l.cefr_level = 'A1' 
-              ORDER BY l.sort_order 
-              LIMIT 1)
-           ) IS NOT NULL
-     LIMIT 1`
-  );
-  return result.rows[0] ?? null;
-}
-
-async function findConfirmedMappingForTransformation(
-  pool: Pool
-): Promise<MappingForTransformation | null> {
-  const result = await pool.query<MappingForTransformation>(
-    `SELECT m.id
-     FROM content_topic_mappings m
-     LEFT JOIN transformation_jobs j ON j.mapping_id = m.id AND j.status = 'completed'
-     WHERE m.status = 'confirmed' AND j.id IS NULL
-     LIMIT 1`
-  );
-  return result.rows[0] ?? null;
-}
-
-async function processDocumentPipeline(ctx: DocumentProcessingContext): Promise<boolean> {
-  const unmappedDoc = await findDocumentWithUnmappedChunks(ctx.pool);
-  if (unmappedDoc && ctx.semanticMapper) {
-    logger.info({ documentId: unmappedDoc.id }, 'Mapping chunks to topics');
-    await ctx.semanticMapper.mapChunksToTopics(unmappedDoc.id, unmappedDoc.level_id);
-    return true;
-  }
-
-  const confirmedMapping = await findConfirmedMappingForTransformation(ctx.pool);
-  if (confirmedMapping && ctx.contentTransformer) {
-    logger.info({ mappingId: confirmedMapping.id }, 'Transforming mapping');
-    await ctx.contentTransformer.transformMapping(confirmedMapping.id);
-    return true;
-  }
-
-  return false;
-}
-
 async function mainLoop(
   checkpoint: CheckpointService,
   workPlanner: WorkPlanner,
   contentProcessor: ContentProcessor,
   _pipeline: PipelineOrchestrator,
   promotionWorker: PromotionWorker,
-  docContext: DocumentProcessingContext,
   pipelineOrchestrator: DocumentPipelineOrchestrator
 ): Promise<void> {
   logger.info('Refinement Service starting main loop');
@@ -185,11 +100,6 @@ async function mainLoop(
       if (promoted > 0) {
         workDone = true;
         logger.info({ count: promoted }, 'Candidates promoted to VALIDATED');
-      }
-
-      const docProcessed = await processDocumentPipeline(docContext);
-      if (docProcessed) {
-        workDone = true;
       }
 
       const now = new Date();
@@ -312,9 +222,6 @@ async function start(): Promise<void> {
   const promotionWorker = new PromotionWorker(pool);
   logger.info('Promotion worker initialized');
 
-  const documentProcessor = new DocumentProcessorService(pool);
-  logger.info('Document processor initialized');
-
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   let semanticMapper: SemanticMapperService | null = null;
   let contentTransformer: ContentTransformerService | null = null;
@@ -328,13 +235,6 @@ async function start(): Promise<void> {
   } else {
     logger.warn('ANTHROPIC_API_KEY not set - LLM services disabled');
   }
-
-  const docContext: DocumentProcessingContext = {
-    semanticMapper,
-    contentTransformer,
-    documentProcessor,
-    pool,
-  };
 
   const pipelineOrchestrator = new DocumentPipelineOrchestrator(
     pool,
@@ -359,7 +259,6 @@ async function start(): Promise<void> {
       contentProcessor,
       pipeline,
       promotionWorker,
-      docContext,
       pipelineOrchestrator
     );
   } catch (error) {
