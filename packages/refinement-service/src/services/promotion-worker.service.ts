@@ -46,11 +46,16 @@ export class PromotionWorker {
 
   async processBatch(batchSize = 10): Promise<number> {
     const result = await this.pool.query<CandidateRecord>(
-      `SELECT id, data_type as "dataType", normalized_data as "normalizedData",
-              draft_id as "draftId", created_at as "createdAt"
-       FROM candidates
-       WHERE id NOT IN (SELECT candidate_id FROM validated)
-       ORDER BY created_at ASC
+      `SELECT c.id, c.data_type as "dataType", c.normalized_data as "normalizedData",
+              c.draft_id as "draftId", c.created_at as "createdAt"
+       FROM candidates c
+       WHERE c.id NOT IN (SELECT candidate_id FROM validated)
+         AND NOT EXISTS (
+           SELECT 1 FROM drafts d
+           WHERE d.id = c.draft_id
+             AND d.document_id IS NOT NULL
+         )
+       ORDER BY c.created_at ASC
        LIMIT $1`,
       [batchSize]
     );
