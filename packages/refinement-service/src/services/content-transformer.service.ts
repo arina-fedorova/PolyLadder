@@ -664,28 +664,6 @@ Include: title, content, examples where available.`;
 
         const validatedId = validatedIds[0]; // Return first ID for compatibility
 
-        const cost = this.calculateCost(response.usage);
-        const durationMs = Date.now() - startTime;
-
-        await this.eventLogger.logEvent({
-          itemId: validatedId,
-          itemType: 'validated',
-          eventType: 'candidate_transformed',
-          stage: 'VALIDATED',
-          status: 'pending',
-          dataType: candidate.data_type,
-          source: 'candidate_transform',
-          documentId: draft.document_id,
-          topicId: draft.topic_id,
-          payload: {
-            candidateId,
-            tokensInput: response.usage.input_tokens,
-            tokensOutput: response.usage.output_tokens,
-            cost,
-            durationMs,
-          },
-        });
-
         logger.info(
           {
             candidateId,
