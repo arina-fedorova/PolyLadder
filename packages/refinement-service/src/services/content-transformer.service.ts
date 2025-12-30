@@ -620,10 +620,15 @@ Include: title, content, examples where available.`;
       };
 
       const validatedResult = await this.pool.query<{ id: string }>(
-        `INSERT INTO validated (data_type, validated_data, candidate_id)
-         VALUES ($1, $2, $3)
+        `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
+         VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [candidate.data_type, JSON.stringify(enrichedData), candidateId]
+        [
+          candidate.data_type,
+          JSON.stringify(enrichedData),
+          candidateId,
+          JSON.stringify({ passed: true }),
+        ]
       );
 
       const validatedId = validatedResult.rows[0].id;
