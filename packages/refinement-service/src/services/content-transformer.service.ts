@@ -612,8 +612,99 @@ Include: title, content, examples where available.`;
         candidate.data_type
       );
 
+      // For vocabulary (meaning), create separate validated items for each word/phrase pair
+      if (candidate.data_type === 'meaning' && Array.isArray(transformedData)) {
+        const validatedIds: string[] = [];
+        const cost = this.calculateCost(response.usage);
+        const durationMs = Date.now() - startTime;
+
+        for (const item of transformedData) {
+          const enrichedData = {
+            ...item,
+            topic: topic.name,
+            language: topic.language,
+            level: topic.level,
+          };
+
+          const validatedResult = await this.pool.query<{ id: string }>(
+            `INSERT INTO validated (data_type, validated_data, candidate_id, validation_results)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
+            [
+              candidate.data_type,
+              JSON.stringify(enrichedData),
+              candidateId,
+              JSON.stringify({ passed: true }),
+            ]
+          );
+
+          const validatedId = validatedResult.rows[0].id;
+          validatedIds.push(validatedId);
+
+          await this.eventLogger.logEvent({
+            itemId: validatedId,
+            itemType: 'validated',
+            eventType: 'candidate_transformed',
+            stage: 'VALIDATED',
+            status: 'pending',
+            dataType: candidate.data_type,
+            source: 'candidate_transform',
+            documentId: draft.document_id,
+            topicId: draft.topic_id,
+            payload: {
+              candidateId,
+              word: item.word,
+              tokensInput: response.usage.input_tokens,
+              tokensOutput: response.usage.output_tokens,
+              cost: cost / transformedData.length, // Distribute cost across items
+              durationMs,
+            },
+          });
+        }
+
+        const validatedId = validatedIds[0]; // Return first ID for compatibility
+
+        const cost = this.calculateCost(response.usage);
+        const durationMs = Date.now() - startTime;
+
+        await this.eventLogger.logEvent({
+          itemId: validatedId,
+          itemType: 'validated',
+          eventType: 'candidate_transformed',
+          stage: 'VALIDATED',
+          status: 'pending',
+          dataType: candidate.data_type,
+          source: 'candidate_transform',
+          documentId: draft.document_id,
+          topicId: draft.topic_id,
+          payload: {
+            candidateId,
+            tokensInput: response.usage.input_tokens,
+            tokensOutput: response.usage.output_tokens,
+            cost,
+            durationMs,
+          },
+        });
+
+        logger.info(
+          {
+            candidateId,
+            validatedIds,
+            validatedId,
+            dataType: candidate.data_type,
+            itemsCreated: validatedIds.length,
+            durationMs,
+            tokensUsed: response.usage.input_tokens + response.usage.output_tokens,
+          },
+          'Candidate transformed to validated (multiple vocabulary items)'
+        );
+
+        return { validatedId };
+      }
+
+      // For non-vocabulary types, create single validated item
       const enrichedData = {
-        ...transformedData,
+        ...(transformedData as Record<string, unknown>),
         topic: topic.name,
         language: topic.language,
         level: topic.level,
@@ -632,28 +723,6 @@ Include: title, content, examples where available.`;
       );
 
       const validatedId = validatedResult.rows[0].id;
-
-      const cost = this.calculateCost(response.usage);
-      const durationMs = Date.now() - startTime;
-
-      await this.eventLogger.logEvent({
-        itemId: validatedId,
-        itemType: 'validated',
-        eventType: 'candidate_transformed',
-        stage: 'VALIDATED',
-        status: 'pending',
-        dataType: candidate.data_type,
-        source: 'candidate_transform',
-        documentId: draft.document_id,
-        topicId: draft.topic_id,
-        payload: {
-          candidateId,
-          tokensInput: response.usage.input_tokens,
-          tokensOutput: response.usage.output_tokens,
-          cost,
-          durationMs,
-        },
-      });
 
       logger.info(
         {
@@ -710,14 +779,31 @@ Transform this raw content into a polished, structured learning item.
     if (dataType === 'meaning') {
       return `${basePrompt}
 
-## Output Format (JSON object):
-{
-  "word": "the word in ${language}",
-  "definition": "clear definition/translation in ENGLISH",
-  "partOfSpeech": "noun/verb/adjective/etc",
-  "usageNotes": "usage context in ENGLISH",
-  "examples": ["example sentence in ${language}"]
-}`;
+## CRITICAL: Vocabulary Parsing Rules
+- If the raw content contains MULTIPLE vocabulary words/phrases (e.g., "Hola - Hello Adios - Goodbye Gracias - Thank you"), you MUST split them into SEPARATE items
+- Each word/phrase pair should be its own item in the array
+- Extract ALL vocabulary pairs from the content, don't combine them
+
+## Output Format (JSON array):
+[
+  {
+    "word": "the word/phrase in ${language}",
+    "definition": "clear definition/translation in ENGLISH",
+    "partOfSpeech": "noun/verb/adjective/etc",
+    "usageNotes": "usage context in ENGLISH (optional)",
+    "examples": ["example sentence in ${language} (optional)"]
+  }
+]
+
+## Examples:
+Input: "Hola - Hello Adios - Goodbye Gracias - Thank you"
+Output: [
+  {"word": "Hola", "definition": "Hello", "partOfSpeech": "interjection"},
+  {"word": "Adios", "definition": "Goodbye", "partOfSpeech": "interjection"},
+  {"word": "Gracias", "definition": "Thank you", "partOfSpeech": "interjection"}
+]
+
+If there's only ONE word/phrase, return an array with one item.`;
     }
 
     if (dataType === 'rule') {
@@ -765,7 +851,7 @@ Transform into a structured learning item with appropriate fields for the conten
   private parseCandidateTransformResponse(
     response: string,
     dataType: string
-  ): Record<string, unknown> {
+  ): Record<string, unknown> | Array<Record<string, unknown>> {
     let jsonText = response.trim();
 
     const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -773,6 +859,28 @@ Transform into a structured learning item with appropriate fields for the conten
       jsonText = jsonMatch[1].trim();
     }
 
+    // For vocabulary (meaning), expect an array
+    if (dataType === 'meaning') {
+      const arrayMatch = jsonText.match(/\[[\s\S]*\]/);
+      if (!arrayMatch) {
+        throw new Error('No JSON array found in response for vocabulary');
+      }
+      const parsed = JSON.parse(arrayMatch[0]) as Array<Record<string, unknown>>;
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Vocabulary response must be a non-empty array');
+      }
+
+      for (const item of parsed) {
+        if (!item.word) {
+          throw new Error('Missing required field: word in vocabulary item');
+        }
+      }
+
+      return parsed;
+    }
+
+    // For other types, expect an object
     const objectMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!objectMatch) {
       throw new Error('No JSON object found in response');
@@ -780,9 +888,6 @@ Transform into a structured learning item with appropriate fields for the conten
 
     const parsed = JSON.parse(objectMatch[0]) as Record<string, unknown>;
 
-    if (dataType === 'meaning' && !parsed.word) {
-      throw new Error('Missing required field: word');
-    }
     if (dataType === 'rule' && !parsed.title) {
       throw new Error('Missing required field: title');
     }
