@@ -84,8 +84,8 @@ test.describe('Login Page', () => {
     await loginPage.passwordInput.fill('TestPassword123');
     await loginPage.submitButton.click();
 
-    // Should navigate to dashboard after successful login
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // New learners should be redirected to onboarding
+    await expect(page).toHaveURL('/onboarding', { timeout: 15000 });
   });
 
   test('should successfully login as operator', async ({ page }) => {

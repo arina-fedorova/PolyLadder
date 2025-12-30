@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
+import { cleanupTestData, createTestUser, completeOnboarding } from '../../playwright/db-helpers';
 
 test.describe('Document Library Page', () => {
   test.beforeEach(async () => {
@@ -7,11 +7,13 @@ test.describe('Document Library Page', () => {
   });
 
   test('should deny access to learner', async ({ page }) => {
-    await createTestUser({
+    const user = await createTestUser({
       email: 'learner@example.com',
       password: 'TestPassword123',
       role: 'learner',
     });
+
+    await completeOnboarding(user.userId);
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');

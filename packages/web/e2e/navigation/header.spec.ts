@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { cleanupTestData, createTestUser } from '../../playwright/db-helpers';
+import { cleanupTestData, createTestUser, completeOnboarding } from '../../playwright/db-helpers';
 
 test.describe('Header Navigation', () => {
   test.beforeEach(async () => {
@@ -7,11 +7,13 @@ test.describe('Header Navigation', () => {
   });
 
   test('should display user email in header after login', async ({ page }) => {
-    await createTestUser({
+    const user = await createTestUser({
       email: 'user@example.com',
       password: 'TestPassword123',
       role: 'learner',
     });
+
+    await completeOnboarding(user.userId);
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('user@example.com');
@@ -26,11 +28,13 @@ test.describe('Header Navigation', () => {
   });
 
   test('should show learner navigation links for learner', async ({ page }) => {
-    await createTestUser({
+    const user = await createTestUser({
       email: 'learner@example.com',
       password: 'TestPassword123',
       role: 'learner',
     });
+
+    await completeOnboarding(user.userId);
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('learner@example.com');
@@ -69,11 +73,13 @@ test.describe('Header Navigation', () => {
   });
 
   test('should logout and redirect to login page', async ({ page }) => {
-    await createTestUser({
+    const user = await createTestUser({
       email: 'user@example.com',
       password: 'TestPassword123',
       role: 'learner',
     });
+
+    await completeOnboarding(user.userId);
 
     await page.goto('/login');
     await page.getByLabel('Email address').fill('user@example.com');

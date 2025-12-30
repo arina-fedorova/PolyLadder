@@ -146,6 +146,19 @@ export async function createTestUser(data: {
   }
 }
 
+export async function completeOnboarding(userId: string): Promise<void> {
+  const p = getE2EPool();
+
+  await p.query(
+    `INSERT INTO user_preferences (user_id, studied_languages, focus_mode_enabled, onboarding_completed, settings)
+     VALUES ($1, '[]'::jsonb, false, true, '{}'::jsonb)
+     ON CONFLICT (user_id) DO UPDATE SET onboarding_completed = true`,
+    [userId]
+  );
+
+  console.error(`[E2E DB] Completed onboarding for user: ${userId}`);
+}
+
 export async function closeE2EPool(): Promise<void> {
   if (pool) {
     await pool.end();
