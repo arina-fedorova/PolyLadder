@@ -13,7 +13,6 @@ import { PipelineTaskDetailPage } from '@/pages/operator/PipelineTaskDetailPage'
 import { PipelinesPage } from '@/pages/operator/PipelinesPage';
 import { PipelineDetailPage } from '@/pages/operator/PipelineDetailPage';
 import { PipelineStatusPage } from '@/pages/operator/PipelineStatusPage';
-import { DraftReviewPage } from '@/pages/operator/DraftReviewPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -161,17 +160,6 @@ export function App() {
               <ProtectedRoute requiredRole="operator">
                 <MainLayout>
                   <PipelineTaskDetailPage />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/operator/draft-review"
-            element={
-              <ProtectedRoute requiredRole="operator">
-                <MainLayout>
-                  <DraftReviewPage />
                 </MainLayout>
               </ProtectedRoute>
             }

@@ -44,7 +44,7 @@ interface CountRow {
 }
 
 export const draftRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/operational/drafts/review', async (request, reply) => {
+  fastify.get('/drafts/review', async (request, reply) => {
     const {
       page = 1,
       limit = 20,
@@ -123,7 +123,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  fastify.post('/operational/drafts/:id/approve', async (request, reply) => {
+  fastify.post('/drafts/:id/approve', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = ApproveBodySchema.parse(request.body || {});
 
@@ -206,7 +206,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post('/operational/drafts/:id/reject', async (request, reply) => {
+  fastify.post('/drafts/:id/reject', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = RejectBodySchema.parse(request.body || {});
 
@@ -261,7 +261,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post('/operational/drafts/:id/rerun', async (request, reply) => {
+  fastify.post('/drafts/:id/rerun', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = RerunBodySchema.parse(request.body || {});
 
@@ -313,7 +313,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post('/operational/drafts/bulk-approve', async (request, reply) => {
+  fastify.post('/drafts/bulk-approve', async (request, reply) => {
     const body = BulkApproveBodySchema.parse(request.body);
 
     let approved = 0;
@@ -396,7 +396,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ approved, total: body.ids.length, errors });
   });
 
-  fastify.post('/operational/drafts/bulk-reject', async (request, reply) => {
+  fastify.post('/drafts/bulk-reject', async (request, reply) => {
     const body = BulkRejectBodySchema.parse(request.body);
 
     let rejected = 0;
@@ -447,7 +447,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ rejected, total: body.ids.length, errors });
   });
 
-  fastify.get('/operational/drafts/stats', async (request, reply) => {
+  fastify.get('/drafts/stats', async (request, reply) => {
     const { pipeline_id } = request.query as { pipeline_id?: string };
 
     let baseCondition = '1=1';
