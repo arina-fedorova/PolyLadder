@@ -75,7 +75,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (pipeline_id) {
       params.push(pipeline_id);
-      conditions.push(`drq.pipeline_id = $${params.length}`);
+      conditions.push(`p.id = $${params.length}`);
     }
 
     const whereClause = conditions.join(' AND ');
@@ -87,21 +87,21 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
         d.data_type,
         d.original_content,
         d.suggested_topic_id,
-        t.name as suggested_topic_name,
+        t.topic_name as suggested_topic_name,
         d.suggested_level,
         t.content_type,
         d.llm_reasoning,
         ds.original_filename as document_name,
         ds.id as document_id,
-        drq.pipeline_id,
+        p.id as pipeline_id,
         d.created_at,
         d.approval_status
        FROM drafts d
        LEFT JOIN curriculum_topics t ON d.suggested_topic_id = t.id
        LEFT JOIN document_sources ds ON d.document_id = ds.id
-       LEFT JOIN draft_review_queue drq ON d.id = drq.draft_id
+       LEFT JOIN pipelines p ON ds.id = p.document_id
        WHERE ${whereClause}
-       ORDER BY drq.queued_at DESC, d.created_at DESC
+       ORDER BY d.created_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
@@ -110,7 +110,8 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     const countResult = await fastify.db.query<CountRow>(
       `SELECT COUNT(*) as count
        FROM drafts d
-       LEFT JOIN draft_review_queue drq ON d.id = drq.draft_id
+       LEFT JOIN document_sources ds ON d.document_id = ds.id
+       LEFT JOIN pipelines p ON ds.id = p.document_id
        WHERE ${whereClause}`,
       countParams
     );
@@ -455,7 +456,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (pipeline_id) {
       params.push(pipeline_id);
-      baseCondition = `drq.pipeline_id = $1`;
+      baseCondition = `p.id = $1`;
     }
 
     interface StatsRow {
@@ -466,7 +467,8 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     const statsResult = await fastify.db.query<StatsRow>(
       `SELECT d.approval_status, COUNT(*) as count
        FROM drafts d
-       LEFT JOIN draft_review_queue drq ON d.id = drq.draft_id
+       LEFT JOIN document_sources ds ON d.document_id = ds.id
+       LEFT JOIN pipelines p ON ds.id = p.document_id
        WHERE ${baseCondition}
        GROUP BY d.approval_status`,
       params
