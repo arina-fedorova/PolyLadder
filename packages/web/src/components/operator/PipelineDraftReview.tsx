@@ -39,7 +39,6 @@ interface PipelineDraftReviewProps {
 export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [pendingRejectId, setPendingRejectId] = useState<string | null>(null);
@@ -104,53 +103,22 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
   });
 
   const bulkApproveMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      api.post<{ approved: number }>('/operational/drafts/bulk-approve', { ids }),
+    mutationFn: () => {
+      const pendingDraftIds =
+        data?.drafts.filter((d) => d.approval_status === 'pending').map((d) => d.id) || [];
+      return api.post<{ approved: number }>('/operational/drafts/bulk-approve', {
+        ids: pendingDraftIds,
+      });
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts-stats', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
-      setSelectedIds(new Set());
     },
     onError: (err) => {
       alert(`Bulk approve failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     },
   });
-
-  const bulkRejectMutation = useMutation({
-    mutationFn: ({ ids, reason }: { ids: string[]; reason?: string }) =>
-      api.post<{ rejected: number }>('/operational/drafts/bulk-reject', { ids, reason }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts', pipelineId] });
-      void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts-stats', pipelineId] });
-      void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
-      setSelectedIds(new Set());
-      setShowRejectModal(false);
-      setRejectReason('');
-    },
-    onError: (err) => {
-      alert(`Bulk reject failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    },
-  });
-
-  const handleSelectAll = () => {
-    if (!data?.drafts) return;
-    if (selectedIds.size === data.drafts.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(data.drafts.map((d) => d.id)));
-    }
-  };
-
-  const handleToggleSelect = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
-  };
 
   const handleRejectClick = (id: string | null) => {
     setPendingRejectId(id);
@@ -160,8 +128,6 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
   const handleConfirmReject = () => {
     if (pendingRejectId) {
       rejectMutation.mutate({ id: pendingRejectId, reason: rejectReason });
-    } else if (selectedIds.size > 0) {
-      bulkRejectMutation.mutate({ ids: Array.from(selectedIds), reason: rejectReason });
     }
   };
 
@@ -199,58 +165,42 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
           </span>
         </div>
 
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">{selectedIds.size} selected</span>
-            <button
-              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-              onClick={() => bulkApproveMutation.mutate(Array.from(selectedIds))}
-              disabled={bulkApproveMutation.isPending}
-            >
-              Approve All
-            </button>
-            <button
-              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-              onClick={() => handleRejectClick(null)}
-              disabled={bulkRejectMutation.isPending}
-            >
-              Reject All
-            </button>
-          </div>
+        {stats && stats.pending > 0 && (
+          <button
+            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+            onClick={() => bulkApproveMutation.mutate()}
+            disabled={bulkApproveMutation.isPending}
+          >
+            {bulkApproveMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Approve All ({stats.pending})
+              </>
+            )}
+          </button>
         )}
       </div>
 
       {data?.drafts && data.drafts.length > 0 ? (
-        <>
-          <div className="flex items-center gap-2 pb-2 border-b">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={selectedIds.size === data.drafts.length && data.drafts.length > 0}
-                onChange={handleSelectAll}
-                className="rounded"
-              />
-              Select All
-            </label>
-          </div>
-
-          <div className="space-y-3">
-            {data.drafts.map((draft) => (
-              <DraftCard
-                key={draft.id}
-                draft={draft}
-                isSelected={selectedIds.has(draft.id)}
-                onToggleSelect={() => handleToggleSelect(draft.id)}
-                onApprove={() => approveMutation.mutate(draft.id)}
-                onReject={() => handleRejectClick(draft.id)}
-                onRerun={(comment) => rerunMutation.mutate({ id: draft.id, comment })}
-                isApproving={approveMutation.isPending}
-                isRejecting={rejectMutation.isPending}
-                isRerunning={rerunMutation.isPending}
-              />
-            ))}
-          </div>
-        </>
+        <div className="space-y-3">
+          {data.drafts.map((draft) => (
+            <DraftCard
+              key={draft.id}
+              draft={draft}
+              onApprove={() => approveMutation.mutate(draft.id)}
+              onReject={() => handleRejectClick(draft.id)}
+              onRerun={(comment) => rerunMutation.mutate({ id: draft.id, comment })}
+              isApproving={approveMutation.isPending && approveMutation.variables === draft.id}
+              isRejecting={rejectMutation.isPending && rejectMutation.variables?.id === draft.id}
+              isRerunning={rerunMutation.isPending && rerunMutation.variables?.id === draft.id}
+            />
+          ))}
+        </div>
       ) : (
         <div className="text-center py-8 text-gray-500">
           <p>No drafts pending review for this pipeline</p>
@@ -288,9 +238,7 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
             className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">
-              Reject {pendingRejectId ? 'Draft' : `${selectedIds.size} Drafts`}
-            </h3>
+            <h3 className="text-lg font-semibold mb-4">Reject Draft</h3>
             <textarea
               placeholder="Reason for rejection (optional)"
               value={rejectReason}
@@ -311,7 +259,7 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
               <button
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                 onClick={handleConfirmReject}
-                disabled={rejectMutation.isPending || bulkRejectMutation.isPending}
+                disabled={rejectMutation.isPending}
               >
                 Confirm Reject
               </button>
@@ -325,8 +273,6 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
 
 interface DraftCardProps {
   draft: Draft;
-  isSelected: boolean;
-  onToggleSelect: () => void;
   onApprove: () => void;
   onReject: () => void;
   onRerun: (comment?: string) => void;
@@ -337,8 +283,6 @@ interface DraftCardProps {
 
 function DraftCard({
   draft,
-  isSelected,
-  onToggleSelect,
   onApprove,
   onReject,
   onRerun,
@@ -358,12 +302,6 @@ function DraftCard({
   return (
     <div className="border rounded-lg p-4 bg-white hover:shadow-sm transition">
       <div className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          className="mt-1 rounded"
-        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">

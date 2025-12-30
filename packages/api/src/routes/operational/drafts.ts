@@ -128,6 +128,10 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
     const body = ApproveBodySchema.parse(request.body || {});
 
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+
     interface DraftCheckRow {
       id: string;
       data_type: string;
@@ -172,7 +176,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
              approved_at = CURRENT_TIMESTAMP,
              topic_id = $2
          WHERE id = $3`,
-        [request.user!.userId, finalTopicId, id]
+        [request.user.userId, finalTopicId, id]
       );
 
       await client.query(
@@ -317,6 +321,10 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/drafts/bulk-approve', async (request, reply) => {
     const body = BulkApproveBodySchema.parse(request.body);
 
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+
     let approved = 0;
     const errors: string[] = [];
 
@@ -363,7 +371,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
                  approved_at = CURRENT_TIMESTAMP,
                  topic_id = $2
              WHERE id = $3`,
-            [request.user!.userId, finalTopicId, draftId]
+            [request.user.userId, finalTopicId, draftId]
           );
 
           await client.query(
