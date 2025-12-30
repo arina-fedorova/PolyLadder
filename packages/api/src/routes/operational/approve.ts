@@ -3,14 +3,8 @@ import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, SuccessResponseSchema } from '../../schemas/common';
 import { withTransaction } from '../../utils/db.utils';
-import {
-  executeTransitionSimple,
-  LifecycleState,
-  recordApproval,
-  ApprovalType,
-  type TransitionRepository,
-} from '@polyladder/core';
-import { recordTransition, moveItemToState, createApprovalEventRepository } from '@polyladder/db';
+import { recordApproval, ApprovalType } from '@polyladder/core';
+import { createApprovalEventRepository } from '@polyladder/db';
 
 const ApproveParamsSchema = Type.Object({
   id: Type.String(),
@@ -77,40 +71,7 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
             throw new Error(`Item not found in validated table`);
           }
 
-          const transitionRepo: TransitionRepository = {
-            async recordTransition(params) {
-              return await recordTransition(txClient, params);
-            },
-            async moveItemToState(
-              itemId: string,
-              itemType: string,
-              fromState: LifecycleState,
-              toState: LifecycleState,
-              metadata?: Record<string, unknown>
-            ) {
-              return await moveItemToState(
-                txClient,
-                itemId,
-                itemType,
-                fromState,
-                toState,
-                metadata
-              );
-            },
-          };
-
           const approvalEventRepo = createApprovalEventRepository(txClient);
-
-          await executeTransitionSimple(transitionRepo, {
-            itemId: id,
-            itemType: dataType,
-            fromState: LifecycleState.VALIDATED,
-            toState: LifecycleState.APPROVED,
-            metadata: {
-              operatorId,
-              notes,
-            },
-          });
 
           await recordApproval(approvalEventRepo, {
             itemId: id,

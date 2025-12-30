@@ -2,6 +2,9 @@ import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema } from '../../schemas/common';
+import { withTransaction } from '../../utils/db.utils';
+import { recordApproval, ApprovalType } from '@polyladder/core';
+import { createApprovalEventRepository } from '@polyladder/db';
 
 const ValidationResultSchema = Type.Object({
   gate: Type.String(),
@@ -222,6 +225,111 @@ const reviewQueueRoute: FastifyPluginAsync = async function (fastify) {
         page,
         pageSize,
       });
+    }
+  );
+
+  const BulkApproveBodySchema = Type.Object({
+    pipelineId: Type.Optional(Type.String()),
+  });
+
+  type BulkApproveBody = Static<typeof BulkApproveBodySchema>;
+
+  fastify.post<{ Body: BulkApproveBody }>(
+    '/review-queue/bulk-approve',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        body: BulkApproveBodySchema,
+        response: {
+          200: Type.Object({
+            approved: Type.Number(),
+            failed: Type.Number(),
+            errors: Type.Array(Type.String()),
+          }),
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
+      const operatorId = request.user.userId;
+      const { pipelineId } = request.body;
+
+      let itemsQuery = `
+        SELECT DISTINCT v.id, v.data_type
+        FROM review_queue rq
+        JOIN validated v ON v.id = rq.item_id
+        WHERE rq.reviewed_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar)
+          AND NOT EXISTS (SELECT 1 FROM rejected_items ri WHERE ri.validated_id = v.id)
+      `;
+
+      const params: (string | undefined)[] = [];
+
+      if (pipelineId) {
+        itemsQuery += `
+          AND EXISTS (
+            SELECT 1 FROM candidates c
+            JOIN drafts d ON c.draft_id = d.id
+            JOIN document_sources ds ON d.document_id = ds.id
+            JOIN pipelines p ON p.document_id = ds.id
+            WHERE c.id = v.candidate_id AND p.id = $1
+          )
+        `;
+        params.push(pipelineId);
+      }
+
+      const itemsResult = await fastify.db.query<{ id: string; data_type: string }>(
+        itemsQuery,
+        params
+      );
+
+      let approved = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const item of itemsResult.rows) {
+        const client = await fastify.db.connect();
+        try {
+          await withTransaction(client, async (txClient) => {
+            const approvalEventRepo = createApprovalEventRepository(txClient);
+
+            await recordApproval(approvalEventRepo, {
+              itemId: item.id,
+              itemType: item.data_type,
+              operatorId,
+              approvalType: ApprovalType.MANUAL,
+              notes: 'Bulk approved',
+            });
+
+            await txClient.query(
+              `UPDATE review_queue SET reviewed_at = CURRENT_TIMESTAMP, review_decision = 'approve' WHERE item_id = $1`,
+              [item.id]
+            );
+          });
+          approved++;
+        } catch (error) {
+          failed++;
+          errors.push(`${item.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          client.release();
+        }
+      }
+
+      request.log.info({ approved, failed, pipelineId, operatorId }, 'Bulk approve completed');
+
+      return reply.status(200).send({ approved, failed, errors });
     }
   );
 };

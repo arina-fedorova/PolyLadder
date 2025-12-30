@@ -92,6 +92,28 @@ export function PipelineReviewQueue({ pipelineId }: PipelineReviewQueueProps) {
     },
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post<{ approved: number; failed: number; errors: string[] }>(
+        '/operational/review-queue/bulk-approve',
+        { pipelineId }
+      );
+      return response.data;
+    },
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ['pipeline-review-queue', pipelineId] });
+      void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
+      void queryClient.invalidateQueries({ queryKey: ['curriculum-topics'] });
+      if (result.failed > 0) {
+        alert(`Approved ${result.approved}, failed ${result.failed}`);
+      }
+    },
+    onError: (error) => {
+      console.error('Bulk approve failed:', error);
+      alert(`Bulk approve failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    },
+  });
+
   const totalPages = data ? Math.ceil(data.total / 20) : 0;
 
   if (isLoading) {
@@ -142,6 +164,21 @@ export function PipelineReviewQueue({ pipelineId }: PipelineReviewQueueProps) {
             Orthography
           </button>
         </div>
+
+        {data.total > 0 && (
+          <button
+            onClick={() => bulkApproveMutation.mutate()}
+            disabled={bulkApproveMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {bulkApproveMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            Approve All ({data.total})
+          </button>
+        )}
       </div>
 
       <div className="space-y-3">

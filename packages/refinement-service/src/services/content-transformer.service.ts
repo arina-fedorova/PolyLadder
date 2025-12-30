@@ -653,6 +653,13 @@ Include: title, content, examples where available.`;
           const validatedId = validatedResult.rows[0].id;
           validatedIds.push(validatedId);
 
+          await this.pool.query(
+            `INSERT INTO review_queue (item_id, data_type, queued_at, priority)
+             VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+             ON CONFLICT (item_id) DO UPDATE SET priority = $3, reviewed_at = NULL`,
+            [validatedId, candidate.data_type, 1]
+          );
+
           await this.eventLogger.logEvent({
             itemId: validatedId,
             itemType: 'validated',
@@ -668,7 +675,7 @@ Include: title, content, examples where available.`;
               word: item.word,
               tokensInput: response.usage.input_tokens,
               tokensOutput: response.usage.output_tokens,
-              cost: cost / transformedData.length, // Distribute cost across items
+              cost: cost / transformedData.length,
               durationMs,
             },
           });
@@ -716,6 +723,13 @@ Include: title, content, examples where available.`;
       );
 
       const validatedId = validatedResult.rows[0].id;
+
+      await this.pool.query(
+        `INSERT INTO review_queue (item_id, data_type, queued_at, priority)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+         ON CONFLICT (item_id) DO UPDATE SET priority = $3, reviewed_at = NULL`,
+        [validatedId, candidate.data_type, 1]
+      );
 
       await this.eventLogger.logEvent({
         itemId: validatedId,

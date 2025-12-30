@@ -30,6 +30,7 @@ interface CurriculumTopic {
   contentType: 'vocabulary' | 'grammar' | 'orthography' | 'mixed';
   sortOrder: number;
   estimatedItems: number;
+  actualItems: number;
   prerequisites: string[];
 }
 
@@ -241,63 +242,89 @@ export function CurriculumPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {topics.topics.map((topic: CurriculumTopic) => (
-                        <div
-                          key={topic.id}
-                          className="flex items-center gap-3 p-3 bg-white border rounded hover:shadow-sm transition-shadow"
-                        >
-                          <GripVertical className="w-4 h-4 text-gray-400 cursor-grab flex-shrink-0" />
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
-                              topic.contentType === 'vocabulary'
-                                ? 'bg-blue-100 text-blue-700'
-                                : topic.contentType === 'grammar'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : topic.contentType === 'orthography'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-700'
-                            }`}
+                      {topics.topics.map((topic: CurriculumTopic) => {
+                        const progress =
+                          topic.estimatedItems > 0
+                            ? Math.min(topic.actualItems / topic.estimatedItems, 1)
+                            : 0;
+                        const progressColor =
+                          progress === 0
+                            ? 'bg-white'
+                            : progress < 0.5
+                              ? 'bg-gradient-to-r from-orange-50 to-orange-100'
+                              : progress < 1
+                                ? 'bg-gradient-to-r from-yellow-50 to-green-100'
+                                : 'bg-gradient-to-r from-green-100 to-green-200';
+
+                        return (
+                          <div
+                            key={topic.id}
+                            className={`flex items-center gap-3 p-3 border rounded hover:shadow-sm transition-shadow ${progressColor}`}
                           >
-                            {topic.contentType}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{topic.name}</span>
-                            {topic.description && (
-                              <p className="text-sm text-gray-600 truncate mt-0.5">
-                                {topic.description}
-                              </p>
-                            )}
+                            <GripVertical className="w-4 h-4 text-gray-400 cursor-grab flex-shrink-0" />
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
+                                topic.contentType === 'vocabulary'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : topic.contentType === 'grammar'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : topic.contentType === 'orthography'
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {topic.contentType}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium">{topic.name}</span>
+                              {topic.description && (
+                                <p className="text-sm text-gray-600 truncate mt-0.5">
+                                  {topic.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-sm flex-shrink-0">
+                              <span
+                                className={`font-medium ${
+                                  topic.actualItems >= topic.estimatedItems
+                                    ? 'text-green-600'
+                                    : topic.actualItems > 0
+                                      ? 'text-yellow-600'
+                                      : 'text-gray-400'
+                                }`}
+                              >
+                                {topic.actualItems}
+                              </span>
+                              <span className="text-gray-400">/{topic.estimatedItems}</span>
+                            </span>
+                            <button
+                              onClick={() => setViewingApprovedItems(topic.id)}
+                              className="p-1.5 hover:bg-blue-100 text-blue-600 rounded flex-shrink-0"
+                              title="View approved items"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingTopic(topic)}
+                              className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0"
+                              title="Edit topic"
+                            >
+                              <Edit2 className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete "${topic.name}"?`)) {
+                                  deleteTopicMutation.mutate(topic.id);
+                                }
+                              }}
+                              className="p-1.5 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
+                              title="Delete topic"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <span className="text-sm text-gray-500 flex-shrink-0">
-                            ~{topic.estimatedItems} items
-                          </span>
-                          <button
-                            onClick={() => setViewingApprovedItems(topic.id)}
-                            className="p-1.5 hover:bg-blue-100 text-blue-600 rounded flex-shrink-0"
-                            title="View approved items"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingTopic(topic)}
-                            className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0"
-                            title="Edit topic"
-                          >
-                            <Edit2 className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete "${topic.name}"?`)) {
-                                deleteTopicMutation.mutate(topic.id);
-                              }
-                            }}
-                            className="p-1.5 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
-                            title="Delete topic"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -739,23 +766,41 @@ function ApprovedItemsModal({ topicId, topicName, onClose }: ApprovedItemsModalP
                         {new Date(item.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="text-sm">
+                    <div className="text-sm space-y-1">
                       {item.dataType === 'meaning' && (
                         <div>
-                          <span className="font-medium">Word:</span>{' '}
-                          {getContentString(item.content.word || item.content.text)}
-                          <br />
-                          <span className="font-medium">Level:</span>{' '}
-                          {getContentString(item.content.level)}
+                          <div>
+                            <span className="font-medium">Word:</span>{' '}
+                            <span className="text-lg">{getContentString(item.content.word)}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Definition:</span>{' '}
+                            {getContentString(item.content.definition)}
+                          </div>
+                          {item.content.partOfSpeech && (
+                            <div className="text-gray-500 text-xs">
+                              ({getContentString(item.content.partOfSpeech)})
+                            </div>
+                          )}
                         </div>
                       )}
                       {item.dataType === 'rule' && (
                         <div>
-                          <span className="font-medium">Title:</span>{' '}
-                          {getContentString(item.content.title)}
-                          <br />
-                          <span className="font-medium">Explanation:</span>{' '}
-                          {getContentString(item.content.explanation).substring(0, 100)}...
+                          <div>
+                            <span className="font-medium">Title:</span>{' '}
+                            {getContentString(item.content.title)}
+                          </div>
+                          <div className="text-gray-600 mt-1">
+                            {getContentString(item.content.explanation).substring(0, 150)}
+                            {getContentString(item.content.explanation).length > 150 ? '...' : ''}
+                          </div>
+                          {item.content.examples &&
+                            Array.isArray(item.content.examples) &&
+                            item.content.examples.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {item.content.examples.length} example(s)
+                              </div>
+                            )}
                         </div>
                       )}
                       {item.dataType === 'utterance' && (
