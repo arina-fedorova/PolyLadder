@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { PipelineMappings } from '@/components/operator/PipelineMappings';
 import { PipelineReviewQueue } from '@/components/operator/PipelineReviewQueue';
 import { PipelineFailures } from '@/components/operator/PipelineFailures';
 import { PipelineDraftReview } from '@/components/operator/PipelineDraftReview';
@@ -87,9 +86,9 @@ export function PipelineDetailPage() {
   const { pipelineId } = useParams<{ pipelineId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'drafts' | 'mappings' | 'review' | 'failures'
-  >('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'drafts' | 'review' | 'failures'>(
+    'overview'
+  );
 
   const { data, isLoading, error } = useQuery<PipelineDetail>({
     queryKey: ['pipeline', pipelineId],
@@ -558,13 +557,6 @@ export function PipelineDetailPage() {
             re-run with feedback.
           </p>
           <PipelineDraftReview pipelineId={pipelineId} />
-        </div>
-      )}
-
-      {activeTab === 'mappings' && pipelineId && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Content-Topic Mappings</h2>
-          <PipelineMappings pipelineId={pipelineId} />
         </div>
       )}
 
