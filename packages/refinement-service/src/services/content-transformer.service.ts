@@ -681,6 +681,9 @@ Include: title, content, examples where available.`;
       }
 
       // For non-vocabulary types, create single validated item
+      const cost = this.calculateCost(response.usage);
+      const durationMs = Date.now() - startTime;
+
       const enrichedData = {
         ...(transformedData as Record<string, unknown>),
         topic: topic.name,
@@ -701,6 +704,25 @@ Include: title, content, examples where available.`;
       );
 
       const validatedId = validatedResult.rows[0].id;
+
+      await this.eventLogger.logEvent({
+        itemId: validatedId,
+        itemType: 'validated',
+        eventType: 'candidate_transformed',
+        stage: 'VALIDATED',
+        status: 'pending',
+        dataType: candidate.data_type,
+        source: 'candidate_transform',
+        documentId: draft.document_id,
+        topicId: draft.topic_id,
+        payload: {
+          candidateId,
+          tokensInput: response.usage.input_tokens,
+          tokensOutput: response.usage.output_tokens,
+          cost,
+          durationMs,
+        },
+      });
 
       logger.info(
         {
@@ -758,30 +780,35 @@ Transform this raw content into a polished, structured learning item.
       return `${basePrompt}
 
 ## CRITICAL: Vocabulary Parsing Rules
-- If the raw content contains MULTIPLE vocabulary words/phrases (e.g., "Hola - Hello Adios - Goodbye Gracias - Thank you"), you MUST split them into SEPARATE items
-- Each word/phrase pair should be its own item in the array
-- Extract ALL vocabulary pairs from the content, don't combine them
+- The raw content may contain MULTIPLE vocabulary words/phrases in formats like:
+  * "Hola - Hello Adios - Goodbye Gracias - Thank you" (space-separated pairs)
+  * "Hola: Hello\nAdios: Goodbye" (line-separated)
+  * "Hola (Hello), Adios (Goodbye)" (parentheses format)
+- You MUST split them into SEPARATE items - each word/phrase pair becomes its own array element
+- Extract ALL vocabulary pairs from the content, don't combine them into one item
+- Look for patterns: "word - translation", "word: translation", "word (translation)", etc.
 
 ## Output Format (JSON array):
 [
   {
     "word": "the word/phrase in ${language}",
     "definition": "clear definition/translation in ENGLISH",
-    "partOfSpeech": "noun/verb/adjective/etc",
+    "partOfSpeech": "noun/verb/adjective/interjection/etc",
     "usageNotes": "usage context in ENGLISH (optional)",
     "examples": ["example sentence in ${language} (optional)"]
   }
 ]
 
 ## Examples:
-Input: "Hola - Hello Adios - Goodbye Gracias - Thank you"
+Input: "Hola - Hello Adios - Goodbye Gracias - Thank you Por favor - Please"
 Output: [
   {"word": "Hola", "definition": "Hello", "partOfSpeech": "interjection"},
   {"word": "Adios", "definition": "Goodbye", "partOfSpeech": "interjection"},
-  {"word": "Gracias", "definition": "Thank you", "partOfSpeech": "interjection"}
+  {"word": "Gracias", "definition": "Thank you", "partOfSpeech": "interjection"},
+  {"word": "Por favor", "definition": "Please", "partOfSpeech": "interjection"}
 ]
 
-If there's only ONE word/phrase, return an array with one item.`;
+IMPORTANT: Always return an array, even if there's only one word/phrase. Split multiple pairs into separate array items.`;
     }
 
     if (dataType === 'rule') {
