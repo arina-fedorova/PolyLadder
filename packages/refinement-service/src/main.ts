@@ -13,7 +13,7 @@ import {
 import { PipelineOrchestrator, createPipelineRepository } from './pipeline/pipeline-orchestrator';
 import { createValidationRepository } from './pipeline/steps/validation.step';
 import { createApprovalRepository } from './pipeline/steps/approval.step';
-import { SemanticMapperService } from './services/semantic-mapper.service';
+import { SemanticSplitService } from './services/semantic-split.service';
 import { ContentTransformerService } from './services/content-transformer.service';
 import { PromotionWorker } from './services/promotion-worker.service';
 import { DocumentPipelineOrchestrator } from './services/document-pipeline-orchestrator.service';
@@ -223,22 +223,22 @@ async function start(): Promise<void> {
   logger.info('Promotion worker initialized');
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  let semanticMapper: SemanticMapperService | null = null;
+  let semanticSplitService: SemanticSplitService | null = null;
   let contentTransformer: ContentTransformerService | null = null;
 
   if (process.env.NODE_ENV === 'test') {
     logger.info('Test environment detected - LLM services disabled');
   } else if (anthropicKey) {
-    semanticMapper = new SemanticMapperService(pool, anthropicKey);
+    semanticSplitService = new SemanticSplitService(pool, anthropicKey);
     contentTransformer = new ContentTransformerService(pool, anthropicKey);
-    logger.info('LLM services initialized (semantic mapping and content transformation)');
+    logger.info('LLM services initialized (semantic split and content transformation)');
   } else {
     logger.warn('ANTHROPIC_API_KEY not set - LLM services disabled');
   }
 
   const pipelineOrchestrator = new DocumentPipelineOrchestrator(
     pool,
-    semanticMapper,
+    semanticSplitService,
     contentTransformer,
     promotionWorker
   );
