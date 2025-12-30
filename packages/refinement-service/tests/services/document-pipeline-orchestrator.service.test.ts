@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Pool } from 'pg';
 import { DocumentPipelineOrchestrator } from '../../src/services/document-pipeline-orchestrator.service';
@@ -173,12 +174,14 @@ describe('DocumentPipelineOrchestrator', () => {
       ).executeMappingTask.bind(orchestrator);
       await executeMappingTask(task);
 
-      const splitChunk = (mockSemanticSplitService.splitChunk as ReturnType<typeof vi.fn>).bind(
-        mockSemanticSplitService
+      expect(vi.mocked(mockSemanticSplitService.splitChunk)).toHaveBeenCalledWith(
+        'chunk-1',
+        'pipeline-1'
       );
-      const updatePipelineStage = mockPipelineManager.updatePipelineStage.bind(mockPipelineManager);
-      expect(splitChunk).toHaveBeenCalledWith('chunk-1', 'pipeline-1');
-      expect(updatePipelineStage).toHaveBeenCalledWith('pipeline-1', 'draft_review');
+      expect(vi.mocked(mockPipelineManager.updatePipelineStage)).toHaveBeenCalledWith(
+        'pipeline-1',
+        'draft_review'
+      );
     });
 
     it('should throw error if semantic split service is not configured', async () => {
@@ -237,12 +240,14 @@ describe('DocumentPipelineOrchestrator', () => {
       ).executeMappingTask.bind(orchestrator);
       await executeMappingTask(task);
 
-      const splitChunk = (mockSemanticSplitService.splitChunk as ReturnType<typeof vi.fn>).bind(
-        mockSemanticSplitService
+      expect(vi.mocked(mockSemanticSplitService.splitChunk)).toHaveBeenCalledWith(
+        'chunk-1',
+        'pipeline-1'
       );
-      const updatePipelineStage = mockPipelineManager.updatePipelineStage.bind(mockPipelineManager);
-      expect(splitChunk).toHaveBeenCalledWith('chunk-1', 'pipeline-1');
-      expect(updatePipelineStage).not.toHaveBeenCalledWith('pipeline-1', 'draft_review');
+      expect(vi.mocked(mockPipelineManager.updatePipelineStage)).not.toHaveBeenCalledWith(
+        'pipeline-1',
+        'draft_review'
+      );
     });
   });
 
@@ -280,12 +285,13 @@ describe('DocumentPipelineOrchestrator', () => {
       ).executeTransformationTask.bind(orchestrator);
       await executeTransformationTask(task);
 
-      const transformCandidate = (
-        mockContentTransformer.transformCandidate as ReturnType<typeof vi.fn>
-      ).bind(mockContentTransformer);
-      const updatePipelineStage = mockPipelineManager.updatePipelineStage.bind(mockPipelineManager);
-      expect(transformCandidate).toHaveBeenCalledWith('candidate-1');
-      expect(updatePipelineStage).toHaveBeenCalledWith('pipeline-1', 'validating');
+      expect(vi.mocked(mockContentTransformer.transformCandidate)).toHaveBeenCalledWith(
+        'candidate-1'
+      );
+      expect(vi.mocked(mockPipelineManager.updatePipelineStage)).toHaveBeenCalledWith(
+        'pipeline-1',
+        'validating'
+      );
     });
 
     it('should throw error if content transformer is not configured', async () => {
@@ -348,12 +354,13 @@ describe('DocumentPipelineOrchestrator', () => {
       ).executeTransformationTask.bind(orchestrator);
       await executeTransformationTask(task);
 
-      const transformCandidate = (
-        mockContentTransformer.transformCandidate as ReturnType<typeof vi.fn>
-      ).bind(mockContentTransformer);
-      const updatePipelineStage = mockPipelineManager.updatePipelineStage.bind(mockPipelineManager);
-      expect(transformCandidate).toHaveBeenCalledWith('candidate-1');
-      expect(updatePipelineStage).not.toHaveBeenCalledWith('pipeline-1', 'validating');
+      expect(vi.mocked(mockContentTransformer.transformCandidate)).toHaveBeenCalledWith(
+        'candidate-1'
+      );
+      expect(vi.mocked(mockPipelineManager.updatePipelineStage)).not.toHaveBeenCalledWith(
+        'pipeline-1',
+        'validating'
+      );
     });
 
     it('should handle null result from transformCandidate', async () => {
@@ -385,12 +392,10 @@ describe('DocumentPipelineOrchestrator', () => {
       ).executeTransformationTask.bind(orchestrator);
       await executeTransformationTask(task);
 
-      const transformCandidate = (
-        mockContentTransformer.transformCandidate as ReturnType<typeof vi.fn>
-      ).bind(mockContentTransformer);
-      const updatePipelineStage = mockPipelineManager.updatePipelineStage.bind(mockPipelineManager);
-      expect(transformCandidate).toHaveBeenCalledWith('candidate-1');
-      expect(updatePipelineStage).not.toHaveBeenCalled();
+      expect(vi.mocked(mockContentTransformer.transformCandidate)).toHaveBeenCalledWith(
+        'candidate-1'
+      );
+      expect(vi.mocked(mockPipelineManager.updatePipelineStage)).not.toHaveBeenCalled();
     });
   });
 
