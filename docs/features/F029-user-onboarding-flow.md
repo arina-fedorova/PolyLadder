@@ -13,13 +13,13 @@ Implement first-time user onboarding flow that guides users through selecting th
 
 ## Success Criteria
 
-- [ ] Welcome screen explains PolyLadder's approach
-- [ ] Base language selection (cannot be changed later)
-- [ ] Studied languages selection (1-5 languages)
-- [ ] Optional focus mode explanation and setup
-- [ ] Onboarding completion persisted in user_preferences
-- [ ] Users can skip onboarding (defaults applied)
-- [ ] Returning users don't see onboarding again
+- [x] Welcome screen explains PolyLadder's approach
+- [x] Base language selection (cannot be changed later)
+- [x] Studied languages selection (1-5 languages)
+- [x] Optional focus mode explanation and setup
+- [x] Onboarding completion persisted in user_preferences
+- [x] Users can skip onboarding (defaults applied)
+- [x] Returning users don't see onboarding again
 
 ---
 
