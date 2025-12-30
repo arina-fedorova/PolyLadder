@@ -63,53 +63,66 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
     if (item.contentType === 'grammar') {
       const topic = safeString(item.content.topic ?? item.content.title ?? 'Untitled Grammar Rule');
       const explanation = safeString(item.content.explanation);
+      const commonMistakes = safeString(item.content.commonMistakes);
 
       return (
         <>
           <div>
-            <span className="text-sm font-medium text-gray-600">Topic:</span>
+            <span className="text-sm font-medium text-gray-600">Title:</span>
             <p className="text-lg font-semibold text-gray-900">{topic}</p>
           </div>
           {explanation && (
             <div>
               <span className="text-sm font-medium text-gray-600">Explanation:</span>
-              <p className="text-gray-900">{explanation}</p>
+              <p className="text-gray-900 whitespace-pre-wrap">{explanation}</p>
             </div>
           )}
-          {item.content.examples && Array.isArray(item.content.examples) && (
+          {item.content.examples &&
+            Array.isArray(item.content.examples) &&
+            item.content.examples.length > 0 && (
+              <div>
+                <span className="text-sm font-medium text-gray-600">Examples:</span>
+                <ul className="list-disc list-inside text-gray-900 space-y-2 mt-2">
+                  {item.content.examples.map((ex, i) => {
+                    if (typeof ex === 'object' && ex !== null) {
+                      const exampleObj = ex as {
+                        correct?: string;
+                        incorrect?: string;
+                        note?: string;
+                      };
+                      return (
+                        <li key={i} className="ml-4">
+                          <div className="space-y-1">
+                            {exampleObj.correct && (
+                              <div>
+                                <span className="font-medium text-green-700">
+                                  ✓ {safeString(exampleObj.correct)}
+                                </span>
+                              </div>
+                            )}
+                            {exampleObj.incorrect && (
+                              <div className="text-red-600 line-through">
+                                ✗ {safeString(exampleObj.incorrect)}
+                              </div>
+                            )}
+                            {exampleObj.note && (
+                              <div className="text-sm text-gray-600 italic">
+                                {safeString(exampleObj.note)}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    }
+                    return <li key={i}>{safeString(ex)}</li>;
+                  })}
+                </ul>
+              </div>
+            )}
+          {commonMistakes && (
             <div>
-              <span className="text-sm font-medium text-gray-600">Examples:</span>
-              <ul className="list-disc list-inside text-gray-900 space-y-2">
-                {item.content.examples.map((ex, i) => {
-                  if (typeof ex === 'object' && ex !== null) {
-                    const exampleObj = ex as {
-                      correct?: string;
-                      incorrect?: string;
-                      note?: string;
-                    };
-                    return (
-                      <li key={i} className="ml-4">
-                        <div>
-                          <span className="font-medium text-green-700">
-                            ✓ {safeString(exampleObj.correct)}
-                          </span>
-                          {exampleObj.incorrect && (
-                            <div className="text-red-600 line-through ml-2">
-                              ✗ {safeString(exampleObj.incorrect)}
-                            </div>
-                          )}
-                          {exampleObj.note && (
-                            <div className="text-sm text-gray-600 italic ml-4">
-                              {safeString(exampleObj.note)}
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  }
-                  return <li key={i}>{safeString(ex)}</li>;
-                })}
-              </ul>
+              <span className="text-sm font-medium text-gray-600">Common Mistakes:</span>
+              <p className="text-gray-900 whitespace-pre-wrap">{commonMistakes}</p>
             </div>
           )}
         </>
