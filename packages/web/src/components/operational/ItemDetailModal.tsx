@@ -61,7 +61,7 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
     }
 
     if (item.contentType === 'grammar') {
-      const topic = safeString(item.content.topic);
+      const topic = safeString(item.content.topic ?? item.content.title ?? 'Untitled Grammar Rule');
       const explanation = safeString(item.content.explanation);
 
       return (
@@ -79,10 +79,36 @@ export function ItemDetailModal({ item, onClose, onApprove, onReject }: ItemDeta
           {item.content.examples && Array.isArray(item.content.examples) && (
             <div>
               <span className="text-sm font-medium text-gray-600">Examples:</span>
-              <ul className="list-disc list-inside text-gray-900">
-                {item.content.examples.map((ex, i) => (
-                  <li key={i}>{safeString(ex)}</li>
-                ))}
+              <ul className="list-disc list-inside text-gray-900 space-y-2">
+                {item.content.examples.map((ex, i) => {
+                  if (typeof ex === 'object' && ex !== null) {
+                    const exampleObj = ex as {
+                      correct?: string;
+                      incorrect?: string;
+                      note?: string;
+                    };
+                    return (
+                      <li key={i} className="ml-4">
+                        <div>
+                          <span className="font-medium text-green-700">
+                            ✓ {safeString(exampleObj.correct)}
+                          </span>
+                          {exampleObj.incorrect && (
+                            <div className="text-red-600 line-through ml-2">
+                              ✗ {safeString(exampleObj.incorrect)}
+                            </div>
+                          )}
+                          {exampleObj.note && (
+                            <div className="text-sm text-gray-600 italic ml-4">
+                              {safeString(exampleObj.note)}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  }
+                  return <li key={i}>{safeString(ex)}</li>;
+                })}
               </ul>
             </div>
           )}

@@ -225,52 +225,66 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
         [pipelineId]
       );
 
-      const contentStatsResult = await fastify.db.query<{
-        current_stage: string;
-        count: string;
-      }>(
-        `SELECT current_stage, COUNT(*) as count
-         FROM pipeline_tasks
-         WHERE pipeline_id = $1
-         GROUP BY current_stage
-         ORDER BY
-           CASE current_stage
-             WHEN 'DRAFT' THEN 1
-             WHEN 'CANDIDATE' THEN 2
-             WHEN 'VALIDATED' THEN 3
-             WHEN 'APPROVED' THEN 4
-             ELSE 5
-           END`,
-        [pipelineId]
+      // Count validated items from review_queue (deduplicated)
+      const validatedCountResult = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM (
+          SELECT DISTINCT ON (
+            CASE
+              WHEN v.data_type = 'meaning' THEN v.validated_data->>'word'
+              WHEN v.data_type = 'utterance' THEN v.validated_data->>'text'
+              WHEN v.data_type = 'rule' THEN v.validated_data->>'title'
+              WHEN v.data_type = 'exercise' THEN v.validated_data->>'prompt'
+              ELSE v.id::text
+            END || '|' || COALESCE(v.validated_data->>'language', 'EN') || '|' || COALESCE(v.validated_data->>'level', 'A1')
+          ) v.id
+          FROM review_queue rq
+          JOIN validated v ON v.id = rq.item_id
+          JOIN candidates c ON v.candidate_id = c.id
+          JOIN drafts d ON c.draft_id = d.id
+          WHERE rq.reviewed_at IS NULL
+            AND d.document_id = $1
+            AND NOT EXISTS (SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar)
+        ) subq`,
+        [pipeline.document_id]
+      );
+
+      // Count approved items from approval_events
+      const approvedCountResult = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(DISTINCT ae.item_id) as count
+         FROM approval_events ae
+         JOIN validated v ON v.id = ae.item_id::uuid
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.document_id = $1`,
+        [pipeline.document_id]
+      );
+
+      // Count drafts and candidates from content lifecycle
+      const draftCountResult = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM drafts WHERE document_id = $1`,
+        [pipeline.document_id]
+      );
+
+      const candidateCountResult = await fastify.db.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM candidates c
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.document_id = $1`,
+        [pipeline.document_id]
       );
 
       const contentStats = {
-        draft: 0,
-        candidate: 0,
-        validated: 0,
-        approved: 0,
+        draft: parseInt(draftCountResult.rows[0]?.count || '0', 10),
+        candidate: parseInt(candidateCountResult.rows[0]?.count || '0', 10),
+        validated: parseInt(validatedCountResult.rows[0]?.count || '0', 10),
+        approved: parseInt(approvedCountResult.rows[0]?.count || '0', 10),
         total: 0,
       };
 
-      for (const row of contentStatsResult.rows) {
-        const count = parseInt(row.count, 10);
-        contentStats.total += count;
-
-        switch (row.current_stage) {
-          case 'DRAFT':
-            contentStats.draft = count;
-            break;
-          case 'CANDIDATE':
-            contentStats.candidate = count;
-            break;
-          case 'VALIDATED':
-            contentStats.validated = count;
-            break;
-          case 'APPROVED':
-            contentStats.approved = count;
-            break;
-        }
-      }
+      contentStats.total =
+        contentStats.draft +
+        contentStats.candidate +
+        contentStats.validated +
+        contentStats.approved;
 
       return reply.send({
         pipeline,
@@ -495,10 +509,26 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const pipeline = pipelineResult.rows[0];
 
-      await fastify.db.query('BEGIN');
-
+      const client = await fastify.db.connect();
       try {
-        await fastify.db.query(
+        await client.query('BEGIN');
+
+        // FIRST: Find all validated items to delete BEFORE modifying any foreign keys
+        const validatedIdsResult = await client.query<{ id: string; data_type: string }>(
+          `SELECT v.id, v.data_type
+           FROM validated v
+           JOIN candidates c ON v.candidate_id = c.id
+           JOIN drafts d ON c.draft_id = d.id
+           WHERE d.document_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM approval_events ae WHERE ae.item_id = v.id::varchar
+             )`,
+          [pipeline.document_id]
+        );
+
+        const validatedIds = validatedIdsResult.rows.map((row) => row.id);
+
+        await client.query(
           `INSERT INTO pipeline_events
            (task_id, item_id, item_type, event_type, stage, status, success, payload)
            VALUES (NULL, $1, 'pipeline', 'pipeline_cancelled', 'cancelled', 'cancelled', true, $2)`,
@@ -508,15 +538,63 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
               deletedBy: request.user?.userId,
               documentId: pipeline.document_id,
               filename: pipeline.original_filename,
+              validatedItemsToDelete: validatedIds.length,
             }),
           ]
         );
 
-        await fastify.db.query(`DELETE FROM document_sources WHERE id = $1`, [
+        // Delete validated items from review queue and validated table
+        if (validatedIds.length > 0) {
+          await client.query(`DELETE FROM review_queue WHERE item_id = ANY($1)`, [validatedIds]);
+          await client.query(`DELETE FROM validated WHERE id = ANY($1)`, [validatedIds]);
+        }
+
+        const chunkIdsResult = await client.query<{ id: string }>(
+          `SELECT id FROM raw_content_chunks WHERE document_id = $1`,
+          [pipeline.document_id]
+        );
+        const chunkIds = chunkIdsResult.rows.map((row) => row.id);
+
+        if (chunkIds.length > 0) {
+          const mappingIdsResult = await client.query<{ id: string }>(
+            `SELECT id FROM content_topic_mappings WHERE chunk_id = ANY($1)`,
+            [chunkIds]
+          );
+          const mappingIds = mappingIdsResult.rows.map((row) => row.id);
+
+          if (mappingIds.length > 0) {
+            const transformationJobIdsResult = await client.query<{ id: string }>(
+              `SELECT id FROM transformation_jobs WHERE mapping_id = ANY($1)`,
+              [mappingIds]
+            );
+            const transformationJobIds = transformationJobIdsResult.rows.map((row) => row.id);
+
+            if (transformationJobIds.length > 0) {
+              await client.query(
+                `UPDATE drafts SET transformation_job_id = NULL WHERE transformation_job_id = ANY($1)`,
+                [transformationJobIds]
+              );
+            }
+
+            await client.query(`DELETE FROM transformation_jobs WHERE mapping_id = ANY($1)`, [
+              mappingIds,
+            ]);
+          }
+
+          await client.query(`DELETE FROM content_topic_mappings WHERE chunk_id = ANY($1)`, [
+            chunkIds,
+          ]);
+        }
+
+        await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [
           pipeline.document_id,
         ]);
 
-        await fastify.db.query('COMMIT');
+        await client.query(`DELETE FROM pipelines WHERE id = $1`, [pipelineId]);
+
+        await client.query(`DELETE FROM document_sources WHERE id = $1`, [pipeline.document_id]);
+
+        await client.query('COMMIT');
 
         return reply.send({
           success: true,
@@ -524,8 +602,11 @@ export const pipelinesRoutes: FastifyPluginAsync = async (fastify) => {
           pipelineId,
         });
       } catch (error) {
-        await fastify.db.query('ROLLBACK');
+        await client.query('ROLLBACK');
+        request.log.error({ err: error, pipelineId }, 'Failed to delete pipeline');
         throw error;
+      } finally {
+        client.release();
       }
     }
   );

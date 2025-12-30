@@ -6,15 +6,14 @@ import { LoginPage } from '@/pages/public/LoginPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
 import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
-import { ReviewQueuePage } from '@/pages/operator/ReviewQueuePage';
-import { FailuresPage } from '@/pages/operator/FailuresPage';
 import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
 import { DocumentLibraryPage } from '@/pages/operator/DocumentLibraryPage';
-import { MappingReviewPage } from '@/pages/operator/MappingReviewPage';
 import { PipelineTaskDetailPage } from '@/pages/operator/PipelineTaskDetailPage';
 import { PipelinesPage } from '@/pages/operator/PipelinesPage';
 import { PipelineDetailPage } from '@/pages/operator/PipelineDetailPage';
+import { PipelineStatusPage } from '@/pages/operator/PipelineStatusPage';
+import { DraftReviewPage } from '@/pages/operator/DraftReviewPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -96,6 +95,17 @@ export function App() {
           />
 
           <Route
+            path="/operator/pipeline-status"
+            element={
+              <ProtectedRoute requiredRole="operator">
+                <MainLayout>
+                  <PipelineStatusPage />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/operator/dashboard"
             element={
               <ProtectedRoute requiredRole="operator">
@@ -110,28 +120,6 @@ export function App() {
           <Route
             path="/operator/pipeline"
             element={<Navigate to="/operator/pipelines" replace />}
-          />
-
-          <Route
-            path="/operator/review-queue"
-            element={
-              <ProtectedRoute requiredRole="operator">
-                <MainLayout>
-                  <ReviewQueuePage />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/operator/failures"
-            element={
-              <ProtectedRoute requiredRole="operator">
-                <MainLayout>
-                  <FailuresPage />
-                </MainLayout>
-              </ProtectedRoute>
-            }
           />
 
           <Route
@@ -168,22 +156,22 @@ export function App() {
           />
 
           <Route
-            path="/operator/mappings"
+            path="/operator/pipeline/tasks/:taskId"
             element={
               <ProtectedRoute requiredRole="operator">
                 <MainLayout>
-                  <MappingReviewPage />
+                  <PipelineTaskDetailPage />
                 </MainLayout>
               </ProtectedRoute>
             }
           />
 
           <Route
-            path="/operator/pipeline/tasks/:taskId"
+            path="/operator/draft-review"
             element={
               <ProtectedRoute requiredRole="operator">
                 <MainLayout>
-                  <PipelineTaskDetailPage />
+                  <DraftReviewPage />
                 </MainLayout>
               </ProtectedRoute>
             }

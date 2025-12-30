@@ -280,9 +280,10 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
 
       const document = result.rows[0] as DocumentRow;
 
-      await fastify.db.query(
-        `INSERT INTO pipelines (document_id, status, current_stage, metadata)
-         VALUES ($1, 'pending', 'created', $2)`,
+      const pipelineResult = await fastify.db.query<{ id: string }>(
+        `INSERT INTO pipelines (document_id, status, current_stage, metadata, started_at)
+         VALUES ($1, 'processing', 'extracting', $2, CURRENT_TIMESTAMP)
+         RETURNING id`,
         [
           document.id,
           JSON.stringify({
@@ -292,6 +293,14 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
             uploadedBy: request.user?.userId,
           }),
         ]
+      );
+
+      const pipelineId = pipelineResult.rows[0].id;
+
+      await fastify.db.query(
+        `INSERT INTO document_processing_tasks (pipeline_id, task_type, status, item_id, started_at)
+         VALUES ($1, 'extract', 'pending', $2, CURRENT_TIMESTAMP)`,
+        [pipelineId, document.id]
       );
 
       return reply.status(201).send({ document });
@@ -441,22 +450,113 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
 
-      const doc = await fastify.db.query<{ storage_path: string }>(
-        `SELECT storage_path FROM document_sources WHERE id = $1`,
-        [id]
-      );
+      const client = await fastify.db.connect();
+      try {
+        await client.query('BEGIN');
 
-      if (doc.rows.length > 0) {
-        try {
-          await storage.deleteFile(doc.rows[0].storage_path);
-        } catch {
-          /* ignore deletion errors */
+        const doc = await client.query<{ storage_path: string }>(
+          `SELECT storage_path FROM document_sources WHERE id = $1`,
+          [id]
+        );
+
+        if (doc.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Document not found',
+              requestId: request.id,
+              code: 'NOT_FOUND',
+            },
+          });
         }
+
+        const chunkIdsResult = await client.query<{ id: string }>(
+          `SELECT id FROM raw_content_chunks WHERE document_id = $1`,
+          [id]
+        );
+        const chunkIds = chunkIdsResult.rows.map((row) => row.id);
+
+        if (chunkIds.length > 0) {
+          const mappingIdsResult = await client.query<{ id: string }>(
+            `SELECT id FROM content_topic_mappings WHERE chunk_id = ANY($1)`,
+            [chunkIds]
+          );
+          const mappingIds = mappingIdsResult.rows.map((row) => row.id);
+
+          if (mappingIds.length > 0) {
+            const transformationJobIdsResult = await client.query<{ id: string }>(
+              `SELECT id FROM transformation_jobs WHERE mapping_id = ANY($1)`,
+              [mappingIds]
+            );
+            const transformationJobIds = transformationJobIdsResult.rows.map((row) => row.id);
+
+            if (transformationJobIds.length > 0) {
+              await client.query(
+                `UPDATE drafts SET transformation_job_id = NULL WHERE transformation_job_id = ANY($1)`,
+                [transformationJobIds]
+              );
+            }
+
+            await client.query(`DELETE FROM transformation_jobs WHERE mapping_id = ANY($1)`, [
+              mappingIds,
+            ]);
+          }
+
+          await client.query(`DELETE FROM content_topic_mappings WHERE chunk_id = ANY($1)`, [
+            chunkIds,
+          ]);
+        }
+
+        await client.query(`DELETE FROM raw_content_chunks WHERE document_id = $1`, [id]);
+
+        const validatedIdsResult = await client.query<{ id: string }>(
+          `SELECT v.id
+           FROM validated v
+           JOIN candidates c ON v.candidate_id = c.id
+           JOIN drafts d ON c.draft_id = d.id
+           WHERE d.document_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM approved_meanings am WHERE am.id = v.id
+               UNION ALL
+               SELECT 1 FROM approved_utterances au WHERE au.id = v.id
+               UNION ALL
+               SELECT 1 FROM approved_rules ar WHERE ar.id = v.id
+               UNION ALL
+               SELECT 1 FROM approved_exercises ae WHERE ae.id = v.id
+             )`,
+          [id]
+        );
+
+        const validatedIds = validatedIdsResult.rows.map((row) => row.id);
+
+        if (validatedIds.length > 0) {
+          await client.query(`DELETE FROM review_queue WHERE item_id = ANY($1)`, [validatedIds]);
+          await client.query(`DELETE FROM validated WHERE id = ANY($1)`, [validatedIds]);
+        }
+
+        await client.query(`DELETE FROM pipelines WHERE document_id = $1`, [id]);
+
+        await client.query(`DELETE FROM document_sources WHERE id = $1`, [id]);
+
+        if (doc.rows[0].storage_path) {
+          try {
+            await storage.deleteFile(doc.rows[0].storage_path);
+          } catch {
+            /* ignore deletion errors */
+          }
+        }
+
+        await client.query('COMMIT');
+
+        return reply.status(204).send();
+      } catch (error) {
+        await client.query('ROLLBACK');
+        request.log.error({ err: error, documentId: id }, 'Failed to delete document');
+        throw error;
+      } finally {
+        client.release();
       }
-
-      await fastify.db.query(`DELETE FROM document_sources WHERE id = $1`, [id]);
-
-      return reply.status(204).send();
     }
   );
 };

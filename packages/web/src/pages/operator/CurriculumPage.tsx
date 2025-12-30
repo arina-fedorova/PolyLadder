@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, GripVertical, Trash2, Edit2, ChevronDown, ChevronRight, Upload } from 'lucide-react';
+import {
+  Plus,
+  GripVertical,
+  Trash2,
+  Edit2,
+  ChevronDown,
+  ChevronRight,
+  Upload,
+  Eye,
+} from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface CurriculumLevel {
@@ -36,6 +45,7 @@ export function CurriculumPage() {
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<CurriculumTopic | null>(null);
   const [bulkImportLevel, setBulkImportLevel] = useState<string | null>(null);
+  const [viewingApprovedItems, setViewingApprovedItems] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -262,6 +272,13 @@ export function CurriculumPage() {
                             ~{topic.estimatedItems} items
                           </span>
                           <button
+                            onClick={() => setViewingApprovedItems(topic.id)}
+                            className="p-1.5 hover:bg-blue-100 text-blue-600 rounded flex-shrink-0"
+                            title="View approved items"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => setEditingTopic(topic)}
                             className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0"
                             title="Edit topic"
@@ -309,6 +326,14 @@ export function CurriculumPage() {
           }}
           isPending={bulkCreateTopicsMutation.isPending}
           result={bulkCreateTopicsMutation.data}
+        />
+      )}
+
+      {viewingApprovedItems && (
+        <ApprovedItemsModal
+          topicId={viewingApprovedItems}
+          topicName={topics?.topics.find((t) => t.id === viewingApprovedItems)?.name || 'Unknown'}
+          onClose={() => setViewingApprovedItems(null)}
         />
       )}
     </div>
@@ -605,6 +630,165 @@ function BulkImportModal({ levelId, onClose, onImport, isPending, result }: Bulk
             )}
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+interface ApprovedItemsModalProps {
+  topicId: string;
+  topicName: string;
+  onClose: () => void;
+}
+
+function ApprovedItemsModal({ topicId, topicName, onClose }: ApprovedItemsModalProps) {
+  const queryClient = useQueryClient();
+
+  interface ApprovedItemsResponse {
+    meanings: Array<{
+      id: string;
+      type: 'meaning';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+    rules: Array<{ id: string; type: 'rule'; content: Record<string, unknown>; createdAt: string }>;
+    utterances: Array<{
+      id: string;
+      type: 'utterance';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+    exercises: Array<{
+      id: string;
+      type: 'exercise';
+      content: Record<string, unknown>;
+      createdAt: string;
+    }>;
+  }
+
+  const { data, isLoading } = useQuery<ApprovedItemsResponse>({
+    queryKey: ['approved-items', topicId],
+    queryFn: async () => {
+      const response = await apiClient.get<ApprovedItemsResponse>(
+        `/operational/curriculum/topics/${topicId}/approved-items`
+      );
+      return response.data;
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, dataType }: { id: string; dataType: string }) => {
+      await apiClient.delete(`/operational/curriculum/approved-items/${id}?dataType=${dataType}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['approved-items', topicId] });
+      alert('Item deleted successfully');
+    },
+    onError: (error) => {
+      alert(`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    },
+  });
+
+  const getContentString = (value: unknown): string => {
+    if (value === null || value === undefined) return 'N/A';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return JSON.stringify(value);
+  };
+
+  const allItems = [
+    ...(data?.meanings.map((item) => ({ ...item, dataType: 'meaning' as const })) || []),
+    ...(data?.rules.map((item) => ({ ...item, dataType: 'rule' as const })) || []),
+    ...(data?.utterances.map((item) => ({ ...item, dataType: 'utterance' as const })) || []),
+    ...(data?.exercises.map((item) => ({ ...item, dataType: 'exercise' as const })) || []),
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Approved Items for "{topicName}"</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <span className="text-2xl">&times;</span>
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-8">Loading approved items...</div>
+        ) : allItems.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">No approved items for this topic yet</div>
+        ) : (
+          <div className="space-y-4">
+            {allItems.map((item) => (
+              <div key={item.id} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          item.dataType === 'meaning' || item.dataType === 'utterance'
+                            ? 'bg-blue-100 text-blue-700'
+                            : item.dataType === 'rule'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {item.dataType}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      {item.dataType === 'meaning' && (
+                        <div>
+                          <span className="font-medium">Word:</span>{' '}
+                          {getContentString(item.content.word || item.content.text)}
+                          <br />
+                          <span className="font-medium">Level:</span>{' '}
+                          {getContentString(item.content.level)}
+                        </div>
+                      )}
+                      {item.dataType === 'rule' && (
+                        <div>
+                          <span className="font-medium">Title:</span>{' '}
+                          {getContentString(item.content.title)}
+                          <br />
+                          <span className="font-medium">Explanation:</span>{' '}
+                          {getContentString(item.content.explanation).substring(0, 100)}...
+                        </div>
+                      )}
+                      {item.dataType === 'utterance' && (
+                        <div>
+                          <span className="font-medium">Text:</span>{' '}
+                          {getContentString(item.content.text)}
+                        </div>
+                      )}
+                      {item.dataType === 'exercise' && (
+                        <div>
+                          <span className="font-medium">Prompt:</span>{' '}
+                          {getContentString(item.content.prompt)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete this ${item.dataType}?`)) {
+                        deleteMutation.mutate({ id: item.id, dataType: item.dataType });
+                      }
+                    }}
+                    className="p-2 hover:bg-red-100 text-red-600 rounded flex-shrink-0"
+                    title="Delete"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

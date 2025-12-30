@@ -141,6 +141,30 @@ export class DocumentPipelineOrchestrator {
         if (pipelineResult.rows.length > 0) {
           const documentId = pipelineResult.rows[0].document_id;
 
+          // Check if all drafts are processed (have candidates)
+          const unprocessedDraftsResult = await this.pool.query<{ count: string }>(
+            `SELECT COUNT(*) as count
+             FROM drafts d
+             WHERE d.document_id = $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM candidates c WHERE c.draft_id = d.id
+               )`,
+            [documentId]
+          );
+
+          const unprocessedDraftsCount = parseInt(
+            unprocessedDraftsResult.rows[0]?.count || '0',
+            10
+          );
+
+          if (unprocessedDraftsCount > 0) {
+            logger.info(
+              { pipelineId, unprocessedDrafts: unprocessedDraftsCount },
+              'Pipeline has unprocessed drafts - waiting for normalization'
+            );
+            return false;
+          }
+
           const confirmedMappingsResult = await this.pool.query<{ count: string }>(
             `SELECT COUNT(*) as count
              FROM content_topic_mappings m
@@ -268,7 +292,32 @@ export class DocumentPipelineOrchestrator {
     );
 
     const doc = docResult.rows[0];
-    if (!doc || doc.status !== 'pending') {
+    if (!doc) {
+      logger.warn({ documentId }, 'Document not found for extraction');
+      return;
+    }
+
+    if (doc.status !== 'pending' && doc.status !== 'extracting' && doc.status !== 'chunking') {
+      logger.info(
+        { documentId, status: doc.status },
+        'Document already processed or in incompatible status, skipping extraction task creation'
+      );
+      return;
+    }
+
+    const existingTaskResult = await this.pool.query<{ id: string }>(
+      `SELECT id FROM document_processing_tasks
+       WHERE pipeline_id = $1
+         AND task_type = 'extract'
+         AND status IN ('pending', 'processing')`,
+      [pipelineId]
+    );
+
+    if (existingTaskResult.rows.length > 0) {
+      logger.info(
+        { documentId, pipelineId, taskId: existingTaskResult.rows[0].id },
+        'Extraction task already exists, skipping creation'
+      );
       return;
     }
 

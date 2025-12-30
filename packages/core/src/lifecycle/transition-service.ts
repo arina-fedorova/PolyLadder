@@ -26,7 +26,8 @@ export interface TransitionRepository {
     itemId: string,
     itemType: string,
     fromState: LifecycleState,
-    toState: LifecycleState
+    toState: LifecycleState,
+    metadata?: Record<string, unknown>
   ): Promise<void>;
 }
 
@@ -39,12 +40,18 @@ export async function executeTransition(
   context: TransitionContext,
   params: TransitionParams
 ): Promise<StateTransition> {
-  const { itemId, itemType, fromState, toState, approval } = params;
+  const { itemId, itemType, fromState, toState, approval, metadata } = params;
 
   assertValidTransition(fromState, toState);
 
   const transition = await context.transitionRepository.recordTransition(params);
-  await context.transitionRepository.moveItemToState(itemId, itemType, fromState, toState);
+  await context.transitionRepository.moveItemToState(
+    itemId,
+    itemType,
+    fromState,
+    toState,
+    metadata
+  );
 
   if (toState === LifecycleState.APPROVED && context.approvalRepository) {
     const approvalParams: CreateApprovalParams = {

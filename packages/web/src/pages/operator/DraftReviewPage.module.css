@@ -1,0 +1,508 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #1a1a2e);
+  margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+  color: var(--color-text-secondary, #666);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.statsBar {
+  display: flex;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filters {
+  display: flex;
+  gap: 1rem;
+}
+
+.filterSelect {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.bulkActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.selectedCount {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.bulkApprove,
+.bulkReject {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.bulkApprove {
+  background: #10b981;
+  color: white;
+}
+
+.bulkApprove:hover:not(:disabled) {
+  background: #059669;
+}
+
+.bulkReject {
+  background: #ef4444;
+  color: white;
+}
+
+.bulkReject:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.bulkApprove:disabled,
+.bulkReject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.draftsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.listHeader {
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-radius: 8px;
+}
+
+.selectAllLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+}
+
+.selectAllLabel input {
+  width: 16px;
+  height: 16px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 4rem;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-radius: 12px;
+  color: var(--color-text-secondary, #666);
+}
+
+.draftCard {
+  background: white;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.draftCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.cardMeta {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dataType,
+.level,
+.contentType {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.dataType {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.level {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.contentType {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.documentName {
+  margin-left: auto;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardBody {
+  padding: 1rem;
+}
+
+.topicInfo {
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.topicInfo strong {
+  color: var(--color-text-secondary, #666);
+  font-weight: 500;
+}
+
+.originalContent {
+  margin-bottom: 0.75rem;
+}
+
+.originalContent strong {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #666);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.originalContent pre {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.reasoning {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #666);
+  background: #fffbeb;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #f59e0b;
+}
+
+.reasoning strong {
+  font-weight: 500;
+}
+
+.cardActions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid var(--color-border, #e0e0e0);
+}
+
+.approveButton,
+.rejectButton,
+.rerunButton {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.approveButton {
+  background: #10b981;
+  color: white;
+}
+
+.approveButton:hover:not(:disabled) {
+  background: #059669;
+}
+
+.rejectButton {
+  background: #ef4444;
+  color: white;
+}
+
+.rejectButton:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.rerunButton {
+  background: #f59e0b;
+  color: white;
+}
+
+.rerunButton:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.approveButton:disabled,
+.rejectButton:disabled,
+.rerunButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rerunInput {
+  padding: 1rem;
+  background: #fffbeb;
+  border-top: 1px solid #fef3c7;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rerunInput textarea {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.rerunInput button {
+  align-self: flex-end;
+  padding: 0.5rem 1rem;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.rerunInput button:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.rerunInput button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.pageButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.pageButton:hover:not(:disabled) {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.pageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: var(--color-text-primary, #1a1a2e);
+}
+
+.rejectReasonInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  resize: vertical;
+  min-height: 100px;
+  margin-bottom: 1rem;
+}
+
+.rejectReasonInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.cancelButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.cancelButton:hover {
+  background: var(--color-bg-secondary, #f8f9fa);
+}
+
+.confirmReject {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.confirmReject:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.confirmReject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading,
+.error,
+.accessDenied {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  font-size: 1rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.error {
+  color: #ef4444;
+}
+
+.accessDenied {
+  color: #f59e0b;
+}
+

@@ -18,11 +18,6 @@ import { ContentTransformerService } from './services/content-transformer.servic
 import { PromotionWorker } from './services/promotion-worker.service';
 import { DocumentProcessorService } from './services/document-processor.service';
 import { DocumentPipelineOrchestrator } from './services/document-pipeline-orchestrator.service';
-import {
-  createCEFRConsistencyGate,
-  createOrthographyGate,
-  createContentSafetyGate,
-} from '@polyladder/core';
 
 const DEFAULT_LOOP_INTERVAL_MS = 5000;
 const MIN_LOOP_INTERVAL_MS = 1000;
@@ -314,16 +309,8 @@ async function start(): Promise<void> {
     batchSize: 10,
   });
 
-  const qualityGates = [
-    createCEFRConsistencyGate(),
-    createOrthographyGate(),
-    createContentSafetyGate(),
-  ];
-  const promotionWorker = new PromotionWorker(pool, qualityGates);
-  logger.info(
-    { gateCount: qualityGates.length },
-    'Promotion worker initialized with quality gates'
-  );
+  const promotionWorker = new PromotionWorker(pool);
+  logger.info('Promotion worker initialized');
 
   const documentProcessor = new DocumentProcessorService(pool);
   logger.info('Document processor initialized');

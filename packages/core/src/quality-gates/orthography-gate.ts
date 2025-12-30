@@ -2,11 +2,11 @@ import { QualityGate, QualityGateResult, GateInput, GateTier } from './types';
 import { Language } from '../domain/enums';
 
 const VALID_ALPHABETS: Partial<Record<Language, RegExp>> = {
-  [Language.EN]: /^[A-Za-z0-9\s.,!?;:'"()\-–—…]+$/,
-  [Language.ES]: /^[A-Za-zÁÉÍÓÚÑáéíóúñ¿¡0-9\s.,!?;:'"()\-–—…]+$/,
-  [Language.IT]: /^[A-Za-zÀÈÉÌÒÙàèéìòù0-9\s.,!?;:'"()\-–—…]+$/,
-  [Language.PT]: /^[A-Za-zÁÂÃÀÇÉÊÍÓÔÕÚáâãàçéêíóôõú0-9\s.,!?;:'"()\-–—…]+$/,
-  [Language.SL]: /^[A-Za-zČŠŽčšž0-9\s.,!?;:'"()\-–—…]+$/,
+  [Language.EN]: /^[A-Za-z0-9\s.,!?;:'"()\-–—…/]+$/,
+  [Language.ES]: /^[A-Za-zÁÉÍÓÚÑáéíóúñ¿¡0-9\s.,!?;:'"()\-–—…/]+$/,
+  [Language.IT]: /^[A-Za-zÀÈÉÌÒÙàèéìòù0-9\s.,!?;:'"()\-–—…/]+$/,
+  [Language.PT]: /^[A-Za-zÁÂÃÀÇÉÊÍÓÔÕÚáâãàçéêíóôõú0-9\s.,!?;:'"()\-–—…/]+$/,
+  [Language.SL]: /^[A-Za-zČŠŽčšž0-9\s.,!?;:'"()\-–—…/]+$/,
 };
 
 const INVALID_CHAR_PATTERNS: Partial<Record<Language, Array<{ regex: RegExp; issue: string }>>> = {

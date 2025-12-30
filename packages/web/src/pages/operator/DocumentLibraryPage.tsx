@@ -385,8 +385,19 @@ export function DocumentLibraryPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/operational/documents/${id}`),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['documents'] }),
+    mutationFn: async (id: string) => {
+      const response = await api.delete<{ success?: boolean }>(`/operational/documents/${id}`);
+      return response;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+    onError: (error) => {
+      console.error('Failed to delete document:', error);
+      alert(
+        `Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    },
   });
 
   const reprocessMutation = useMutation({
@@ -489,9 +500,18 @@ export function DocumentLibraryPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => void deleteMutation.mutate(doc.id)}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Delete document "${doc.original_filename}"? This action cannot be undone.`
+                          )
+                        ) {
+                          void deleteMutation.mutate(doc.id);
+                        }
+                      }}
                       className="p-2 hover:bg-red-100 text-red-600 rounded"
                       title="Delete"
+                      disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = 'http://localhost:3001/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -47,9 +47,12 @@ apiClient.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          const response = await axios.post<{ accessToken: string }>(`${API_URL}/auth/refresh`, {
-            refreshToken,
-          });
+          const response = await axios.post<{ accessToken: string }>(
+            `${apiClient.defaults.baseURL}/auth/refresh`,
+            {
+              refreshToken,
+            }
+          );
 
           const { accessToken: newAccessToken } = response.data;
 
@@ -92,6 +95,9 @@ const api = {
   },
   delete: async <T>(url: string): Promise<T> => {
     const response = await apiClient.delete<T>(url);
+    if (response.status === 204 || !response.data) {
+      return { success: true } as T;
+    }
     return response.data;
   },
   upload: async <T>(url: string, formData: FormData): Promise<T> => {

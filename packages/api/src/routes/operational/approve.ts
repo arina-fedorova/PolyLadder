@@ -85,9 +85,17 @@ const approveRoute: FastifyPluginAsync = async function (fastify) {
               itemId: string,
               itemType: string,
               fromState: LifecycleState,
-              toState: LifecycleState
+              toState: LifecycleState,
+              metadata?: Record<string, unknown>
             ) {
-              return await moveItemToState(txClient, itemId, itemType, fromState, toState);
+              return await moveItemToState(
+                txClient,
+                itemId,
+                itemType,
+                fromState,
+                toState,
+                metadata
+              );
             },
           };
 

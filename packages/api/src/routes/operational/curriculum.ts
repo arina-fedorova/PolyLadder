@@ -146,4 +146,197 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  fastify.get(
+    '/curriculum/topics/:topicId/approved-items',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
+      const { topicId } = request.params as { topicId: string };
+
+      const meaningsResult = await fastify.db.query<{
+        id: string;
+        text: string;
+        level: string;
+        tags: unknown;
+        created_at: Date;
+      }>(
+        `SELECT am.id, am.text, am.level, am.tags, am.created_at
+         FROM approved_meanings am
+         JOIN validated v ON v.id = am.id::uuid
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.topic_id = $1
+         ORDER BY am.created_at DESC`,
+        [topicId]
+      );
+
+      const rulesResult = await fastify.db.query<{
+        id: string;
+        title: string;
+        language: string;
+        level: string;
+        explanation: string;
+        examples: unknown;
+        created_at: Date;
+      }>(
+        `SELECT ar.id, ar.title, ar.language, ar.level, ar.explanation, ar.examples, ar.created_at
+         FROM approved_rules ar
+         JOIN validated v ON v.id = ar.id::uuid
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.topic_id = $1
+         ORDER BY ar.created_at DESC`,
+        [topicId]
+      );
+
+      const utterancesResult = await fastify.db.query<{
+        id: string;
+        text: string;
+        language: string;
+        meaning_id: string;
+        created_at: Date;
+      }>(
+        `SELECT au.id, au.text, au.language, au.meaning_id, au.created_at
+         FROM approved_utterances au
+         JOIN approved_meanings am ON au.meaning_id = am.id
+         JOIN validated v ON v.id = am.id::uuid
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.topic_id = $1
+         ORDER BY au.created_at DESC`,
+        [topicId]
+      );
+
+      const exercisesResult = await fastify.db.query<{
+        id: string;
+        prompt: string;
+        language: string;
+        level: string;
+        created_at: Date;
+      }>(
+        `SELECT ae.id, ae.prompt, ae.language, ae.level, ae.created_at
+         FROM approved_exercises ae
+         JOIN validated v ON v.id = ae.id::uuid
+         JOIN candidates c ON v.candidate_id = c.id
+         JOIN drafts d ON c.draft_id = d.id
+         WHERE d.topic_id = $1
+         ORDER BY ae.created_at DESC`,
+        [topicId]
+      );
+
+      return reply.send({
+        meanings: meaningsResult.rows.map((row) => ({
+          id: row.id,
+          type: 'meaning' as const,
+          content: {
+            text: row.text,
+            level: row.level,
+            tags: row.tags,
+          },
+          createdAt: row.created_at.toISOString(),
+        })),
+        rules: rulesResult.rows.map((row) => ({
+          id: row.id,
+          type: 'rule' as const,
+          content: {
+            title: row.title,
+            language: row.language,
+            level: row.level,
+            explanation: row.explanation,
+            examples: row.examples,
+          },
+          createdAt: row.created_at.toISOString(),
+        })),
+        utterances: utterancesResult.rows.map((row) => ({
+          id: row.id,
+          type: 'utterance' as const,
+          content: {
+            text: row.text,
+            language: row.language,
+            meaningId: row.meaning_id,
+          },
+          createdAt: row.created_at.toISOString(),
+        })),
+        exercises: exercisesResult.rows.map((row) => ({
+          id: row.id,
+          type: 'exercise' as const,
+          content: {
+            prompt: row.prompt,
+            language: row.language,
+            level: row.level,
+          },
+          createdAt: row.created_at.toISOString(),
+        })),
+      });
+    }
+  );
+
+  fastify.delete(
+    '/curriculum/approved-items/:id',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
+      const { id } = request.params as { id: string };
+      const { dataType } = request.query as { dataType: string };
+
+      if (!['meaning', 'utterance', 'rule', 'exercise'].includes(dataType)) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'Invalid dataType. Must be one of: meaning, utterance, rule, exercise',
+            requestId: request.id,
+            code: 'INVALID_DATA_TYPE',
+          },
+        });
+      }
+
+      const tableMap: Record<string, string> = {
+        meaning: 'approved_meanings',
+        utterance: 'approved_utterances',
+        rule: 'approved_rules',
+        exercise: 'approved_exercises',
+      };
+
+      const table = tableMap[dataType];
+      const result = await fastify.db.query(`DELETE FROM ${table} WHERE id = $1`, [id]);
+
+      if (result.rowCount === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: `Approved ${dataType} not found`,
+            requestId: request.id,
+            code: 'NOT_FOUND',
+          },
+        });
+      }
+
+      return reply.status(204).send();
+    }
+  );
 };
