@@ -44,7 +44,6 @@ interface UserRow {
 const preferencesRoute: FastifyPluginAsync = async (fastify) => {
   await Promise.resolve();
 
-  // GET /preferences - Get user preferences
   fastify.get(
     '/preferences',
     {
@@ -60,7 +59,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const userId = request.user!.userId;
 
-      // Get base language from users table
       const userResult = await fastify.db.query<UserRow>(
         'SELECT base_language FROM users WHERE id = $1',
         [userId]
@@ -79,7 +77,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
 
       const baseLanguage = userResult.rows[0].base_language;
 
-      // Get preferences from user_preferences table
       const prefsResult = await fastify.db.query<PreferencesRow>(
         `SELECT studied_languages, focus_mode_enabled, focus_language, onboarding_completed, settings
          FROM user_preferences
@@ -90,7 +87,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
       let preferences: PreferencesRow;
 
       if (prefsResult.rows.length === 0) {
-        // Create default preferences if not exists
         const insertResult = await fastify.db.query<PreferencesRow>(
           `INSERT INTO user_preferences (user_id, studied_languages, focus_mode_enabled, onboarding_completed, settings)
            VALUES ($1, '[]'::jsonb, false, false, '{}'::jsonb)
@@ -115,7 +111,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // PUT /preferences - Update user preferences
   fastify.put<{ Body: UpdatePreferencesRequest }>(
     '/preferences',
     {
@@ -133,7 +128,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const updates = request.body;
 
-      // Check if there are any fields to update
       const hasUpdates =
         updates.studiedLanguages !== undefined ||
         updates.focusModeEnabled !== undefined ||
@@ -152,11 +146,9 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Build INSERT and UPDATE clauses - use provided values or defaults
       const params: unknown[] = [userId];
       let paramIndex = 2;
 
-      // For INSERT VALUES
       const studiedLanguagesValue =
         updates.studiedLanguages !== undefined ? `$${paramIndex}::jsonb` : `'[]'::jsonb`;
       if (updates.studiedLanguages !== undefined) {
@@ -190,7 +182,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
         paramIndex++;
       }
 
-      // Build UPDATE clauses - reuse same parameter indices
       const updateClauses: string[] = [];
       let updateParamIndex = 2;
 
@@ -238,7 +229,6 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // POST /preferences/focus - Toggle focus mode
   fastify.post<{ Body: FocusModeRequest }>(
     '/preferences/focus',
     {
