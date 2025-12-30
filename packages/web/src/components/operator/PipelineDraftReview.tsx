@@ -370,7 +370,7 @@ function DraftCard({
               {draft.data_type}
             </span>
             <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
-              {draft.suggested_level}
+              {draft.suggested_level || '?'}
             </span>
             <span className="text-xs text-gray-500">
               {draft.suggested_topic_name || 'No topic'}
@@ -379,9 +379,11 @@ function DraftCard({
 
           <div className="text-sm text-gray-800 mb-2">
             <pre className="whitespace-pre-wrap font-sans bg-gray-50 p-2 rounded text-xs max-h-32 overflow-y-auto">
-              {draft.original_content.length > 500
-                ? draft.original_content.substring(0, 500) + '...'
-                : draft.original_content}
+              {draft.original_content
+                ? draft.original_content.length > 500
+                  ? draft.original_content.substring(0, 500) + '...'
+                  : draft.original_content
+                : '(no content)'}
             </pre>
           </div>
 
