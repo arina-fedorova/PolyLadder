@@ -587,6 +587,18 @@ Include: title, content, examples where available.`;
     const startTime = Date.now();
 
     try {
+      // Log raw data for debugging
+      logger.debug(
+        {
+          candidateId,
+          dataType: candidate.data_type,
+          rawDataKeys: Object.keys(rawData),
+          hasOriginalContent: 'original_content' in rawData,
+          hasContent: 'content' in rawData,
+        },
+        'Transforming candidate'
+      );
+
       const prompt = this.buildCandidateTransformPrompt(
         rawData,
         candidate.data_type,
@@ -756,7 +768,15 @@ Include: title, content, examples where available.`;
     language: string,
     level: string
   ): string {
-    const rawContent = JSON.stringify(rawData, null, 2);
+    // Extract original_content if it exists, otherwise use content, otherwise stringify the whole object
+    let rawContent: string;
+    if (rawData.original_content && typeof rawData.original_content === 'string') {
+      rawContent = rawData.original_content;
+    } else if (rawData.content && typeof rawData.content === 'string') {
+      rawContent = rawData.content;
+    } else {
+      rawContent = JSON.stringify(rawData, null, 2);
+    }
 
     const basePrompt = `You are transforming raw educational content into a structured lesson item.
 
