@@ -42,6 +42,7 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [pendingRejectId, setPendingRejectId] = useState<string | null>(null);
+  const [processingDraftId, setProcessingDraftId] = useState<string | null>(null);
   const limit = 20;
 
   const { data, isLoading, error } = useQuery<DraftsResponse>({
@@ -61,22 +62,29 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post<{ success: boolean }>(`/operational/drafts/${id}/approve`, {}),
+    mutationFn: (id: string) => {
+      setProcessingDraftId(id);
+      return api.post<{ success: boolean }>(`/operational/drafts/${id}/approve`, {});
+    },
     onSuccess: () => {
+      setProcessingDraftId(null);
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts-stats', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
     },
     onError: (err) => {
+      setProcessingDraftId(null);
       alert(`Failed to approve: ${err instanceof Error ? err.message : 'Unknown error'}`);
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      api.post<{ success: boolean }>(`/operational/drafts/${id}/reject`, { reason }),
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) => {
+      setProcessingDraftId(id);
+      return api.post<{ success: boolean }>(`/operational/drafts/${id}/reject`, { reason });
+    },
     onSuccess: () => {
+      setProcessingDraftId(null);
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts-stats', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
@@ -85,19 +93,24 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
       setRejectReason('');
     },
     onError: (err) => {
+      setProcessingDraftId(null);
       alert(`Failed to reject: ${err instanceof Error ? err.message : 'Unknown error'}`);
     },
   });
 
   const rerunMutation = useMutation({
-    mutationFn: ({ id, comment }: { id: string; comment?: string }) =>
-      api.post<{ success: boolean }>(`/operational/drafts/${id}/rerun`, { comment }),
+    mutationFn: ({ id, comment }: { id: string; comment?: string }) => {
+      setProcessingDraftId(id);
+      return api.post<{ success: boolean }>(`/operational/drafts/${id}/rerun`, { comment });
+    },
     onSuccess: () => {
+      setProcessingDraftId(null);
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline-drafts-stats', pipelineId] });
       void queryClient.invalidateQueries({ queryKey: ['pipeline', pipelineId] });
     },
     onError: (err) => {
+      setProcessingDraftId(null);
       alert(`Failed to rerun: ${err instanceof Error ? err.message : 'Unknown error'}`);
     },
   });
@@ -195,9 +208,9 @@ export function PipelineDraftReview({ pipelineId }: PipelineDraftReviewProps) {
               onApprove={() => approveMutation.mutate(draft.id)}
               onReject={() => handleRejectClick(draft.id)}
               onRerun={(comment) => rerunMutation.mutate({ id: draft.id, comment })}
-              isApproving={approveMutation.isPending && approveMutation.variables === draft.id}
-              isRejecting={rejectMutation.isPending && rejectMutation.variables?.id === draft.id}
-              isRerunning={rerunMutation.isPending && rerunMutation.variables?.id === draft.id}
+              isApproving={approveMutation.isPending && processingDraftId === draft.id}
+              isRejecting={rejectMutation.isPending && processingDraftId === draft.id}
+              isRerunning={rerunMutation.isPending && processingDraftId === draft.id}
             />
           ))}
         </div>
