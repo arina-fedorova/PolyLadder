@@ -132,7 +132,7 @@ export class SemanticSplitService {
     };
 
     return `You are analyzing educational content for language learning.
-Your task is to GROUP related content and map it to curriculum topics.
+Your task is to SPLIT content into DISTINCT learning items and map each to the CORRECT curriculum topic.
 
 ## Full Curriculum Structure:
 ${JSON.stringify(curriculumJson, null, 2)}
@@ -145,30 +145,46 @@ Detected Chunk Type: ${chunk.chunkType}
 "${chunk.cleanedText}"
 
 ## Instructions:
-1. Analyze the chunk and identify THEMATIC GROUPS (NOT individual words/rules)
-2. Create 1-3 items maximum per chunk:
-   - For vocabulary: group ALL related words together (e.g., all greetings, all colors)
-   - For grammar: one item per grammar CONCEPT (include all examples together)
-3. For each group:
-   - Find the BEST matching curriculum topic (use exact topic id)
-   - CEFR level must match the topic's level
+1. Analyze the chunk and identify DISTINCT learning items:
+   - For vocabulary: group related words by semantic theme (e.g., all greetings together, all numbers together)
+   - For grammar: SPLIT each grammar rule/concept into a SEPARATE item
+     * Each verb conjugation pattern = separate item
+     * Each article type = separate item
+     * Each tense = separate item
+     * Each grammatical structure = separate item
+   - Do NOT mix different grammar topics in one item
+
+2. For EACH distinct item:
+   - Extract ONLY the text relevant to that specific rule/concept/vocabulary theme
+   - Find the BEST matching curriculum topic (use exact topic id from the list above)
+   - CEFR level MUST match the topic's level exactly
    - Content type: vocabulary | grammar | orthography | mixed
-4. CRITICAL RULES:
-   - Maximum 3 items per chunk
-   - Keep original text EXACTLY as-is (no modifications)
-   - If chunk covers ONE topic → create ONE item with all content
-   - Skip content that doesn't match any curriculum topic
-   - Do NOT split related content into separate items
+   - Each item must map to a DIFFERENT topic if they cover different grammatical concepts
+
+3. CRITICAL RULES:
+   - Create separate items for each distinct grammar rule (e.g., "ser" and "estar" are DIFFERENT verbs → separate items)
+   - Articles (el, la, los, las) should map to article topics, NOT verb topics
+   - Verb conjugations should map to verb topics, NOT article topics
+   - Maximum 5-7 items per chunk (to allow proper splitting)
+   - Keep original text EXACTLY as-is (no modifications, just extract relevant portion)
+   - If content doesn't match any curriculum topic → SKIP that content (don't create item)
+   - Each item should contain ONLY the text for that specific rule/concept
+
+## Examples:
+- "El articulo definido: el, la, los, las" → ONE item → map to article topic
+- "El verbo ser: yo soy, tu eres..." → ONE item → map to verb topic (ser)
+- "El verbo estar: yo estoy, tu estas..." → ONE item → map to verb topic (estar)
+These are THREE separate items, each mapped to its correct topic.
 
 ## Output (JSON):
 {
   "items": [
     {
-      "original_content": "full grouped text from chunk",
+      "original_content": "exact text portion for this specific rule/concept",
       "suggested_topic_id": "uuid from curriculum",
       "suggested_level": "A1",
-      "content_type": "vocabulary",
-      "reasoning": "why this topic mapping"
+      "content_type": "grammar",
+      "reasoning": "why this specific rule maps to this topic"
     }
   ]
 }
