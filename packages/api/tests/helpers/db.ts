@@ -7,6 +7,7 @@ export interface TestUser {
   email: string;
   password: string;
   role: 'learner' | 'operator';
+  baseLanguage?: string;
 }
 
 export async function createTestUser(
@@ -17,16 +18,17 @@ export async function createTestUser(
   const email = overrides.email ?? `test-${id}@example.com`;
   const password = overrides.password ?? 'TestPassword123!';
   const role = overrides.role ?? 'learner';
+  const baseLanguage = overrides.baseLanguage ?? 'EN';
 
   const passwordHash = await bcrypt.hash(password, 10);
 
   await pool.query(
     `INSERT INTO users (id, email, password_hash, role, base_language, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    [id, email, passwordHash, role, 'EN']
+    [id, email, passwordHash, role, baseLanguage]
   );
 
-  return { id, email, password, role };
+  return { id, email, password, role, baseLanguage };
 }
 
 export async function createTestOperator(
