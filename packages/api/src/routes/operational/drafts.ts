@@ -87,7 +87,7 @@ export const draftRoutes: FastifyPluginAsync = async (fastify) => {
         d.data_type,
         d.original_content,
         d.suggested_topic_id,
-        t.topic_name as suggested_topic_name,
+        t.name as suggested_topic_name,
         d.suggested_level,
         t.content_type,
         d.llm_reasoning,
