@@ -132,7 +132,7 @@ export class SemanticSplitService {
     };
 
     return `You are analyzing educational content for language learning.
-Your task is to SPLIT this text into distinct learning items and CATEGORIZE each one.
+Your task is to GROUP related content and map it to curriculum topics.
 
 ## Full Curriculum Structure:
 ${JSON.stringify(curriculumJson, null, 2)}
@@ -145,27 +145,30 @@ Detected Chunk Type: ${chunk.chunkType}
 "${chunk.cleanedText}"
 
 ## Instructions:
-1. Identify EACH distinct learning item in the text (vocabulary word, grammar rule, etc.)
-2. For EACH item, determine:
-   - Which curriculum topic it belongs to (use exact topic id from the list above)
-   - Which CEFR level (must match topic's level)
+1. Analyze the chunk and identify THEMATIC GROUPS (NOT individual words/rules)
+2. Create 1-3 items maximum per chunk:
+   - For vocabulary: group ALL related words together (e.g., all greetings, all colors)
+   - For grammar: one item per grammar CONCEPT (include all examples together)
+3. For each group:
+   - Find the BEST matching curriculum topic (use exact topic id)
+   - CEFR level must match the topic's level
    - Content type: vocabulary | grammar | orthography | mixed
-3. RULES:
-   - Do NOT modify the original content - preserve exact text
-   - If no suitable topic exists for an item, SKIP that item (don't include it)
-   - Create ONE draft per distinct learning item
-   - Avoid duplicates - don't create multiple items for the same content
-   - Match chunk type to content type (vocabulary_section → vocabulary topics)
+4. CRITICAL RULES:
+   - Maximum 3 items per chunk
+   - Keep original text EXACTLY as-is (no modifications)
+   - If chunk covers ONE topic → create ONE item with all content
+   - Skip content that doesn't match any curriculum topic
+   - Do NOT split related content into separate items
 
 ## Output (JSON):
 {
   "items": [
     {
-      "original_content": "exact text from chunk for this item",
+      "original_content": "full grouped text from chunk",
       "suggested_topic_id": "uuid from curriculum",
       "suggested_level": "A1",
       "content_type": "vocabulary",
-      "reasoning": "why this categorization"
+      "reasoning": "why this topic mapping"
     }
   ]
 }
