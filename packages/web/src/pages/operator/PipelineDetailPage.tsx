@@ -15,6 +15,7 @@ import {
 import { PipelineMappings } from '@/components/operator/PipelineMappings';
 import { PipelineReviewQueue } from '@/components/operator/PipelineReviewQueue';
 import { PipelineFailures } from '@/components/operator/PipelineFailures';
+import { PipelineDraftReview } from '@/components/operator/PipelineDraftReview';
 
 interface PipelineDetail {
   pipeline: {
@@ -86,9 +87,9 @@ export function PipelineDetailPage() {
   const { pipelineId } = useParams<{ pipelineId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'mappings' | 'review' | 'failures'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'drafts' | 'mappings' | 'review' | 'failures'
+  >('overview');
 
   const { data, isLoading, error } = useQuery<PipelineDetail>({
     queryKey: ['pipeline', pipelineId],
@@ -497,6 +498,21 @@ export function PipelineDetailPage() {
             Overview
           </button>
           <button
+            onClick={() => setActiveTab('drafts')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'drafts'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Drafts
+            {contentStats.draft > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
+                {contentStats.draft}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('mappings')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'mappings'
@@ -533,6 +549,17 @@ export function PipelineDetailPage() {
           </button>
         </nav>
       </div>
+
+      {activeTab === 'drafts' && pipelineId && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Draft Review</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Review semantic splits from LLM. Approve to promote to candidates, reject to discard, or
+            re-run with feedback.
+          </p>
+          <PipelineDraftReview pipelineId={pipelineId} />
+        </div>
+      )}
 
       {activeTab === 'mappings' && pipelineId && (
         <div className="card">

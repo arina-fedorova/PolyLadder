@@ -63,7 +63,6 @@ test.describe('Header Navigation', () => {
       timeout: 10000,
     });
     await expect(page.getByRole('link', { name: 'Pipeline' })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('link', { name: 'Drafts' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Corpus' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Curriculum' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();

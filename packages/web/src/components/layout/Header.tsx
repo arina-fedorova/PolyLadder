@@ -60,12 +60,6 @@ export function Header() {
                   Pipeline
                 </Link>
                 <Link
-                  to="/operator/drafts"
-                  className="text-gray-700 hover:text-primary-600 transition-colors"
-                >
-                  Drafts
-                </Link>
-                <Link
                   to="/operator/corpus"
                   className="text-gray-700 hover:text-primary-600 transition-colors"
                 >
@@ -167,13 +161,6 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Pipeline
-                </Link>
-                <Link
-                  to="/operator/drafts"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Drafts
                 </Link>
                 <Link
                   to="/operator/corpus"
