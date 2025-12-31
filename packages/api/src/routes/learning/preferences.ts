@@ -275,6 +275,198 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
       });
     }
   );
+
+  const AddLanguageSchema = Type.Object({
+    language: Type.String({ minLength: 2, maxLength: 2 }),
+  });
+
+  type AddLanguageRequest = Static<typeof AddLanguageSchema>;
+
+  fastify.post<{ Body: AddLanguageRequest }>(
+    '/preferences/languages',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        body: AddLanguageSchema,
+        response: {
+          200: SuccessResponseSchema,
+          400: ErrorResponseSchema,
+          401: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language } = request.body;
+
+      const prefsResult = await fastify.db.query<PreferencesRow>(
+        `SELECT studied_languages FROM user_preferences WHERE user_id = $1`,
+        [userId]
+      );
+
+      if (prefsResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: 'User preferences not found',
+            requestId: request.id,
+            code: 'PREFERENCES_NOT_FOUND',
+          },
+        });
+      }
+
+      const currentLanguages = Array.isArray(prefsResult.rows[0].studied_languages)
+        ? (prefsResult.rows[0].studied_languages as string[])
+        : [];
+
+      if (currentLanguages.length >= 5) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'Maximum 5 languages allowed',
+            requestId: request.id,
+            code: 'MAX_LANGUAGES_EXCEEDED',
+          },
+        });
+      }
+
+      if (currentLanguages.includes(language)) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'Language already added',
+            requestId: request.id,
+            code: 'LANGUAGE_ALREADY_ADDED',
+          },
+        });
+      }
+
+      const newLanguages = [...currentLanguages, language];
+
+      await fastify.db.query(
+        `UPDATE user_preferences
+         SET studied_languages = $1::jsonb,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $2`,
+        [JSON.stringify(newLanguages), userId]
+      );
+
+      await fastify.db.query(
+        `INSERT INTO user_orthography_gates (user_id, language, status)
+         VALUES ($1, $2, 'locked')
+         ON CONFLICT (user_id, language) DO NOTHING`,
+        [userId, language]
+      );
+
+      request.log.info({ userId, language, totalLanguages: newLanguages.length }, 'Language added');
+
+      return reply.status(200).send({
+        success: true,
+        message: `Language ${language} added successfully`,
+      });
+    }
+  );
+
+  const RemoveLanguageParamsSchema = Type.Object({
+    language: Type.String({ minLength: 2, maxLength: 2 }),
+  });
+
+  type RemoveLanguageParams = Static<typeof RemoveLanguageParamsSchema>;
+
+  fastify.delete<{ Params: RemoveLanguageParams }>(
+    '/preferences/languages/:language',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        params: RemoveLanguageParamsSchema,
+        response: {
+          200: SuccessResponseSchema,
+          400: ErrorResponseSchema,
+          401: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { language } = request.params;
+
+      const prefsResult = await fastify.db.query<PreferencesRow>(
+        `SELECT studied_languages, focus_language FROM user_preferences WHERE user_id = $1`,
+        [userId]
+      );
+
+      if (prefsResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: 'User preferences not found',
+            requestId: request.id,
+            code: 'PREFERENCES_NOT_FOUND',
+          },
+        });
+      }
+
+      const currentLanguages = Array.isArray(prefsResult.rows[0].studied_languages)
+        ? (prefsResult.rows[0].studied_languages as string[])
+        : [];
+      const focusLanguage = prefsResult.rows[0].focus_language;
+
+      if (currentLanguages.length === 1) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'Cannot remove last language. You must study at least one language.',
+            requestId: request.id,
+            code: 'CANNOT_REMOVE_LAST_LANGUAGE',
+          },
+        });
+      }
+
+      if (!currentLanguages.includes(language)) {
+        return reply.status(400).send({
+          error: {
+            statusCode: 400,
+            message: 'Language not in studied languages',
+            requestId: request.id,
+            code: 'LANGUAGE_NOT_FOUND',
+          },
+        });
+      }
+
+      const newLanguages = currentLanguages.filter((lang: string) => lang !== language);
+
+      await fastify.db.query(
+        `UPDATE user_preferences
+         SET studied_languages = $1::jsonb,
+             focus_language = CASE
+               WHEN focus_language = $2 THEN NULL
+               ELSE focus_language
+             END,
+             focus_mode_enabled = CASE
+               WHEN focus_language = $2 THEN false
+               ELSE focus_mode_enabled
+             END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $3`,
+        [JSON.stringify(newLanguages), language, userId]
+      );
+
+      request.log.info(
+        {
+          userId,
+          language,
+          totalLanguages: newLanguages.length,
+          focusDisabled: focusLanguage === language,
+        },
+        'Language removed'
+      );
+
+      return reply.status(200).send({
+        success: true,
+        message: `Language ${language} removed. Your progress has been preserved and can be restored by re-adding this language.`,
+      });
+    }
+  );
 };
 
 export default preferencesRoute;

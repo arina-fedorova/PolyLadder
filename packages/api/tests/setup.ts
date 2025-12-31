@@ -127,6 +127,8 @@ export async function cleanupTestData(): Promise<void> {
     'validated',
     'candidates',
     'drafts',
+    'user_orthography_gates',
+    'user_preferences',
   ];
 
   for (const table of tables) {
