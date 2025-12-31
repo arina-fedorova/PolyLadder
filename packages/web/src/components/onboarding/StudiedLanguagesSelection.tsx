@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Language } from '@polyladder/core';
+import { Language } from '@polyladder/core/domain';
 
 const LANGUAGE_NAMES: Record<Language, string> = {
   [Language.EN]: 'English (US)',
