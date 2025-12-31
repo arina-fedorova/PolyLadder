@@ -19,5 +19,14 @@ export interface ApiError {
   requestId: string;
 }
 
+export interface UserPreferences {
+  baseLanguage: string;
+  studiedLanguages: string[];
+  focusModeEnabled: boolean;
+  focusLanguage: string | null;
+  onboardingCompleted: boolean;
+  settings: Record<string, unknown>;
+}
+
 // Common UI types
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
