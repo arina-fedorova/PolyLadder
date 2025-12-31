@@ -18,7 +18,7 @@ const registerSchema = z
       .regex(/[0-9]/, 'Password must contain at least one number'),
     confirmPassword: z.string(),
     baseLanguage: z.enum(['EN', 'ES', 'PT', 'IT', 'SL'], {
-      errorMap: () => ({ message: 'Please select a base language' }),
+      message: 'Please select a base language',
     }),
     role: z.enum(['learner', 'operator']).optional(),
   })

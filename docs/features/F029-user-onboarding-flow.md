@@ -3,7 +3,7 @@
 **Feature Code**: F029
 **Created**: 2025-12-17
 **Phase**: 8 - Learning Foundation
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,17 +13,73 @@ Implement first-time user onboarding flow that guides users through selecting th
 
 ## Success Criteria
 
-- [ ] Welcome screen explains PolyLadder's approach
-- [ ] Base language selection (cannot be changed later)
-- [ ] Studied languages selection (1-5 languages)
-- [ ] Optional focus mode explanation and setup
-- [ ] Onboarding completion persisted in user_preferences
-- [ ] Users can skip onboarding (defaults applied)
-- [ ] Returning users don't see onboarding again
+- [x] Welcome screen explains PolyLadder's approach
+- [x] Base language selection (cannot be changed later)
+- [x] Studied languages selection (1-5 languages)
+- [x] Optional focus mode explanation and setup
+- [x] Onboarding completion persisted in user_preferences
+- [x] Users can skip onboarding (defaults applied)
+- [x] Returning users don't see onboarding again
 
 ---
 
 ## Tasks
+
+### Task 0: Create User Preferences API Endpoints
+
+**Description**: Create backend API endpoints for managing user preferences, required before frontend implementation.
+
+**Implementation Plan**:
+
+Create `packages/api/src/routes/learning/preferences.ts`:
+
+```typescript
+import { FastifyPluginAsync } from 'fastify';
+import { Type, Static } from '@sinclair/typebox';
+import { authMiddleware } from '../../middleware/auth';
+import { ErrorResponseSchema } from '../../schemas/common';
+
+const UserPreferencesSchema = Type.Object({
+  baseLanguage: Type.String(),
+  studiedLanguages: Type.Array(Type.String()),
+  focusModeEnabled: Type.Boolean(),
+  focusLanguage: Type.Union([Type.String(), Type.Null()]),
+  onboardingCompleted: Type.Boolean(),
+  settings: Type.Any(),
+});
+
+const UpdatePreferencesSchema = Type.Object({
+  studiedLanguages: Type.Optional(Type.Array(Type.String())),
+  focusModeEnabled: Type.Optional(Type.Boolean()),
+  focusLanguage: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  onboardingCompleted: Type.Optional(Type.Boolean()),
+  settings: Type.Optional(Type.Any()),
+});
+
+const FocusModeSchema = Type.Object({
+  enabled: Type.Boolean(),
+  language: Type.Optional(Type.String()),
+});
+
+// GET /preferences - Get user preferences
+// PUT /preferences - Update user preferences
+// POST /preferences/focus - Toggle focus mode
+```
+
+Update `packages/api/src/routes/learning/index.ts` to register preferences route.
+
+Create tests in `packages/api/tests/routes/learning/preferences.test.ts`.
+
+**Files Created**:
+
+- `packages/api/src/routes/learning/preferences.ts`
+- `packages/api/tests/routes/learning/preferences.test.ts`
+
+**Files Modified**:
+
+- `packages/api/src/routes/learning/index.ts`
+
+---
 
 ### Task 1: Create Onboarding UI Components
 
@@ -32,6 +88,7 @@ Implement first-time user onboarding flow that guides users through selecting th
 **Implementation Plan**:
 
 Create `packages/web/src/components/onboarding/Welcome.tsx`:
+
 ```typescript
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -65,6 +122,7 @@ export function Welcome() {
 ```
 
 Create `packages/web/src/components/onboarding/BaseLanguageSelection.tsx`:
+
 ```typescript
 import React, { useState } from 'react';
 import { Language } from '@polyladder/core';
@@ -121,6 +179,7 @@ export function BaseLanguageSelection() {
 ```
 
 Create `packages/web/src/components/onboarding/StudiedLanguagesSelection.tsx`:
+
 ```typescript
 import React, { useState } from 'react';
 import { Language } from '@polyladder/core';
@@ -183,6 +242,7 @@ export function StudiedLanguagesSelection({ baseLanguage }: { baseLanguage: Lang
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/onboarding/Welcome.tsx`
 - `packages/web/src/components/onboarding/BaseLanguageSelection.tsx`
 - `packages/web/src/components/onboarding/StudiedLanguagesSelection.tsx`
@@ -196,6 +256,7 @@ export function StudiedLanguagesSelection({ baseLanguage }: { baseLanguage: Lang
 **Implementation Plan**:
 
 Create `packages/web/src/components/onboarding/FocusModeSetup.tsx`:
+
 ```typescript
 import React, { useState } from 'react';
 import { Language } from '@polyladder/core';
@@ -264,6 +325,7 @@ export function FocusModeSetup({ studiedLanguages }: { studiedLanguages: Languag
 **Implementation Plan**:
 
 Create `packages/web/src/hooks/useOnboarding.ts`:
+
 ```typescript
 import { useState } from 'react';
 import { Language } from '@polyladder/core';
@@ -331,6 +393,7 @@ export function useOnboarding() {
 **Implementation Plan**:
 
 Create `packages/web/src/pages/Onboarding.tsx`:
+
 ```typescript
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -390,6 +453,7 @@ export function OnboardingPage() {
 **Implementation Plan**:
 
 Update `packages/web/src/App.tsx`:
+
 ```typescript
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -445,3 +509,60 @@ export function App() {
 - Users can modify studied languages and focus mode after onboarding in settings
 - Skip option applies sensible defaults (base language = EN, no studied languages)
 - Onboarding completion tracked in `user_preferences.onboarding_completed` boolean
+
+---
+
+## Compatibility Analysis (Updated 2025-12-31)
+
+### ✅ Existing Infrastructure - VERIFIED READY
+
+**Database Schema** - All required tables/columns exist:
+
+- ✅ `users.base_language` - varchar(2) with CHECK constraint (EN, IT, PT, SL, ES)
+- ✅ `user_preferences.studied_languages` - jsonb array
+- ✅ `user_preferences.focus_mode_enabled` - boolean (default: false)
+- ✅ `user_preferences.focus_language` - varchar(2)
+- ✅ `user_preferences.onboarding_completed` - boolean (default: false)
+- ✅ `user_languages` - tracks learning progress per language
+
+**Core Package (@polyladder/core)** - All enums defined:
+
+- ✅ `Language` enum in `packages/core/src/domain/enums.ts` (EN, IT, PT, SL, ES)
+- ✅ `CEFRLevel` enum (A0-C2)
+- ✅ `UserRole` enum (learner, operator)
+
+**Existing API Endpoints**:
+
+- ✅ `POST /api/v1/learning/languages` - Add language
+- ✅ `GET /api/v1/learning/languages` - Get user's languages with progress
+- ✅ `DELETE /api/v1/learning/languages/:language` - Remove language
+
+### ✅ Implemented Components - COMPLETED
+
+**API Endpoints** (`packages/api/src/routes/learning/preferences.ts`):
+
+- ✅ `GET /api/v1/learning/preferences` - Get user preferences
+- ✅ `PUT /api/v1/learning/preferences` - Update preferences
+- ✅ `POST /api/v1/learning/preferences/focus` - Toggle focus mode
+
+**Frontend Components** (`packages/web/src/components/onboarding/`):
+
+- ✅ All 4 onboarding components (Welcome, BaseLanguageSelection, StudiedLanguagesSelection, FocusModeSetup)
+- ✅ `packages/web/src/hooks/useOnboarding.ts` - State management hook
+- ✅ `packages/web/src/pages/learner/OnboardingPage.tsx` - Routing page
+
+**App Integration**:
+
+- ✅ `packages/web/src/components/auth/OnboardingCheck.tsx` - Checks onboarding completion for learners
+- ✅ `packages/web/src/App.tsx` - Integrated OnboardingCheck in routes
+
+### Consistency with Operator Flow
+
+✅ **Language Support**: Same Language enum used in operator curriculum/mappings
+✅ **Authentication**: Same authMiddleware and role-based access control
+✅ **Database Schema**: No conflicts - operator tables (pipelines, drafts, etc.) are separate
+✅ **API Structure**: Clear separation - `/operational/*` vs `/learning/*`
+
+**Estimated Implementation Effort**: 1-2 days
+
+**Migration Notes**: No database migrations required. All schema exists. Set `onboarding_completed = true` for existing operator users.

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { Pool } from 'pg';
 import { FeedbackService } from '../../src/services/feedback.service';
 import { getTestPool, cleanupTestData, checkDatabaseConnection } from '../setup';
-import { createTestOperator } from '../helpers/db';
+import { createTestOperator, type TestUser } from '../helpers/db';
 
 let dbAvailable = false;
 
@@ -16,7 +16,7 @@ beforeAll(async () => {
 describe.skipIf(!dbAvailable && process.env.CI !== 'true')('FeedbackService', () => {
   let pool: Pool;
   let service: FeedbackService;
-  let operator: { id: string; email: string; password: string; role: 'operator' };
+  let operator: TestUser;
 
   beforeEach(async () => {
     pool = getTestPool();

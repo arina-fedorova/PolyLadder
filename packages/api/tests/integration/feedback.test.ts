@@ -12,10 +12,12 @@ import {
 import { createTestOperator, createTestLearner } from '../helpers/db';
 import { LoginResponse, SuccessResponse } from '../helpers/types';
 
+import type { TestUser } from '../helpers/db';
+
 describe('Feedback API Integration Tests', () => {
   let server: FastifyInstance;
   let pool: Pool;
-  let testOperator: { id: string; email: string; password: string; role: 'operator' };
+  let testOperator: TestUser;
 
   beforeAll(async () => {
     setupTestEnv();
@@ -53,7 +55,9 @@ describe('Feedback API Integration Tests', () => {
 
     if (response.statusCode !== 200) {
       const body = response.body.toString();
-      throw new Error(`Login failed: ${response.statusCode} - ${body}. User exists: ${userCheck.rows.length > 0}`);
+      throw new Error(
+        `Login failed: ${response.statusCode} - ${body}. User exists: ${userCheck.rows.length > 0}`
+      );
     }
 
     return response.json<LoginResponse>().accessToken;
@@ -76,7 +80,9 @@ describe('Feedback API Integration Tests', () => {
 
     if (response.statusCode !== 200) {
       const body = response.body.toString();
-      throw new Error(`Login failed: ${response.statusCode} - ${body}. User exists: ${userCheck.rows.length > 0}`);
+      throw new Error(
+        `Login failed: ${response.statusCode} - ${body}. User exists: ${userCheck.rows.length > 0}`
+      );
     }
 
     const loginResponse = response.json<LoginResponse>();
@@ -504,4 +510,3 @@ describe('Feedback API Integration Tests', () => {
     });
   });
 });
-

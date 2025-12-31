@@ -4,8 +4,10 @@ import orthographyRoute from './orthography';
 import vocabularyRoute from './vocabulary';
 import exercisesRoute from './exercises';
 import srsRoute from './srs';
+import preferencesRoute from './preferences';
 
 const learningRoutes: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(preferencesRoute);
   await fastify.register(languagesRoute);
   await fastify.register(orthographyRoute);
   await fastify.register(vocabularyRoute);

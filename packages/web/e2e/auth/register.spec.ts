@@ -51,11 +51,11 @@ test.describe('Register Page', () => {
     await registerPage.confirmPasswordInput.fill('TestPassword123');
     await registerPage.submitButton.click();
 
-    // Should navigate to dashboard after auto-login
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // New learners should be redirected to onboarding
+    await expect(page).toHaveURL('/onboarding', { timeout: 15000 });
 
-    // Verify user is logged in by checking for some dashboard element
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    // Verify user is on onboarding page
+    await expect(page.getByRole('heading', { name: 'Welcome to PolyLadder' })).toBeVisible();
   });
 
   test('should successfully register as operator', async ({ page }) => {
@@ -114,7 +114,7 @@ test.describe('Register Page', () => {
     await registerPage.baseLanguageSelect.selectOption('ES');
     await registerPage.submitButton.click();
 
-    // Should navigate to dashboard
-    await expect(page).toHaveURL('/dashboard', { timeout: 15000 });
+    // New learners should be redirected to onboarding
+    await expect(page).toHaveURL('/onboarding', { timeout: 15000 });
   });
 });
