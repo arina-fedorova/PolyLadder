@@ -132,42 +132,39 @@ function startApiServer(projectRoot: string): ChildProcess {
 }
 
 async function killProcessOnPort(port: number): Promise<void> {
-  return new Promise((resolve) => {
+  try {
     const isWindows = process.platform === 'win32';
-    const command = isWindows ? `netstat -ano | findstr :${port}` : `lsof -ti:${port}`;
+    const findCommand = isWindows ? `netstat -ano | findstr :${port}` : `lsof -ti:${port}`;
 
-    exec(command, (error: Error | null, stdout: string) => {
-      if (error || !stdout.trim()) {
-        resolve();
-        return;
-      }
+    const { stdout } = await execAsync(findCommand).catch(() => ({ stdout: '' }));
 
-      if (isWindows) {
-        const lines = stdout.trim().split('\n');
-        const pids = new Set<string>();
-        for (const line of lines) {
-          const parts = line.trim().split(/\s+/);
-          if (parts.length > 0) {
-            const pid = parts[parts.length - 1];
-            if (pid && pid !== '0' && pid !== 'PID') {
-              pids.add(pid);
-            }
+    if (!stdout.trim()) {
+      return;
+    }
+
+    if (isWindows) {
+      const lines = stdout.trim().split('\n');
+      const pids = new Set<string>();
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length > 0) {
+          const pid = parts[parts.length - 1];
+          if (pid && pid !== '0' && pid !== 'PID') {
+            pids.add(pid);
           }
         }
-        for (const pid of pids) {
-          exec(`taskkill /F /PID ${pid}`, () => {
-            // Ignore errors
-          });
-        }
-      } else {
-        exec(`kill -9 ${stdout.trim()}`, () => {
-          // Ignore errors
-        });
       }
-      // Wait a bit for process to die
-      setTimeout(resolve, 1000);
-    });
-  });
+      for (const pid of pids) {
+        await execAsync(`taskkill /F /PID ${pid}`).catch(() => {});
+      }
+    } else {
+      await execAsync(`kill -9 ${stdout.trim()}`).catch(() => {});
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  } catch {
+    // Ignore errors - port might not be in use
+  }
 }
 
 async function globalSetup(_config: FullConfig): Promise<void> {
@@ -186,10 +183,14 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   console.warn(`   CI mode: ${isCI}\n`);
   console.warn(`   Database URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}\n`);
 
-  // Always setup database and API for E2E tests to ensure correct configuration
-  // Kill any existing process on port 3001 to ensure clean start
-  console.warn('🛑 Checking for existing API server on port 3001...');
+  // Kill any existing API processes on port 3001 to ensure clean start
+  console.warn('🛑 Checking for existing API process on port 3001...');
   await killProcessOnPort(3001);
+  console.warn('✅ Port 3001 cleared');
+
+  console.warn('📦 Building @polyladder/core package...');
+  await execAsync('pnpm --filter @polyladder/core build', { cwd: projectRoot });
+  console.warn('✅ Core package built');
 
   try {
     if (!isCI) {

@@ -11,10 +11,11 @@ PolyLadder uses Playwright for end-to-end testing with a **real PostgreSQL datab
 │                    E2E Test Suite                       │
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  Global Setup (runs once before all tests)       │  │
-│  │  1. Start PostgreSQL container (port 5433)       │  │
-│  │  2. Run migrations                                │  │
-│  │  3. Start API server (port 3001)                 │  │
-│  │  4. Start Vite dev server (port 5173)           │  │
+│  │  1. Build @polyladder/core package                │  │
+│  │  2. Start PostgreSQL container (port 5433)       │  │
+│  │  3. Run migrations                                │  │
+│  │  4. Start API server (port 3001)                 │  │
+│  │  5. Start Vite dev server (port 5174)           │  │
 │  └───────────────────────────────────────────────────┘  │
 │                                                          │
 │  ┌───────────────────────────────────────────────────┐  │
@@ -30,6 +31,40 @@ PolyLadder uses Playwright for end-to-end testing with a **real PostgreSQL datab
 │  │  2. Stop and remove PostgreSQL container         │  │
 │  └───────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
+```
+
+## ⚠️ CRITICAL: Environment Isolation
+
+**E2E and Development environments MUST be completely isolated and NEVER share ports:**
+
+| Service         | Development Port | E2E Port | Notes                         |
+| --------------- | ---------------- | -------- | ----------------------------- |
+| Frontend (Vite) | **5173**         | **5174** | NEVER change E2E port to 5173 |
+| API Server      | 3000             | **3001** | E2E uses different port       |
+| PostgreSQL      | 5432             | **5433** | E2E uses separate container   |
+
+**DO NOT**:
+
+- ❌ Run dev server on port 5174
+- ❌ Change E2E Vite port in `playwright.config.ts`
+- ❌ Run E2E tests while dev server is running on 5173
+- ❌ Manually edit port constants in E2E config files
+
+**Configuration Location**:
+
+- `packages/web/playwright.config.ts` - defines `E2E_PORT = 5174` and configures webServer to start Vite
+- `packages/web/playwright/global-setup.ts` - kills processes on port 3001 before setup (port 5174 is managed by Playwright's webServer)
+
+**If you get "port already in use" error**:
+
+```bash
+# Kill processes on E2E ports (Windows):
+netstat -ano | findstr :5174
+netstat -ano | findstr :3001
+# Then kill the PIDs manually
+
+# Or restart Docker:
+docker compose -f docker/docker-compose.e2e.yml down -v
 ```
 
 ## Prerequisites
@@ -64,13 +99,28 @@ pnpm --filter @polyladder/web test:e2e:headed
 pnpm --filter @polyladder/web test:e2e:debug
 ```
 
-## Test Database
+## E2E Environment Configuration
+
+### Frontend (Vite)
+
+- **Port**: 5174 (isolated from dev port 5173)
+- **URL**: http://localhost:5174
+- **Command**: `pnpm vite --port 5174`
+
+### API Server
+
+- **Port**: 3001 (isolated from dev port 3000)
+- **URL**: http://localhost:3001
+- **Database**: Uses E2E database on port 5433
+
+### PostgreSQL Database
 
 - **Host**: localhost
-- **Port**: 5433 (different from dev database on 5432)
+- **Port**: 5433 (isolated from dev port 5432)
 - **Database**: polyladder_e2e
 - **User**: test_e2e
 - **Password**: test_e2e_password
+- **Container**: Started via `docker/docker-compose.e2e.yml`
 
 ## Writing E2E Tests
 
