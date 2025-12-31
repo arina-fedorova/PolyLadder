@@ -99,7 +99,7 @@ function startApiServer(projectRoot: string): ChildProcess {
     DATABASE_URL: databaseUrl,
     JWT_SECRET: process.env.JWT_SECRET || 'test-secret-key-for-e2e-tests-min-32-chars-long',
     PORT: '3001',
-    NODE_ENV: 'test',
+    NODE_ENV: 'development',
     LOG_LEVEL: 'info',
   };
 
