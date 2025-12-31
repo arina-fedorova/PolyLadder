@@ -29,7 +29,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm vite --port ${E2E_PORT}`,
+    command: `set VITE_API_URL=http://localhost:3001/api/v1&& pnpm vite --port ${E2E_PORT}`,
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: false,
     timeout: 120000,
