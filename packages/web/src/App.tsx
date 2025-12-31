@@ -7,6 +7,7 @@ import { LoginPage } from '@/pages/public/LoginPage';
 import { RegisterPage } from '@/pages/public/RegisterPage';
 import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OnboardingPage } from '@/pages/learner/OnboardingPage';
+import { LanguageSettingsPage } from '@/pages/learner/LanguageSettingsPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
@@ -78,6 +79,19 @@ export function App() {
                 <OnboardingCheck>
                   <MainLayout>
                     <DashboardRedirect />
+                  </MainLayout>
+                </OnboardingCheck>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings/languages"
+            element={
+              <ProtectedRoute>
+                <OnboardingCheck>
+                  <MainLayout>
+                    <LanguageSettingsPage />
                   </MainLayout>
                 </OnboardingCheck>
               </ProtectedRoute>

@@ -3,7 +3,8 @@
 **Feature Code**: F030
 **Created**: 2025-12-17
 **Phase**: 8 - Learning Foundation
-**Status**: Not Started
+**Status**: Completed
+**Completed**: 2025-12-31
 
 ---
 
@@ -685,6 +686,7 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 **Context**: The current implementation limits users to 5 simultaneous languages. Is this the right limit?
 
 **Options**:
+
 1. **Keep 5-language limit** (current)
    - Pros: Prevents cognitive overload, encourages focus
    - Cons: Power users may want more
@@ -706,6 +708,7 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 **Context**: When a user removes a language, should we keep their progress data or delete it?
 
 **Options**:
+
 1. **Keep progress hidden** (current approach)
    - Pros: Can restore by re-adding language, no data loss
    - Cons: Database bloat over time
@@ -727,6 +730,7 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 **Context**: When focus mode is enabled, should non-focused languages still appear in navigation/settings?
 
 **Options**:
+
 1. **Hide non-focused languages completely**
    - Pros: True focus, less distraction
    - Cons: Hard to switch focus, confusing UX
@@ -746,9 +750,11 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 ## Dependencies
 
 **Blocks**:
+
 - F033-F056: All learning features (require language selection)
 
 **Depends on**:
+
 - F005: Role-Based Authorization (learner role)
 - F029: User Onboarding Flow (initial language selection)
 - F018: API Infrastructure (API client)
@@ -756,19 +762,75 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 - F024: Protected Routes & Navigation (routing)
 
 **Optional**:
+
 - Premium tier system (if language limit becomes a premium feature)
 
 ---
 
+## Compatibility Analysis (2025-12-31)
+
+### ✅ Existing Infrastructure - VERIFIED READY
+
+**Database Schema** - All required tables exist:
+
+- ✅ `user_preferences` table (migration 004) with:
+  - `studied_languages` - jsonb array
+  - `focus_mode_enabled` - boolean
+  - `focus_language` - varchar(2)
+  - `onboarding_completed` - boolean
+  - `settings` - jsonb
+- ⚠️ `user_orthography_gates` table - MISSING (need to create in migration)
+
+**Existing API Endpoints** (`packages/api/src/routes/learning/preferences.ts`):
+
+- ✅ `GET /learning/preferences` - Get user preferences
+- ✅ `PUT /learning/preferences` - Update preferences (supports studied_languages update)
+- ✅ `POST /learning/preferences/focus` - Toggle focus mode
+
+### ❌ Missing Components - NEED TO CREATE
+
+**API Endpoints** (add to `packages/api/src/routes/learning/preferences.ts`):
+
+- ❌ `POST /learning/preferences/languages` - Add language to studied list
+- ❌ `DELETE /learning/preferences/languages/:language` - Remove language from studied list
+
+**Database Migration**:
+
+- ❌ Create `user_orthography_gates` table for tracking orthography gate status per language
+
+**Frontend Components**:
+
+- ❌ `packages/web/src/pages/learner/LanguageSettingsPage.tsx` - Settings UI
+- ❌ Route registration in App.tsx
+- ❌ Navigation link in Header.tsx
+
+### Implementation Notes
+
+**API Path Consistency**: F030 document specifies `/user/preferences/languages` but F029 uses `/learning/preferences`. We will use `/learning/preferences/languages` for consistency with existing structure.
+
+**Language Limits**:
+
+- Maximum 5 languages (enforced in API)
+- Minimum 1 language (cannot remove all)
+- Progress data preserved when language removed
+
+**Orthography Gates**:
+
+- Each new language requires orthography gate (CEFR A0) completion
+- Tracked in `user_orthography_gates` table
+- Status: 'locked' (initial), 'unlocked', 'completed'
+
 ## Notes
 
 ### Implementation Priority
-1. Create database migration (Task 4)
-2. Implement API endpoints (Task 2)
+
+1. Create database migration for `user_orthography_gates` table (Task 4 partial)
+2. Implement missing API endpoints - POST/DELETE languages (Task 2 partial)
 3. Build language settings page UI (Task 1)
 4. Integrate into routing and navigation (Task 3)
 
 ### Business Logic
+
 - **Minimum Languages**: Users must study at least 1 language (cannot remove all)
 - **Maximum Languages**: 5 languages maximum (prevent cognitive overload)
 - **Orthography Gates**: Each new language requires orthography gate completion (CEFR A0) before accessing other content
@@ -776,6 +838,7 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 - **Focus Mode**: Optional feature to limit content to single language (reduces cognitive load)
 
 ### UX Considerations
+
 - Clear confirmation dialogs when removing languages
 - Visual indication of which language is focused (if focus mode enabled)
 - Disable remove button when only 1 language remains
@@ -783,11 +846,13 @@ CREATE INDEX IF NOT EXISTS idx_user_orthography_gates_status
 - Loading states while preferences update
 
 ### Performance Considerations
+
 - Use GIN index on `studied_languages` array for fast lookups
 - Cache user preferences in React Query (5-minute stale time)
 - Optimistic updates for better UX when toggling focus mode
 
 ### Security Considerations
+
 - Validate language codes against approved list on backend
 - Prevent SQL injection with parameterized queries
 - Enforce language limit server-side (don't trust client)
