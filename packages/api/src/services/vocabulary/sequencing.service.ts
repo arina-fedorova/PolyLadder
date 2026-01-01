@@ -113,7 +113,7 @@ export class VocabularySequencingService {
 
     // Insert or update user_word_state for each meaning
     const values = meaningIds
-      .map((meaningId, idx) => {
+      .map((_, idx) => {
         const baseIdx = idx * 3;
         return `($${baseIdx + 1}, $${baseIdx + 2}, $${baseIdx + 3}, 'unknown', 0, 0, current_timestamp)`;
       })
