@@ -19,9 +19,6 @@ interface GateRow {
 export class OrthographyGateService {
   constructor(private readonly pool: Pool) {}
 
-  /**
-   * Check if user has passed orthography gate for a language
-   */
   async checkGateStatus(userId: string, language: string): Promise<boolean> {
     const gateResult = await this.pool.query<GateRow>(
       `SELECT status FROM user_orthography_gates
@@ -30,7 +27,6 @@ export class OrthographyGateService {
     );
 
     if (gateResult.rows.length === 0) {
-      // Gate not initialized yet - create it as locked
       await this.initializeGateForLanguage(userId, language);
       return false;
     }
@@ -38,9 +34,6 @@ export class OrthographyGateService {
     return gateResult.rows[0].status === 'completed';
   }
 
-  /**
-   * Get gate progress for a specific language
-   */
   async getGateProgress(userId: string, language: string): Promise<OrthographyGateProgress> {
     const gateResult = await this.pool.query<GateRow>(
       `SELECT language, status, completed_at, created_at, updated_at
@@ -50,10 +43,8 @@ export class OrthographyGateService {
     );
 
     if (gateResult.rows.length === 0) {
-      // Initialize gate if it doesn't exist
       await this.initializeGateForLanguage(userId, language);
 
-      // Fetch the newly created gate
       const newGateResult = await this.pool.query<GateRow>(
         `SELECT language, status, completed_at, created_at, updated_at
          FROM user_orthography_gates
@@ -81,11 +72,7 @@ export class OrthographyGateService {
     };
   }
 
-  /**
-   * Get gate progress for all user's studied languages
-   */
   async getAllGatesProgress(userId: string): Promise<OrthographyGateProgress[]> {
-    // Get user's studied languages
     const prefsResult = await this.pool.query<{ studied_languages: string[] }>(
       `SELECT studied_languages FROM user_preferences WHERE user_id = $1`,
       [userId]
@@ -99,15 +86,11 @@ export class OrthographyGateService {
       ? prefsResult.rows[0].studied_languages
       : [];
 
-    // Get gate progress for each language
     const progressPromises = languages.map((lang: string) => this.getGateProgress(userId, lang));
 
     return Promise.all(progressPromises);
   }
 
-  /**
-   * Initialize orthography gate for a new language
-   */
   async initializeGateForLanguage(userId: string, language: string): Promise<void> {
     await this.pool.query(
       `INSERT INTO user_orthography_gates (user_id, language, status)
@@ -117,9 +100,6 @@ export class OrthographyGateService {
     );
   }
 
-  /**
-   * Mark gate as completed
-   */
   async markGateCompleted(userId: string, language: string): Promise<void> {
     await this.pool.query(
       `UPDATE user_orthography_gates
@@ -131,10 +111,6 @@ export class OrthographyGateService {
     );
   }
 
-  /**
-   * Unlock gate (status: locked -> unlocked)
-   * Used when user starts orthography lessons
-   */
   async unlockGate(userId: string, language: string): Promise<void> {
     await this.pool.query(
       `UPDATE user_orthography_gates
@@ -145,9 +121,6 @@ export class OrthographyGateService {
     );
   }
 
-  /**
-   * Bypass gate for testing (operators only)
-   */
   async bypassGate(userId: string, language: string): Promise<void> {
     await this.pool.query(
       `INSERT INTO user_orthography_gates (user_id, language, status, completed_at)
@@ -161,24 +134,14 @@ export class OrthographyGateService {
     );
   }
 
-  /**
-   * Check if user can access content at given CEFR level for language
-   * A0 (orthography) is always accessible
-   * A1+ requires completed orthography gate
-   */
   async canAccessLevel(userId: string, language: string, cefrLevel: string): Promise<boolean> {
-    // A0 (orthography) is always accessible
     if (cefrLevel === 'A0') {
       return true;
     }
 
-    // For A1+, check if gate is passed
     return this.checkGateStatus(userId, language);
   }
 
-  /**
-   * Reset gate status (for testing/admin purposes)
-   */
   async resetGate(userId: string, language: string): Promise<void> {
     await this.pool.query(
       `UPDATE user_orthography_gates
