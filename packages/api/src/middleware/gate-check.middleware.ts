@@ -2,15 +2,12 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { OrthographyGateService } from '../services/orthography-gate.service';
 
 export interface GateCheckOptions {
-  languageParam?: string; // Query param name for language (default: 'language')
-  cefrLevelParam?: string; // Query param name for CEFR level (default: 'cefrLevel')
-  bodyLanguageField?: string; // Body field name for language
-  bodyCefrLevelField?: string; // Body field name for CEFR level
+  languageParam?: string;
+  cefrLevelParam?: string;
+  bodyLanguageField?: string;
+  bodyCefrLevelField?: string;
 }
 
-/**
- * Middleware factory to create gate check middleware
- */
 export function createGateCheckMiddleware(
   gateService: OrthographyGateService,
   options: GateCheckOptions = {}
@@ -25,16 +22,13 @@ export function createGateCheckMiddleware(
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.user!.userId;
 
-    // Extract language and CEFR level from query params or body
     let language: string | undefined;
     let cefrLevel: string | undefined;
 
-    // Try query params first
     const query = request.query as Record<string, string>;
     language = query[languageParam];
     cefrLevel = query[cefrLevelParam];
 
-    // If not in query, try body
     if (!language && bodyLanguageField) {
       const body = request.body as Record<string, string>;
       language = body[bodyLanguageField];
@@ -45,7 +39,6 @@ export function createGateCheckMiddleware(
       cefrLevel = body[bodyCefrLevelField];
     }
 
-    // Validate presence of required params
     if (!language) {
       return reply.status(400).send({
         error: {
@@ -68,7 +61,6 @@ export function createGateCheckMiddleware(
       });
     }
 
-    // Check if user can access this level
     const canAccess = await gateService.canAccessLevel(userId, language, cefrLevel);
 
     if (!canAccess) {
@@ -86,14 +78,9 @@ export function createGateCheckMiddleware(
         },
       });
     }
-
-    // User has access, continue to handler
   };
 }
 
-/**
- * Pre-configured middleware for common use case (query params)
- */
 export async function gateCheckMiddleware(
   request: FastifyRequest,
   reply: FastifyReply

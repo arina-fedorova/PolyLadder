@@ -70,7 +70,7 @@ jobs:
         run: pnpm build
 
       - name: Run migrations
-        run: pnpm --filter @polyladder/db migrate up
+        run: pnpm --filter @polyladder/db migrate:up
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/polyladder_test
 
@@ -94,7 +94,7 @@ jobs:
         working-directory: packages/web
 
       - name: Run E2E database migrations
-        run: pnpm --filter @polyladder/db migrate up
+        run: pnpm --filter @polyladder/db migrate:up
         env:
           DATABASE_URL: postgresql://test_e2e:test_e2e_password@localhost:5433/polyladder_e2e
 

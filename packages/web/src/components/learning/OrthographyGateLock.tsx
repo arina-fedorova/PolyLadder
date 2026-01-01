@@ -16,17 +16,6 @@ interface OrthographyGateLockProps {
   showProgress?: boolean;
 }
 
-/**
- * OrthographyGateLock - Component that blocks content access until orthography gate is completed
- *
- * This component fetches the user's orthography gate status for a given language and either:
- * - Shows the children (content) if the gate is completed
- * - Shows a lock screen if the gate is locked or in progress
- *
- * @param language - ISO language code (e.g., 'ES', 'FR', 'DE')
- * @param children - Content to show when gate is passed
- * @param showProgress - Whether to show progress information (default: true)
- */
 export function OrthographyGateLock({
   language,
   children,
@@ -49,12 +38,10 @@ export function OrthographyGateLock({
     );
   }
 
-  // If gate is passed, show content
   if (gateProgress?.status === 'completed') {
     return <>{children}</>;
   }
 
-  // Gate not passed - show lock screen
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="card border-2 border-yellow-300 bg-yellow-50 p-8 text-center space-y-6">
