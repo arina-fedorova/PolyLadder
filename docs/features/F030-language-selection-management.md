@@ -14,14 +14,14 @@ After completing onboarding, learners need the ability to manage their studied l
 
 ## Success Criteria
 
-- [ ] Settings page displays current studied languages with add/remove controls
-- [ ] Add language button (maximum 5 languages total)
-- [ ] Remove language button with confirmation dialog
-- [ ] Focus mode toggle with language selector dropdown
-- [ ] Changes immediately reflected in learning dashboard and navigation
-- [ ] Cannot remove all languages (minimum 1 required)
-- [ ] Progress data preserved when language removed (can be restored)
-- [ ] Orthography gates enforced when adding new language
+- [x] Settings page displays current studied languages with add/remove controls
+- [x] Add language button (maximum 5 languages total)
+- [x] Remove language button with confirmation dialog
+- [x] Focus mode toggle with language selector dropdown
+- [x] Changes immediately reflected in learning dashboard and navigation
+- [x] Cannot remove all languages (minimum 1 required)
+- [x] Progress data preserved when language removed (can be restored)
+- [x] Orthography gates enforced when adding new language
 
 ---
 

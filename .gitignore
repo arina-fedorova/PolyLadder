@@ -45,4 +45,5 @@ uploads/
 # Test artifacts
 **/test-results/
 **/playwright-report/
+**/test-output.txt
 
