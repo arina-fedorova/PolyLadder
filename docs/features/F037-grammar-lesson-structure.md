@@ -3,7 +3,7 @@
 **Feature Code**: F037
 **Created**: 2025-12-17
 **Phase**: 11 - Grammar Learning
-**Status**: Not Started
+**Status**: Partially Implemented (Backend Complete)
 
 ---
 
@@ -13,16 +13,16 @@ Implement comprehensive grammar lesson presentation system that displays grammar
 
 ## Success Criteria
 
-- [ ] Grammar lessons fetched from approved_rules with associated examples
-- [ ] Rule explanation in base language with clear metalinguistic terminology
-- [ ] Example sentences in target language with translations and annotations
-- [ ] Cross-linguistic comparisons when user studies multiple languages
-- [ ] CEFR level filtering ensures appropriate difficulty progression
-- [ ] Lesson completion tracked in user_concept_progress (curriculum integration)
-- [ ] Grammar tables/charts displayed (e.g., verb conjugation tables)
-- [ ] Interactive examples with highlighted grammar features
-- [ ] Progressive disclosure (basic explanation → advanced details on demand)
-- [ ] Links to related grammar concepts (e.g., "See also: Subjunctive Mood")
+- [x] Grammar lessons fetched from approved_rules with associated examples
+- [x] Rule explanation in base language with clear metalinguistic terminology
+- [x] Example sentences in target language with translations and annotations
+- [x] Cross-linguistic comparisons when user studies multiple languages
+- [x] CEFR level filtering ensures appropriate difficulty progression
+- [x] Lesson completion tracked in user_concept_progress (curriculum integration)
+- [ ] Grammar tables/charts displayed (e.g., verb conjugation tables) - Pending frontend
+- [ ] Interactive examples with highlighted grammar features - Pending frontend
+- [ ] Progressive disclosure (basic explanation → advanced details on demand) - Pending frontend
+- [x] Links to related grammar concepts (e.g., "See also: Subjunctive Mood")
 
 ---
 
@@ -220,11 +220,7 @@ export class GrammarLessonService {
   /**
    * Mark grammar lesson as completed
    */
-  async markLessonComplete(
-    userId: string,
-    ruleId: string,
-    language: Language
-  ): Promise<void> {
+  async markLessonComplete(userId: string, ruleId: string, language: Language): Promise<void> {
     // Get grammar category to find curriculum concept
     const categoryResult = await this.pool.query<{ grammarCategory: string }>(
       `SELECT grammar_category as "grammarCategory"
@@ -251,9 +247,11 @@ export class GrammarLessonService {
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/grammar/lesson.service.ts`
 
 **Database Assumptions**:
+
 - `approved_grammar_rules` - Grammar rules with explanations
 - `approved_grammar_examples` - Example sentences for rules
 - `grammar_rule_relationships` - Links between related rules
@@ -336,10 +334,7 @@ export class GrammarComparisonService {
        WHERE grammar_category = $1
          AND language_pair @> $2::jsonb
        LIMIT 1`,
-      [
-        grammarCategory,
-        JSON.stringify({ languages: userLanguages.sort() }),
-      ]
+      [grammarCategory, JSON.stringify({ languages: userLanguages.sort() })]
     );
 
     const notes = comparisonResult.rows[0] || {
@@ -367,15 +362,17 @@ export class GrammarComparisonService {
       [userId]
     );
 
-    return result.rows.map(r => r.language);
+    return result.rows.map((r) => r.language);
   }
 }
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/grammar/comparison.service.ts`
 
 **Technical Notes**:
+
 - Comparison only shown when user studies 2+ languages
 - Curated notes ensure pedagogically useful comparisons (not auto-generated)
 - Language pair matching uses JSONB operators for flexible queries
@@ -414,113 +411,131 @@ export const grammarRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /learning/grammar/next
    * Get next grammar lessons for user
    */
-  fastify.get('/learning/grammar/next', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: LanguageQuerySchema,
+  fastify.get(
+    '/learning/grammar/next',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: LanguageQuerySchema,
+      },
     },
-  }, async (request, reply) => {
-    const { language, limit } = LanguageQuerySchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language, limit } = LanguageQuerySchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const lessons = await lessonService.getNextGrammarLessons(userId, language, limit);
+      const lessons = await lessonService.getNextGrammarLessons(userId, language, limit);
 
-    return reply.status(200).send({ lessons });
-  });
+      return reply.status(200).send({ lessons });
+    }
+  );
 
   /**
    * GET /learning/grammar/:ruleId/lesson
    * Get full grammar lesson data
    */
-  fastify.get('/learning/grammar/:ruleId/lesson', {
-    preHandler: authMiddleware,
-    schema: {
-      params: RuleIdParamSchema,
-      querystring: z.object({
-        baseLanguage: z.nativeEnum(Language),
-      }),
+  fastify.get(
+    '/learning/grammar/:ruleId/lesson',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: RuleIdParamSchema,
+        querystring: z.object({
+          baseLanguage: z.nativeEnum(Language),
+        }),
+      },
     },
-  }, async (request, reply) => {
-    const { ruleId } = RuleIdParamSchema.parse(request.params);
-    const { baseLanguage } = request.query as { baseLanguage: Language };
+    async (request, reply) => {
+      const { ruleId } = RuleIdParamSchema.parse(request.params);
+      const { baseLanguage } = request.query as { baseLanguage: Language };
 
-    const lesson = await lessonService.getGrammarLesson(ruleId, baseLanguage);
+      const lesson = await lessonService.getGrammarLesson(ruleId, baseLanguage);
 
-    if (!lesson) {
-      return reply.status(404).send({ error: 'Grammar rule not found' });
+      if (!lesson) {
+        return reply.status(404).send({ error: 'Grammar rule not found' });
+      }
+
+      return reply.status(200).send({ lesson });
     }
-
-    return reply.status(200).send({ lesson });
-  });
+  );
 
   /**
    * GET /learning/grammar/:ruleId/comparison
    * Get cross-linguistic comparison for grammar rule
    */
-  fastify.get('/learning/grammar/:ruleId/comparison', {
-    preHandler: authMiddleware,
-    schema: {
-      params: RuleIdParamSchema,
-      querystring: z.object({
-        baseLanguage: z.nativeEnum(Language),
-      }),
+  fastify.get(
+    '/learning/grammar/:ruleId/comparison',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: RuleIdParamSchema,
+        querystring: z.object({
+          baseLanguage: z.nativeEnum(Language),
+        }),
+      },
     },
-  }, async (request, reply) => {
-    const { ruleId } = RuleIdParamSchema.parse(request.params);
-    const { baseLanguage } = request.query as { baseLanguage: Language };
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { ruleId } = RuleIdParamSchema.parse(request.params);
+      const { baseLanguage } = request.query as { baseLanguage: Language };
+      const userId = request.user!.userId;
 
-    // Get grammar category from rule
-    const ruleResult = await fastify.pg.pool.query<{ grammarCategory: string }>(
-      `SELECT grammar_category as "grammarCategory"
+      // Get grammar category from rule
+      const ruleResult = await fastify.pg.pool.query<{ grammarCategory: string }>(
+        `SELECT grammar_category as "grammarCategory"
        FROM approved_grammar_rules
        WHERE id = $1`,
-      [ruleId]
-    );
+        [ruleId]
+      );
 
-    if (ruleResult.rows.length === 0) {
-      return reply.status(404).send({ error: 'Grammar rule not found' });
+      if (ruleResult.rows.length === 0) {
+        return reply.status(404).send({ error: 'Grammar rule not found' });
+      }
+
+      const grammarCategory = ruleResult.rows[0].grammarCategory;
+
+      const comparison = await comparisonService.getComparison(
+        userId,
+        grammarCategory,
+        baseLanguage
+      );
+
+      return reply.status(200).send({ comparison });
     }
-
-    const grammarCategory = ruleResult.rows[0].grammarCategory;
-
-    const comparison = await comparisonService.getComparison(
-      userId,
-      grammarCategory,
-      baseLanguage
-    );
-
-    return reply.status(200).send({ comparison });
-  });
+  );
 
   /**
    * POST /learning/grammar/:ruleId/complete
    * Mark grammar lesson as completed
    */
-  fastify.post('/learning/grammar/:ruleId/complete', {
-    preHandler: authMiddleware,
-    schema: {
-      params: RuleIdParamSchema,
-      body: z.object({
-        language: z.nativeEnum(Language),
-      }),
+  fastify.post(
+    '/learning/grammar/:ruleId/complete',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: RuleIdParamSchema,
+        body: z.object({
+          language: z.nativeEnum(Language),
+        }),
+      },
     },
-  }, async (request, reply) => {
-    const { ruleId } = RuleIdParamSchema.parse(request.params);
-    const { language } = request.body as { language: Language };
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { ruleId } = RuleIdParamSchema.parse(request.params);
+      const { language } = request.body as { language: Language };
+      const userId = request.user!.userId;
 
-    await lessonService.markLessonComplete(userId, ruleId, language);
+      await lessonService.markLessonComplete(userId, ruleId, language);
 
-    return reply.status(200).send({ success: true });
-  });
+      return reply.status(200).send({ success: true });
+    }
+  );
 };
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/learning/grammar.ts`
 
 **API Summary**:
+
 - `GET /learning/grammar/next` - List next grammar lessons
 - `GET /learning/grammar/:ruleId/lesson` - Full lesson with examples
 - `GET /learning/grammar/:ruleId/comparison` - Cross-linguistic comparison
@@ -788,9 +803,11 @@ export function GrammarLesson({ language, baseLanguage }: GrammarLessonProps) {
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/grammar/GrammarLesson.tsx`
 
 **UI Features**:
+
 - Markdown rendering for grammar explanations
 - Conjugation/declension tables with responsive design
 - Annotated examples with audio playback
@@ -909,9 +926,11 @@ export function GrammarList({ language, baseLanguage }: GrammarListProps) {
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/grammar/GrammarList.tsx`
 
 **UI Features**:
+
 - Grouped by CEFR level
 - Difficulty and duration indicators
 - Preview of explanation
@@ -937,6 +956,7 @@ export function GrammarList({ language, baseLanguage }: GrammarListProps) {
 **Context**: How should conjugation/declension tables be stored in the database for flexible rendering?
 
 **Options**:
+
 1. **JSONB Column** (Headers + rows as JSON)
    - Pros: Flexible schema, supports any table structure
    - Cons: Hard to query, no type safety
@@ -961,6 +981,7 @@ export function GrammarList({ language, baseLanguage }: GrammarListProps) {
 **Context**: How to standardize grammar_category values across languages with different grammatical structures?
 
 **Options**:
+
 1. **Universal Categories** (e.g., "present_tense", "nominative_case")
    - Pros: Enables cross-linguistic comparison, consistent
    - Cons: Doesn't fit all languages (e.g., no cases in Chinese)
@@ -985,6 +1006,7 @@ export function GrammarList({ language, baseLanguage }: GrammarListProps) {
 **Context**: Should grammar explanations have multiple depth levels (basic, intermediate, advanced)?
 
 **Options**:
+
 1. **Single Explanation** (One explanation fits all)
    - Pros: Simple, less content needed
    - Cons: Too detailed for beginners or too shallow for advanced learners
@@ -1017,3 +1039,79 @@ export function GrammarList({ language, baseLanguage }: GrammarListProps) {
 - **Metalinguistic Terminology**: Uses grammatical terms in base language (e.g., "nominative case" in English)
 - **Future Enhancement**: Add interactive exercises directly in lesson (drag-and-drop conjugation practice)
 - **Future Enhancement**: Add user-generated examples (learners submit sentences using the rule)
+
+---
+
+## Implementation Status
+
+### Completed (Backend - Tasks 1-3)
+
+**Commits:**
+
+- `e2c1408` - feat(F037-Task1): implement grammar lesson service
+- `0f99c78` - feat(F037-Task2): implement cross-linguistic comparison service
+- `3329c39` - feat(F037-Task3): implement grammar API endpoints
+
+**What Was Built:**
+
+1. **Grammar Lesson Service** (`packages/api/src/services/grammar/lesson.service.ts`)
+   - `getGrammarLesson()`: Fetches grammar rule with examples and related rules
+   - `getNextGrammarLessons()`: Returns unlocked lessons for user (curriculum integration)
+   - `markLessonComplete()`: Updates user_concept_progress when lesson completed
+   - Adapted to actual schema: uses `approved_rules` table, examples as JSONB
+   - Related rules fetched from `curriculum_graph` prerequisites
+   - All 9 unit tests passing
+
+2. **Cross-Linguistic Comparison Service** (`packages/api/src/services/grammar/comparison.service.ts`)
+   - `getComparison()`: Compares grammar across languages user is studying
+   - Returns null if user studies < 2 languages or < 2 rules found
+   - Uses `user_languages` table to determine active languages
+   - Similarities/differences arrays empty for now (future: curated notes table)
+   - All 5 unit tests passing
+
+3. **Grammar API Endpoints** (`packages/api/src/routes/learning/grammar.ts`)
+   - `GET /learning/grammar/next` - Get next grammar lessons for user
+   - `GET /learning/grammar/:ruleId/lesson` - Get full lesson data with examples
+   - `GET /learning/grammar/:ruleId/comparison` - Get cross-linguistic comparison
+   - `POST /learning/grammar/:ruleId/complete` - Mark lesson as completed
+   - TypeBox schemas for all request/response validation
+   - Proper error handling (404 for not found, 401 for unauthorized)
+   - All 12 integration tests passing
+
+**Schema Adaptations:**
+
+- F037 spec expected `approved_grammar_rules`, actual table is `approved_rules`
+- Examples stored as JSONB array in `approved_rules.examples`, not separate table
+- Column mapping: `category` (not `grammar_category`), `title` (not `topic`)
+- Related rules use `curriculum_graph.prerequisites_and`, not separate `grammar_rule_relationships` table
+- Conjugation tables not implemented yet (return null)
+- Cross-linguistic notes table doesn't exist yet (returns empty arrays for similarities/differences)
+
+**Test Coverage:**
+
+- Unit tests: 14 tests (9 lesson service + 5 comparison service)
+- Integration tests: 12 tests (all API endpoints)
+- All tests passing
+- Linter and type check passing
+
+### Pending (Frontend - Tasks 4-5)
+
+**Tasks Not Implemented:**
+
+- Task 4: Grammar Lesson React component
+- Task 5: Grammar List React component
+
+**Reason:** Backend infrastructure complete and tested. Frontend components require:
+
+- API client integration with new grammar endpoints
+- React Query hooks for data fetching
+- Markdown rendering for grammar explanations
+- UI components for conjugation tables (when backend supports them)
+- Cross-linguistic comparison panel implementation
+
+**Next Steps:**
+
+1. Implement `GrammarLesson.tsx` component following F037 spec
+2. Implement `GrammarList.tsx` component with CEFR grouping
+3. Integrate with existing web app routing and authentication
+4. Add E2E tests for grammar lesson flow
