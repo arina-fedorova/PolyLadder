@@ -352,6 +352,13 @@ const preferencesRoute: FastifyPluginAsync = async (fastify) => {
       );
 
       await fastify.db.query(
+        `INSERT INTO user_languages (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, language) DO NOTHING`,
+        [userId, language]
+      );
+
+      await fastify.db.query(
         `INSERT INTO user_orthography_gates (user_id, language, status)
          VALUES ($1, $2, 'locked')
          ON CONFLICT (user_id, language) DO NOTHING`,
