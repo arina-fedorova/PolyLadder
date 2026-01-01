@@ -67,6 +67,8 @@ describe('Curriculum Graph Integration Tests', () => {
 
   beforeEach(async () => {
     await cleanupTestData();
+    await pool.query(`DELETE FROM user_concept_progress`);
+    await pool.query(`DELETE FROM curriculum_graph`);
 
     const uniqueLearnerEmail = `learner-${Date.now()}-${Math.random().toString(36).substring(7)}@test.com`;
     const learner = await createTestUser(pool, {
