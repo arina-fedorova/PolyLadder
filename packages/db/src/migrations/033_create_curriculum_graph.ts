@@ -52,12 +52,12 @@ export function up(pgm: MigrationBuilder): void {
     prerequisites_and: {
       type: 'varchar(100)[]',
       notNull: true,
-      default: "'{}'",
+      default: pgm.func('ARRAY[]::varchar(100)[]'),
     },
     prerequisites_or: {
       type: 'varchar(100)[]',
       notNull: true,
-      default: "'{}'",
+      default: pgm.func('ARRAY[]::varchar(100)[]'),
     },
     created_at: {
       type: 'timestamp',
