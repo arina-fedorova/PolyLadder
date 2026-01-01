@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/learner/DashboardPage';
 import { OnboardingPage } from '@/pages/learner/OnboardingPage';
 import { LanguageSettingsPage } from '@/pages/learner/LanguageSettingsPage';
 import { OrthographyLessonPage } from '@/pages/learner/OrthographyLessonPage';
+import { OrthographyExercisesPage } from '@/pages/learner/OrthographyExercisesPage';
 import { OperatorDashboardPage } from '@/pages/operator/OperatorDashboardPage';
 import { CorpusExplorerPage } from '@/pages/operator/CorpusExplorerPage';
 import { CurriculumPage } from '@/pages/operator/CurriculumPage';
@@ -106,6 +107,19 @@ export function App() {
                 <OnboardingCheck>
                   <MainLayout>
                     <OrthographyLessonPage />
+                  </MainLayout>
+                </OnboardingCheck>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/learning/:language/orthography/exercises"
+            element={
+              <ProtectedRoute>
+                <OnboardingCheck>
+                  <MainLayout>
+                    <OrthographyExercisesPage />
                   </MainLayout>
                 </OnboardingCheck>
               </ProtectedRoute>
