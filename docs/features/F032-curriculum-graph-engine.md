@@ -3,7 +3,7 @@
 **Feature Code**: F032
 **Created**: 2025-12-17
 **Phase**: 8 - Learning Foundation
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,16 +13,16 @@ Implement curriculum dependency graph engine that determines what content is ava
 
 ## Success Criteria
 
-- [ ] Curriculum graph loaded from database with efficient caching
-- [ ] Prerequisite checking before showing content (blocks locked concepts)
-- [ ] Topological sort provides optimal content ordering
-- [ ] Next available concepts endpoint returns unlocked content with priority ranking
-- [ ] Handles multiple concurrent prerequisites (AND logic: all must be completed)
-- [ ] Supports alternative prerequisites (OR logic: any one unlocks concept)
-- [ ] Detects circular dependencies during validation (graph must be acyclic)
-- [ ] Graph visualization API returns node/edge data for UI rendering
-- [ ] Real-time unlock notifications when prerequisites completed
-- [ ] Performance optimized for graphs with 1000+ nodes per language
+- [x] Curriculum graph loaded from database with efficient caching
+- [x] Prerequisite checking before showing content (blocks locked concepts)
+- [x] Topological sort provides optimal content ordering
+- [x] Next available concepts endpoint returns unlocked content with priority ranking
+- [x] Handles multiple concurrent prerequisites (AND logic: all must be completed)
+- [x] Supports alternative prerequisites (OR logic: any one unlocks concept)
+- [x] Detects circular dependencies during validation (graph must be acyclic)
+- [x] Graph visualization API returns node/edge data for UI rendering
+- [ ] Real-time unlock notifications when prerequisites completed (deferred)
+- [x] Performance optimized for graphs with 1000+ nodes per language
 
 ---
 
@@ -117,9 +117,11 @@ GROUP BY user_id, language;
 ```
 
 **Files Created**:
+
 - `packages/db/migrations/018-curriculum-graph.sql`
 
 **Validation**:
+
 - Verify foreign keys cascade correctly
 - Test GIN indexes improve array containment queries (@> operator)
 - Confirm UNIQUE constraint prevents duplicate concept_id per language
@@ -216,7 +218,7 @@ export class CurriculumGraphService {
       [userId, language]
     );
 
-    return new Set(result.rows.map(r => r.conceptId));
+    return new Set(result.rows.map((r) => r.conceptId));
   }
 
   /**
@@ -227,27 +229,21 @@ export class CurriculumGraphService {
     completedConcepts: Set<string>
   ): boolean {
     if (prerequisitesAnd.length === 0) return true;
-    return prerequisitesAnd.every(prereq => completedConcepts.has(prereq));
+    return prerequisitesAnd.every((prereq) => completedConcepts.has(prereq));
   }
 
   /**
    * Check if at least one OR prerequisite is completed
    */
-  private checkOrPrerequisites(
-    prerequisitesOr: string[],
-    completedConcepts: Set<string>
-  ): boolean {
+  private checkOrPrerequisites(prerequisitesOr: string[], completedConcepts: Set<string>): boolean {
     if (prerequisitesOr.length === 0) return true;
-    return prerequisitesOr.some(prereq => completedConcepts.has(prereq));
+    return prerequisitesOr.some((prereq) => completedConcepts.has(prereq));
   }
 
   /**
    * Check if concept prerequisites are satisfied
    */
-  isConceptUnlocked(
-    concept: CurriculumNode,
-    completedConcepts: Set<string>
-  ): boolean {
+  isConceptUnlocked(concept: CurriculumNode, completedConcepts: Set<string>): boolean {
     // Check both AND and OR prerequisites
     const andSatisfied = this.checkAndPrerequisites(concept.prerequisitesAnd, completedConcepts);
     const orSatisfied = this.checkOrPrerequisites(concept.prerequisitesOr, completedConcepts);
@@ -258,14 +254,11 @@ export class CurriculumGraphService {
   /**
    * Get all available (unlocked but not completed) concepts for user
    */
-  async getAvailableConcepts(
-    userId: string,
-    language: Language
-  ): Promise<CurriculumNode[]> {
+  async getAvailableConcepts(userId: string, language: Language): Promise<CurriculumNode[]> {
     const graph = await this.getGraphForLanguage(language);
     const completedConcepts = await this.getCompletedConcepts(userId, language);
 
-    const available = graph.filter(concept => {
+    const available = graph.filter((concept) => {
       // Skip already completed concepts
       if (completedConcepts.has(concept.conceptId)) return false;
 
@@ -281,10 +274,7 @@ export class CurriculumGraphService {
    * Get next recommended concept for user
    * Prioritizes by: CEFR level → priority_order → estimated duration
    */
-  async getNextConcept(
-    userId: string,
-    language: Language
-  ): Promise<CurriculumNode | null> {
+  async getNextConcept(userId: string, language: Language): Promise<CurriculumNode | null> {
     const available = await this.getAvailableConcepts(userId, language);
 
     if (available.length === 0) return null;
@@ -304,15 +294,15 @@ export class CurriculumGraphService {
     const adjacencyList = new Map<string, string[]>();
 
     // Initialize
-    graph.forEach(node => {
+    graph.forEach((node) => {
       inDegree.set(node.conceptId, 0);
       adjacencyList.set(node.conceptId, []);
     });
 
     // Build adjacency list and calculate in-degrees
-    graph.forEach(node => {
+    graph.forEach((node) => {
       const allPrereqs = [...node.prerequisitesAnd, ...node.prerequisitesOr];
-      allPrereqs.forEach(prereq => {
+      allPrereqs.forEach((prereq) => {
         adjacencyList.get(prereq)?.push(node.conceptId);
         inDegree.set(node.conceptId, (inDegree.get(node.conceptId) || 0) + 1);
       });
@@ -332,7 +322,7 @@ export class CurriculumGraphService {
       result.push(current);
 
       // Reduce in-degree for all neighbors
-      adjacencyList.get(current)?.forEach(neighbor => {
+      adjacencyList.get(current)?.forEach((neighbor) => {
         const newDegree = (inDegree.get(neighbor) || 0) - 1;
         inDegree.set(neighbor, newDegree);
         if (newDegree === 0) {
@@ -357,8 +347,10 @@ export class CurriculumGraphService {
     const graph = await this.getGraphForLanguage(language);
 
     // Insert all concepts as locked
-    const values = graph.map((_, idx) => `($1, $${idx * 2 + 2}, $${idx * 2 + 3}, 'locked', 0)`).join(', ');
-    const params = [userId, ...graph.flatMap(n => [n.conceptId, n.language])];
+    const values = graph
+      .map((_, idx) => `($1, $${idx * 2 + 2}, $${idx * 2 + 3}, 'locked', 0)`)
+      .join(', ');
+    const params = [userId, ...graph.flatMap((n) => [n.conceptId, n.language])];
 
     await this.pool.query(
       `INSERT INTO user_concept_progress (user_id, concept_id, language, status, progress_percentage)
@@ -414,9 +406,11 @@ export class CurriculumGraphService {
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/curriculum/graph.service.ts`
 
 **Technical Details**:
+
 - **Caching**: In-memory cache prevents repeated DB queries for graph structure
 - **Kahn's Algorithm**: Ensures topological ordering and detects cycles in O(V + E) time
 - **Prerequisite Logic**: AND (all required) + OR (any one required) support
@@ -452,231 +446,265 @@ export const curriculumRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /learning/curriculum/available
    * Get all unlocked concepts for user in language
    */
-  fastify.get('/learning/curriculum/available', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: LanguageQuerySchema,
-      response: {
-        200: z.object({
-          concepts: z.array(z.object({
-            conceptId: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            conceptType: z.string(),
-            description: z.string().nullable(),
-            estimatedDurationMinutes: z.number().nullable(),
-            priorityOrder: z.number(),
-          })),
-        }),
+  fastify.get(
+    '/learning/curriculum/available',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: LanguageQuerySchema,
+        response: {
+          200: z.object({
+            concepts: z.array(
+              z.object({
+                conceptId: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                conceptType: z.string(),
+                description: z.string().nullable(),
+                estimatedDurationMinutes: z.number().nullable(),
+                priorityOrder: z.number(),
+              })
+            ),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { language } = LanguageQuerySchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language } = LanguageQuerySchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const concepts = await graphService.getAvailableConcepts(userId, language);
+      const concepts = await graphService.getAvailableConcepts(userId, language);
 
-    return reply.status(200).send({ concepts });
-  });
+      return reply.status(200).send({ concepts });
+    }
+  );
 
   /**
    * GET /learning/curriculum/next
    * Get next recommended concept for user
    */
-  fastify.get('/learning/curriculum/next', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: LanguageQuerySchema,
-      response: {
-        200: z.object({
-          concept: z.object({
-            conceptId: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            conceptType: z.string(),
-            description: z.string().nullable(),
-            estimatedDurationMinutes: z.number().nullable(),
-          }).nullable(),
-        }),
+  fastify.get(
+    '/learning/curriculum/next',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: LanguageQuerySchema,
+        response: {
+          200: z.object({
+            concept: z
+              .object({
+                conceptId: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                conceptType: z.string(),
+                description: z.string().nullable(),
+                estimatedDurationMinutes: z.number().nullable(),
+              })
+              .nullable(),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { language } = LanguageQuerySchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language } = LanguageQuerySchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const concept = await graphService.getNextConcept(userId, language);
+      const concept = await graphService.getNextConcept(userId, language);
 
-    return reply.status(200).send({ concept });
-  });
+      return reply.status(200).send({ concept });
+    }
+  );
 
   /**
    * GET /learning/curriculum/graph
    * Get full curriculum graph structure for visualization
    */
-  fastify.get('/learning/curriculum/graph', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: LanguageQuerySchema,
-      response: {
-        200: z.object({
-          nodes: z.array(z.object({
-            conceptId: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            conceptType: z.string(),
-            status: z.enum(['locked', 'unlocked', 'in_progress', 'completed']),
-          })),
-          edges: z.array(z.object({
-            from: z.string(),
-            to: z.string(),
-            type: z.enum(['and', 'or']),
-          })),
-        }),
+  fastify.get(
+    '/learning/curriculum/graph',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: LanguageQuerySchema,
+        response: {
+          200: z.object({
+            nodes: z.array(
+              z.object({
+                conceptId: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                conceptType: z.string(),
+                status: z.enum(['locked', 'unlocked', 'in_progress', 'completed']),
+              })
+            ),
+            edges: z.array(
+              z.object({
+                from: z.string(),
+                to: z.string(),
+                type: z.enum(['and', 'or']),
+              })
+            ),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { language } = LanguageQuerySchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language } = LanguageQuerySchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const graph = await graphService.getGraphForLanguage(language);
-    const completedConcepts = await graphService.getCompletedConcepts(userId, language);
+      const graph = await graphService.getGraphForLanguage(language);
+      const completedConcepts = await graphService.getCompletedConcepts(userId, language);
 
-    // Get user status for each concept
-    const statusMap = new Map<string, string>();
-    const statusResult = await fastify.pg.pool.query(
-      `SELECT concept_id, status FROM user_concept_progress
+      // Get user status for each concept
+      const statusMap = new Map<string, string>();
+      const statusResult = await fastify.pg.pool.query(
+        `SELECT concept_id, status FROM user_concept_progress
        WHERE user_id = $1 AND language = $2`,
-      [userId, language]
-    );
-    statusResult.rows.forEach(row => {
-      statusMap.set(row.concept_id, row.status);
-    });
-
-    // Build nodes
-    const nodes = graph.map(concept => ({
-      conceptId: concept.conceptId,
-      title: concept.title,
-      cefrLevel: concept.cefrLevel,
-      conceptType: concept.conceptType,
-      status: statusMap.get(concept.conceptId) || 'locked',
-    }));
-
-    // Build edges (prerequisites → concept)
-    const edges: Array<{ from: string; to: string; type: 'and' | 'or' }> = [];
-    graph.forEach(concept => {
-      concept.prerequisitesAnd.forEach(prereq => {
-        edges.push({ from: prereq, to: concept.conceptId, type: 'and' });
+        [userId, language]
+      );
+      statusResult.rows.forEach((row) => {
+        statusMap.set(row.concept_id, row.status);
       });
-      concept.prerequisitesOr.forEach(prereq => {
-        edges.push({ from: prereq, to: concept.conceptId, type: 'or' });
-      });
-    });
 
-    return reply.status(200).send({ nodes, edges });
-  });
+      // Build nodes
+      const nodes = graph.map((concept) => ({
+        conceptId: concept.conceptId,
+        title: concept.title,
+        cefrLevel: concept.cefrLevel,
+        conceptType: concept.conceptType,
+        status: statusMap.get(concept.conceptId) || 'locked',
+      }));
+
+      // Build edges (prerequisites → concept)
+      const edges: Array<{ from: string; to: string; type: 'and' | 'or' }> = [];
+      graph.forEach((concept) => {
+        concept.prerequisitesAnd.forEach((prereq) => {
+          edges.push({ from: prereq, to: concept.conceptId, type: 'and' });
+        });
+        concept.prerequisitesOr.forEach((prereq) => {
+          edges.push({ from: prereq, to: concept.conceptId, type: 'or' });
+        });
+      });
+
+      return reply.status(200).send({ nodes, edges });
+    }
+  );
 
   /**
    * POST /learning/curriculum/complete/:conceptId
    * Mark concept as completed and unlock dependent concepts
    */
-  fastify.post('/learning/curriculum/complete/:conceptId', {
-    preHandler: authMiddleware,
-    schema: {
-      params: ConceptIdParamSchema,
-      body: z.object({
-        language: z.nativeEnum(Language),
-        accuracyPercentage: z.number().min(0).max(100).optional(),
-      }),
-      response: {
-        200: z.object({
-          success: z.boolean(),
-          unlockedConcepts: z.array(z.string()),
+  fastify.post(
+    '/learning/curriculum/complete/:conceptId',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: ConceptIdParamSchema,
+        body: z.object({
+          language: z.nativeEnum(Language),
+          accuracyPercentage: z.number().min(0).max(100).optional(),
         }),
+        response: {
+          200: z.object({
+            success: z.boolean(),
+            unlockedConcepts: z.array(z.string()),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { conceptId } = ConceptIdParamSchema.parse(request.params);
-    const { language, accuracyPercentage } = request.body as { language: Language; accuracyPercentage?: number };
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { conceptId } = ConceptIdParamSchema.parse(request.params);
+      const { language, accuracyPercentage } = request.body as {
+        language: Language;
+        accuracyPercentage?: number;
+      };
+      const userId = request.user!.userId;
 
-    // Mark as completed
-    await fastify.pg.pool.query(
-      `UPDATE user_concept_progress
+      // Mark as completed
+      await fastify.pg.pool.query(
+        `UPDATE user_concept_progress
        SET status = 'completed',
            completed_at = NOW(),
            progress_percentage = 100,
            accuracy_percentage = $4
        WHERE user_id = $1 AND concept_id = $2 AND language = $3`,
-      [userId, conceptId, language, accuracyPercentage]
-    );
+        [userId, conceptId, language, accuracyPercentage]
+      );
 
-    // Unlock newly available concepts
-    const unlockedConcepts = await graphService.unlockAvailableConcepts(userId, language);
+      // Unlock newly available concepts
+      const unlockedConcepts = await graphService.unlockAvailableConcepts(userId, language);
 
-    return reply.status(200).send({
-      success: true,
-      unlockedConcepts,
-    });
-  });
+      return reply.status(200).send({
+        success: true,
+        unlockedConcepts,
+      });
+    }
+  );
 
   /**
    * GET /learning/curriculum/stats
    * Get curriculum progress statistics for user
    */
-  fastify.get('/learning/curriculum/stats', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: LanguageQuerySchema,
-      response: {
-        200: z.object({
-          completedCount: z.number(),
-          inProgressCount: z.number(),
-          unlockedCount: z.number(),
-          lockedCount: z.number(),
-          totalCount: z.number(),
-          avgAccuracy: z.number().nullable(),
-          completionPercentage: z.number(),
-        }),
+  fastify.get(
+    '/learning/curriculum/stats',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: LanguageQuerySchema,
+        response: {
+          200: z.object({
+            completedCount: z.number(),
+            inProgressCount: z.number(),
+            unlockedCount: z.number(),
+            lockedCount: z.number(),
+            totalCount: z.number(),
+            avgAccuracy: z.number().nullable(),
+            completionPercentage: z.number(),
+          }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const { language } = LanguageQuerySchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language } = LanguageQuerySchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const statsResult = await fastify.pg.pool.query(
-      `SELECT * FROM user_curriculum_stats
+      const statsResult = await fastify.pg.pool.query(
+        `SELECT * FROM user_curriculum_stats
        WHERE user_id = $1 AND language = $2`,
-      [userId, language]
-    );
+        [userId, language]
+      );
 
-    const stats = statsResult.rows[0] || {
-      completed_count: 0,
-      in_progress_count: 0,
-      unlocked_count: 0,
-      locked_count: 0,
-      avg_accuracy: null,
-    };
+      const stats = statsResult.rows[0] || {
+        completed_count: 0,
+        in_progress_count: 0,
+        unlocked_count: 0,
+        locked_count: 0,
+        avg_accuracy: null,
+      };
 
-    const totalCount = stats.completed_count + stats.in_progress_count + stats.unlocked_count + stats.locked_count;
-    const completionPercentage = totalCount > 0 ? (stats.completed_count / totalCount) * 100 : 0;
+      const totalCount =
+        stats.completed_count + stats.in_progress_count + stats.unlocked_count + stats.locked_count;
+      const completionPercentage = totalCount > 0 ? (stats.completed_count / totalCount) * 100 : 0;
 
-    return reply.status(200).send({
-      completedCount: stats.completed_count,
-      inProgressCount: stats.in_progress_count,
-      unlockedCount: stats.unlocked_count,
-      lockedCount: stats.locked_count,
-      totalCount,
-      avgAccuracy: stats.avg_accuracy,
-      completionPercentage,
-    });
-  });
+      return reply.status(200).send({
+        completedCount: stats.completed_count,
+        inProgressCount: stats.in_progress_count,
+        unlockedCount: stats.unlocked_count,
+        lockedCount: stats.locked_count,
+        totalCount,
+        avgAccuracy: stats.avg_accuracy,
+        completionPercentage,
+      });
+    }
+  );
 };
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/learning/curriculum.ts`
 
 **API Summary**:
+
 - `GET /learning/curriculum/available` - List unlocked concepts
 - `GET /learning/curriculum/next` - Get recommended next concept
 - `GET /learning/curriculum/graph` - Full graph for visualization
@@ -991,11 +1019,13 @@ export function CurriculumStats({ language }: CurriculumStatsProps) {
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/learning/CurriculumGraph.tsx`
 - `packages/web/src/components/learning/NextConceptCard.tsx`
 - `packages/web/src/components/learning/CurriculumStats.tsx`
 
 **UI Features**:
+
 - Visual graph showing all concepts organized by CEFR level
 - Color-coded status (completed=green, in_progress=yellow, unlocked=blue, locked=gray)
 - "Next Concept" recommendation card with start button
@@ -1074,10 +1104,7 @@ export class CompletionHandlerService {
       );
 
       // Get next recommendation
-      const nextConcept = await this.graphService.getNextConcept(
-        event.userId,
-        event.language
-      );
+      const nextConcept = await this.graphService.getNextConcept(event.userId, event.language);
 
       return {
         success: true,
@@ -1118,11 +1145,7 @@ export class CompletionHandlerService {
   /**
    * Mark concept as started (unlocked → in_progress)
    */
-  async startConcept(
-    userId: string,
-    conceptId: string,
-    language: Language
-  ): Promise<void> {
+  async startConcept(userId: string, conceptId: string, language: Language): Promise<void> {
     await this.pool.query(
       `UPDATE user_concept_progress
        SET status = 'in_progress',
@@ -1135,9 +1158,11 @@ export class CompletionHandlerService {
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/curriculum/completion-handler.service.ts`
 
 **Integration Points**:
+
 - Orthography module completion → triggers `handleConceptCompletion`
 - Grammar lesson completion → triggers `handleConceptCompletion`
 - Vocabulary mastery → triggers `handleConceptCompletion`
@@ -1176,7 +1201,9 @@ async function validateCurriculumGraph(pool: Pool): Promise<ValidationResult[]> 
     try {
       // Test 1: Topological sort (detects circular dependencies)
       const topologicalOrder = await graphService.getTopologicalOrder(language);
-      console.log(`✓ ${language}: Topological sort successful (${topologicalOrder.length} concepts)`);
+      console.log(
+        `✓ ${language}: Topological sort successful (${topologicalOrder.length} concepts)`
+      );
 
       // Test 2: Verify all prerequisites exist
       const graph = await graphService.getGraphForLanguage(language);
@@ -1184,9 +1211,11 @@ async function validateCurriculumGraph(pool: Pool): Promise<ValidationResult[]> 
         const allPrereqs = [...concept.prerequisitesAnd, ...concept.prerequisitesOr];
 
         for (const prereq of allPrereqs) {
-          const prereqExists = graph.some(c => c.conceptId === prereq);
+          const prereqExists = graph.some((c) => c.conceptId === prereq);
           if (!prereqExists) {
-            errors.push(`Concept "${concept.conceptId}" references non-existent prerequisite "${prereq}"`);
+            errors.push(
+              `Concept "${concept.conceptId}" references non-existent prerequisite "${prereq}"`
+            );
           }
         }
       }
@@ -1198,7 +1227,7 @@ async function validateCurriculumGraph(pool: Pool): Promise<ValidationResult[]> 
 
         const allPrereqs = [...concept.prerequisitesAnd, ...concept.prerequisitesOr];
         for (const prereqId of allPrereqs) {
-          const prereq = graph.find(c => c.conceptId === prereqId);
+          const prereq = graph.find((c) => c.conceptId === prereqId);
           if (prereq) {
             const prereqLevel = cefrOrder.indexOf(prereq.cefrLevel);
             if (prereqLevel > conceptLevel) {
@@ -1212,14 +1241,18 @@ async function validateCurriculumGraph(pool: Pool): Promise<ValidationResult[]> 
 
       // Test 4: Check for orphaned concepts (no incoming or outgoing edges)
       for (const concept of graph) {
-        const hasPrereqs = concept.prerequisitesAnd.length > 0 || concept.prerequisitesOr.length > 0;
-        const isDependency = graph.some(c =>
-          c.prerequisitesAnd.includes(concept.conceptId) ||
-          c.prerequisitesOr.includes(concept.conceptId)
+        const hasPrereqs =
+          concept.prerequisitesAnd.length > 0 || concept.prerequisitesOr.length > 0;
+        const isDependency = graph.some(
+          (c) =>
+            c.prerequisitesAnd.includes(concept.conceptId) ||
+            c.prerequisitesOr.includes(concept.conceptId)
         );
 
         if (!hasPrereqs && !isDependency && concept.cefrLevel !== 'A0') {
-          warnings.push(`Concept "${concept.conceptId}" has no prerequisites and is not a dependency of any other concept`);
+          warnings.push(
+            `Concept "${concept.conceptId}" has no prerequisites and is not a dependency of any other concept`
+          );
         }
       }
 
@@ -1229,9 +1262,10 @@ async function validateCurriculumGraph(pool: Pool): Promise<ValidationResult[]> 
         errors,
         warnings,
       });
-
     } catch (error) {
-      errors.push(`Failed to validate graph: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(
+        `Failed to validate graph: ${error instanceof Error ? error.message : String(error)}`
+      );
       results.push({ language, isValid: false, errors, warnings });
     }
   }
@@ -1258,12 +1292,12 @@ async function main() {
       if (result.errors.length > 0) {
         hasErrors = true;
         console.log('\nErrors:');
-        result.errors.forEach(err => console.log(`  - ${err}`));
+        result.errors.forEach((err) => console.log(`  - ${err}`));
       }
 
       if (result.warnings.length > 0) {
         console.log('\nWarnings:');
-        result.warnings.forEach(warn => console.log(`  - ${warn}`));
+        result.warnings.forEach((warn) => console.log(`  - ${warn}`));
       }
     }
 
@@ -1276,7 +1310,6 @@ async function main() {
       console.log('✅ All curriculum graphs are valid');
       process.exit(0);
     }
-
   } finally {
     await pool.end();
   }
@@ -1286,6 +1319,7 @@ main();
 ```
 
 Add to `packages/api/package.json`:
+
 ```json
 {
   "scripts": {
@@ -1295,15 +1329,18 @@ Add to `packages/api/package.json`:
 ```
 
 **Files Created**:
+
 - `packages/api/src/scripts/validate-curriculum-graph.ts`
 
 **Validation Checks**:
+
 1. **Topological Sort**: Detects circular dependencies
 2. **Prerequisite Existence**: Ensures all referenced prerequisites exist
 3. **CEFR Ordering**: Warns if higher-level concepts are prerequisites for lower-level ones
 4. **Orphaned Concepts**: Identifies isolated concepts
 
 **Usage**:
+
 ```bash
 npm run validate:curriculum
 ```
@@ -1328,6 +1365,7 @@ npm run validate:curriculum
 **Context**: When multiple concepts are unlocked simultaneously, how should the system decide which one to recommend?
 
 **Options**:
+
 1. **Priority Order Field** (Current Implementation)
    - Pros: Simple, explicit control, predictable
    - Cons: Requires manual curation, doesn't adapt to user
@@ -1352,6 +1390,7 @@ npm run validate:curriculum
 **Context**: When a concept has OR prerequisites (e.g., "German cases OR English grammar basics"), should completing ONE unlock it, or should the system guide users toward the "better" prerequisite?
 
 **Options**:
+
 1. **Pure OR Logic** (Any one unlocks)
    - Pros: Flexible, respects user autonomy
    - Cons: User might skip recommended path
@@ -1373,6 +1412,7 @@ npm run validate:curriculum
 **Context**: With 1000+ concepts per language, rendering the full graph in React may cause performance issues.
 
 **Options**:
+
 1. **Full Graph Render** (Current Implementation)
    - Pros: Simple, works for MVP scale (100-300 concepts)
    - Cons: May lag with 1000+ nodes
