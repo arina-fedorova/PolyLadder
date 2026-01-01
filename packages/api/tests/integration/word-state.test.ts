@@ -91,16 +91,15 @@ describe('Word State Integration Tests', () => {
     const learnerLoginData = learnerLoginResponse.json<LoginResponse>();
     learnerToken = learnerLoginData.accessToken;
 
-    // Use an existing meaning from the database instead of creating new ones
-    const meaningResult = await pool.query<{ id: string }>(
-      `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 1`
+    // Create test meaning with unique ID to avoid immutability trigger
+    const uniqueMeaningId = `en-test-word-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    await pool.query(
+      `INSERT INTO approved_meanings (id, level, tags)
+       VALUES ($1, $2, $3)`,
+      [uniqueMeaningId, 'A1', JSON.stringify([])]
     );
 
-    if (meaningResult.rows.length === 0) {
-      throw new Error('No English meanings found in approved_meanings table');
-    }
-
-    meaningId = meaningResult.rows[0].id;
+    meaningId = uniqueMeaningId;
   });
 
   describe('GET /learning/word-state/:meaningId', () => {
@@ -304,16 +303,23 @@ describe('Word State Integration Tests', () => {
     let statsMeanings: string[];
 
     beforeEach(async () => {
-      // Use existing meanings from the database
-      const result = await pool.query<{ id: string }>(
-        `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 5`
-      );
+      // Create multiple meanings with unique IDs
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      statsMeanings = [
+        `en-word1-${uniqueSuffix}`,
+        `en-word2-${uniqueSuffix}`,
+        `en-word3-${uniqueSuffix}`,
+        `en-word4-${uniqueSuffix}`,
+        `en-word5-${uniqueSuffix}`,
+      ];
 
-      if (result.rows.length < 5) {
-        throw new Error('Not enough English meanings found in approved_meanings table');
+      for (const id of statsMeanings) {
+        await pool.query(
+          `INSERT INTO approved_meanings (id, level, tags)
+           VALUES ($1, $2, $3)`,
+          [id, 'A1', JSON.stringify([])]
+        );
       }
-
-      statsMeanings = result.rows.map((row) => row.id);
 
       // Mark some as learning (1 review)
       await server.inject({
@@ -405,16 +411,21 @@ describe('Word State Integration Tests', () => {
     let byStateMeanings: string[];
 
     beforeEach(async () => {
-      // Use existing meanings from the database
-      const result = await pool.query<{ id: string }>(
-        `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 3 OFFSET 5`
-      );
+      // Create test meanings with unique IDs
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      byStateMeanings = [
+        `en-learning1-${uniqueSuffix}`,
+        `en-learning2-${uniqueSuffix}`,
+        `en-known1-${uniqueSuffix}`,
+      ];
 
-      if (result.rows.length < 3) {
-        throw new Error('Not enough English meanings found in approved_meanings table');
+      for (const id of byStateMeanings) {
+        await pool.query(
+          `INSERT INTO approved_meanings (id, level, tags)
+           VALUES ($1, $2, $3)`,
+          [id, 'A1', JSON.stringify([])]
+        );
       }
-
-      byStateMeanings = result.rows.map((row) => row.id);
 
       // Mark as learning
       await server.inject({
