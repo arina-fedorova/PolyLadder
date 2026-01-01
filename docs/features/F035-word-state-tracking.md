@@ -3,7 +3,8 @@
 **Feature Code**: F035
 **Created**: 2025-12-17
 **Phase**: 10 - Vocabulary Learning
-**Status**: Not Started
+**Status**: Completed
+**Completed**: 2026-01-01
 
 ---
 
@@ -13,14 +14,14 @@ The word state tracking system manages the learning journey of vocabulary items 
 
 ## Success Criteria
 
-- [ ] New words start in "unknown" state until first encounter
-- [ ] First vocabulary encounter automatically transitions to "learning" state
-- [ ] Consistent correct answers (5+ successful reviews) promotes to "known" state
-- [ ] State transitions tracked in user_word_state table with timestamps
-- [ ] Word state visible in vocabulary dashboard and learning interfaces
-- [ ] State affects SRS scheduling intervals (known words have longer intervals)
-- [ ] Manual state reset option for forgotten words (known → learning)
-- [ ] State statistics shown in progress dashboard (X unknown, Y learning, Z known)
+- [x] New words start in "unknown" state until first encounter
+- [x] First vocabulary encounter automatically transitions to "learning" state
+- [x] Consistent correct answers (5+ successful reviews) promotes to "known" state
+- [x] State transitions tracked in user_word_state table with timestamps
+- [x] Word state visible in vocabulary dashboard and learning interfaces
+- [x] State affects SRS scheduling intervals (known words have longer intervals)
+- [x] Manual state reset option for forgotten words (known → learning)
+- [x] State statistics shown in progress dashboard (X unknown, Y learning, Z known)
 
 ---
 
@@ -343,13 +344,15 @@ export class WordStateService {
       return 0;
     }
 
-    const values = vocabularyIds.map((_, idx) => {
-      const baseIdx = idx * 3;
-      return `($${baseIdx + 1}, $${baseIdx + 2}, $${baseIdx + 3}, 'unknown', 0, 0)`;
-    }).join(', ');
+    const values = vocabularyIds
+      .map((_, idx) => {
+        const baseIdx = idx * 3;
+        return `($${baseIdx + 1}, $${baseIdx + 2}, $${baseIdx + 3}, 'unknown', 0, 0)`;
+      })
+      .join(', ');
 
     const params: any[] = [];
-    vocabularyIds.forEach(vocabId => {
+    vocabularyIds.forEach((vocabId) => {
       params.push(userId, vocabId, language);
     });
 
@@ -541,15 +544,11 @@ export default async function wordStateRoutes(fastify: FastifyInstance) {
     },
     handler: async (request, reply) => {
       const userId = request.user!.id;
-      const { language, state, limit, offset } = request.query as z.infer<typeof GetWordsByStateSchema>;
+      const { language, state, limit, offset } = request.query as z.infer<
+        typeof GetWordsByStateSchema
+      >;
 
-      const words = await wordStateService.getWordsByState(
-        userId,
-        language,
-        state,
-        limit,
-        offset
-      );
+      const words = await wordStateService.getWordsByState(userId, language, state, limit, offset);
 
       return reply.code(200).send({
         words,
@@ -856,6 +855,7 @@ export class ReviewSessionService {
 **Context**: Currently, 5 successful reviews mark a word as "known". Is this the right number?
 
 **Options**:
+
 1. **Fixed threshold (5 reviews)** (current approach)
    - Pros: Simple, predictable
    - Cons: May not reflect actual mastery for all learners
@@ -877,6 +877,7 @@ export class ReviewSessionService {
 **Context**: If a user fails a "known" word, should it auto-revert to "learning"?
 
 **Options**:
+
 1. **Manual reset only** (current approach)
    - Pros: Prevents false negatives, user controls state
    - Cons: User must remember to reset
@@ -898,6 +899,7 @@ export class ReviewSessionService {
 **Context**: Should we distinguish between "never seen" and "explicitly marked as unknown"?
 
 **Options**:
+
 1. **Single "unknown" state** (current approach)
    - Pros: Simpler state machine
    - Cons: Can't distinguish new words from words user marked as unknown
@@ -917,15 +919,18 @@ export class ReviewSessionService {
 ## Dependencies
 
 **Blocks**:
+
 - F036: Contextual Vocabulary Introduction (uses word state to filter new words)
 - F046: SRS Algorithm (word state affects scheduling intervals)
 
 **Depends on**:
+
 - F001: Database Schema (users, vocabulary tables)
 - F031: Orthography Gate System (unlocks vocabulary access)
 - F047: Review Session Management (triggers state updates)
 
 **Optional**:
+
 - Analytics system for state transition patterns
 - Gamification (badges for X known words)
 
@@ -934,6 +939,7 @@ export class ReviewSessionService {
 ## Notes
 
 ### Implementation Priority
+
 1. Create database schema (Task 1)
 2. Implement word state service (Task 2)
 3. Create API endpoints (Task 3)
@@ -941,24 +947,28 @@ export class ReviewSessionService {
 5. Integrate with review system (Task 6)
 
 ### State Transition Logic
+
 - **unknown → learning**: Triggered on first encounter (exercise, lesson, or review)
 - **learning → known**: Triggered after 5+ successful reviews (rating: good or easy)
 - **known → learning**: Manual reset only (user action)
 - **State Persistence**: All transitions logged with timestamps for audit trail
 
 ### Performance Considerations
+
 - Index on (user_id, language, state) for fast dashboard queries
 - Batch initialize words when user adds new language
 - Cache state statistics in React Query (5-minute stale time)
 - Use view for aggregated statistics to avoid repeated GROUP BY queries
 
 ### Security Considerations
+
 - Only users can modify their own word states (auth middleware)
 - Validate vocabulary_id exists in approved_vocabulary before state creation
 - Rate limit state reset endpoint to prevent abuse
 - Log all state transitions for audit trail
 
 ### UX Considerations
+
 - Visual badges for each state (unknown=gray, learning=yellow, known=green)
 - Progress bar showing known/learning/unknown distribution
 - Celebration animation when word transitions to "known"

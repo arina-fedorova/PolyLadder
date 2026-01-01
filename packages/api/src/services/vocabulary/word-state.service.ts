@@ -1,5 +1,14 @@
 import { Pool } from 'pg';
 
+class NotFoundError extends Error {
+  statusCode: number;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+    this.statusCode = 404;
+  }
+}
+
 export type WordState = 'unknown' | 'learning' | 'known';
 
 export interface WordStateInfo {
@@ -54,7 +63,7 @@ export class WordStateService {
     );
 
     if (meaningResult.rows.length === 0) {
-      throw new Error('Meaning not found');
+      throw new NotFoundError('Meaning not found');
     }
 
     // Extract language from meaning_id (format: language-word)
@@ -158,7 +167,7 @@ export class WordStateService {
     );
 
     if (result.rows.length === 0) {
-      throw new Error('Word state not found');
+      throw new NotFoundError('Word state not found');
     }
 
     return this.mapRowToWordState(result.rows[0]);

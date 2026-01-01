@@ -1,7 +1,10 @@
 import 'fastify';
+import { Pool } from 'pg';
 
 declare module 'fastify' {
   interface FastifyInstance {
+    db: Pool;
+
     requireAuth: () => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 
     requireOperator: () => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;

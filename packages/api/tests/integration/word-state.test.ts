@@ -91,13 +91,14 @@ describe('Word State Integration Tests', () => {
     const learnerLoginData = learnerLoginResponse.json<LoginResponse>();
     learnerToken = learnerLoginData.accessToken;
 
-    // Create test meaning
+    // Use an existing meaning from the database instead of creating new ones
     const meaningResult = await pool.query<{ id: string }>(
-      `INSERT INTO approved_meanings (id, level, tags)
-       VALUES ('en-test-word', 'A1', '[]'::jsonb)
-       ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
-       RETURNING id`
+      `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 1`
     );
+
+    if (meaningResult.rows.length === 0) {
+      throw new Error('No English meanings found in approved_meanings table');
+    }
 
     meaningId = meaningResult.rows[0].id;
   });
@@ -300,31 +301,33 @@ describe('Word State Integration Tests', () => {
   });
 
   describe('GET /learning/word-state/stats', () => {
+    let statsMeanings: string[];
+
     beforeEach(async () => {
-      // Create multiple meanings
-      const meanings = ['en-word1', 'en-word2', 'en-word3', 'en-word4', 'en-word5'];
-      for (const id of meanings) {
-        await pool.query(
-          `INSERT INTO approved_meanings (id, level, tags)
-           VALUES ($1, 'A1', '[]'::jsonb)
-           ON CONFLICT (id) DO NOTHING`,
-          [id]
-        );
+      // Use existing meanings from the database
+      const result = await pool.query<{ id: string }>(
+        `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 5`
+      );
+
+      if (result.rows.length < 5) {
+        throw new Error('Not enough English meanings found in approved_meanings table');
       }
+
+      statsMeanings = result.rows.map((row) => row.id);
 
       // Mark some as learning (1 review)
       await server.inject({
         method: 'POST',
         url: '/api/v1/learning/word-state/record-review',
         headers: { authorization: `Bearer ${learnerToken}` },
-        payload: { meaningId: 'en-word1', wasSuccessful: true },
+        payload: { meaningId: statsMeanings[0], wasSuccessful: true },
       });
 
       await server.inject({
         method: 'POST',
         url: '/api/v1/learning/word-state/record-review',
         headers: { authorization: `Bearer ${learnerToken}` },
-        payload: { meaningId: 'en-word2', wasSuccessful: true },
+        payload: { meaningId: statsMeanings[1], wasSuccessful: true },
       });
 
       // Mark one as known (5 reviews)
@@ -333,20 +336,20 @@ describe('Word State Integration Tests', () => {
           method: 'POST',
           url: '/api/v1/learning/word-state/record-review',
           headers: { authorization: `Bearer ${learnerToken}` },
-          payload: { meaningId: 'en-word3', wasSuccessful: true },
+          payload: { meaningId: statsMeanings[2], wasSuccessful: true },
         });
       }
 
       // Create unknown states for remaining
       await server.inject({
         method: 'GET',
-        url: '/api/v1/learning/word-state/en-word4',
+        url: `/api/v1/learning/word-state/${statsMeanings[3]}`,
         headers: { authorization: `Bearer ${learnerToken}` },
       });
 
       await server.inject({
         method: 'GET',
-        url: '/api/v1/learning/word-state/en-word5',
+        url: `/api/v1/learning/word-state/${statsMeanings[4]}`,
         headers: { authorization: `Bearer ${learnerToken}` },
       });
     });
@@ -399,31 +402,33 @@ describe('Word State Integration Tests', () => {
   });
 
   describe('GET /learning/word-state/by-state', () => {
+    let byStateMeanings: string[];
+
     beforeEach(async () => {
-      // Create test meanings
-      const meanings = ['en-learning1', 'en-learning2', 'en-known1'];
-      for (const id of meanings) {
-        await pool.query(
-          `INSERT INTO approved_meanings (id, level, tags)
-           VALUES ($1, 'A1', '[]'::jsonb)
-           ON CONFLICT (id) DO NOTHING`,
-          [id]
-        );
+      // Use existing meanings from the database
+      const result = await pool.query<{ id: string }>(
+        `SELECT id FROM approved_meanings WHERE id LIKE 'en-%' LIMIT 3 OFFSET 5`
+      );
+
+      if (result.rows.length < 3) {
+        throw new Error('Not enough English meanings found in approved_meanings table');
       }
+
+      byStateMeanings = result.rows.map((row) => row.id);
 
       // Mark as learning
       await server.inject({
         method: 'POST',
         url: '/api/v1/learning/word-state/record-review',
         headers: { authorization: `Bearer ${learnerToken}` },
-        payload: { meaningId: 'en-learning1', wasSuccessful: true },
+        payload: { meaningId: byStateMeanings[0], wasSuccessful: true },
       });
 
       await server.inject({
         method: 'POST',
         url: '/api/v1/learning/word-state/record-review',
         headers: { authorization: `Bearer ${learnerToken}` },
-        payload: { meaningId: 'en-learning2', wasSuccessful: true },
+        payload: { meaningId: byStateMeanings[1], wasSuccessful: true },
       });
 
       // Mark as known
@@ -432,7 +437,7 @@ describe('Word State Integration Tests', () => {
           method: 'POST',
           url: '/api/v1/learning/word-state/record-review',
           headers: { authorization: `Bearer ${learnerToken}` },
-          payload: { meaningId: 'en-known1', wasSuccessful: true },
+          payload: { meaningId: byStateMeanings[2], wasSuccessful: true },
         });
       }
     });

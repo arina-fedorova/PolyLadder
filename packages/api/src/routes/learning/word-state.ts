@@ -82,7 +82,7 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { meaningId: string };
   }>(
-    '/learning/word-state/:meaningId',
+    '/word-state/:meaningId',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -100,15 +100,8 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { meaningId } = request.params;
 
-      try {
-        const state = await wordStateService.getWordState(userId, meaningId);
-        return reply.code(200).send(state);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message === 'Meaning not found') {
-          return reply.code(404).send({ error: err.message });
-        }
-        throw err;
-      }
+      const state = await wordStateService.getWordState(userId, meaningId);
+      return reply.code(200).send(state);
     }
   );
 
@@ -116,7 +109,7 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Body: RecordReviewRequest;
   }>(
-    '/learning/word-state/record-review',
+    '/word-state/record-review',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -132,23 +125,16 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { meaningId, wasSuccessful } = request.body;
 
-      try {
-        const previousState = await wordStateService.getWordState(userId, meaningId);
-        const newState = await wordStateService.recordReview(userId, meaningId, wasSuccessful);
+      const previousState = await wordStateService.getWordState(userId, meaningId);
+      const newState = await wordStateService.recordReview(userId, meaningId, wasSuccessful);
 
-        return reply.code(200).send({
-          meaningId: newState.meaningId,
-          state: newState.state,
-          successfulReviews: newState.successfulReviews,
-          totalReviews: newState.totalReviews,
-          stateChanged: previousState.state !== newState.state,
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message === 'Meaning not found') {
-          return reply.code(404).send({ error: err.message });
-        }
-        throw err;
-      }
+      return reply.code(200).send({
+        meaningId: newState.meaningId,
+        state: newState.state,
+        successfulReviews: newState.successfulReviews,
+        totalReviews: newState.totalReviews,
+        stateChanged: previousState.state !== newState.state,
+      });
     }
   );
 
@@ -156,7 +142,7 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Body: ResetWordRequest;
   }>(
-    '/learning/word-state/reset',
+    '/word-state/reset',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -172,19 +158,12 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
       const userId = request.user!.userId;
       const { meaningId } = request.body;
 
-      try {
-        await wordStateService.resetToLearning(userId, meaningId);
+      await wordStateService.resetToLearning(userId, meaningId);
 
-        return reply.code(200).send({
-          success: true,
-          message: 'Word reset to learning state',
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message === 'Word state not found') {
-          return reply.code(404).send({ error: err.message });
-        }
-        throw err;
-      }
+      return reply.code(200).send({
+        success: true,
+        message: 'Word reset to learning state',
+      });
     }
   );
 
@@ -192,7 +171,7 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Querystring: { language: string };
   }>(
-    '/learning/word-state/stats',
+    '/word-state/stats',
     {
       preHandler: [authMiddleware],
       schema: {
@@ -219,7 +198,7 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Querystring: WordsByStateQuery;
   }>(
-    '/learning/word-state/by-state',
+    '/word-state/by-state',
     {
       preHandler: [authMiddleware],
       schema: {
