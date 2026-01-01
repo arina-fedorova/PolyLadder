@@ -5,6 +5,7 @@ import { authMiddleware } from '../../middleware/auth';
 import { GrammarLessonService } from '../../services/grammar/lesson.service';
 import { GrammarComparisonService } from '../../services/grammar/comparison.service';
 import { GrammarExerciseService } from '../../services/grammar/exercise.service';
+import { GrammarMasteryTrackerService } from '../../services/grammar/mastery-tracker.service';
 
 const LanguageQuerySchema = Type.Object({
   language: Type.String({ minLength: 2, maxLength: 2 }),
@@ -143,6 +144,7 @@ export const grammarRoutes: FastifyPluginAsync = async (fastify) => {
   const lessonService = new GrammarLessonService(fastify.db);
   const comparisonService = new GrammarComparisonService(fastify.db);
   const exerciseService = new GrammarExerciseService(fastify.db);
+  const masteryTrackerService = new GrammarMasteryTrackerService(fastify.db);
 
   /**
    * GET /learning/grammar/next
@@ -382,7 +384,26 @@ export const grammarRoutes: FastifyPluginAsync = async (fastify) => {
       const { answer } = request.body;
       const userId = request.user!.userId;
 
+      // Get exercise metadata for mastery tracking
+      interface ExerciseMetadata {
+        grammar_rule_id: string;
+        language: string;
+      }
+      const exerciseMetadata = await fastify.db.query<ExerciseMetadata>(
+        `SELECT ge.grammar_rule_id, ar.language
+         FROM grammar_exercises ge
+         JOIN approved_rules ar ON ge.grammar_rule_id = ar.id
+         WHERE ge.id = $1`,
+        [exerciseId]
+      );
+
       const result = await exerciseService.validateAnswer(exerciseId, answer, userId);
+
+      // Update curriculum progress if user has mastered the rule
+      if (exerciseMetadata.rows.length > 0) {
+        const { grammar_rule_id, language } = exerciseMetadata.rows[0];
+        await masteryTrackerService.updateCurriculumProgress(userId, grammar_rule_id, language);
+      }
 
       return reply.code(200).send(result);
     }
