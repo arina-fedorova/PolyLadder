@@ -145,52 +145,13 @@ export function up(pgm: MigrationBuilder): void {
     },
   });
 
-  pgm.createTable('curriculum_graph', {
-    id: {
-      type: 'uuid',
-      primaryKey: true,
-      default: pgm.func('gen_random_uuid()'),
-    },
-    concept_id: {
-      type: 'varchar(100)',
-      notNull: true,
-      unique: true,
-    },
-    concept_type: {
-      type: 'varchar(20)',
-      notNull: true,
-      check: "concept_type IN ('orthography', 'grammar', 'meaning', 'exercise_bundle')",
-    },
-    language: {
-      type: 'varchar(2)',
-      notNull: false,
-    },
-    prerequisites: {
-      type: 'jsonb',
-      notNull: true,
-      default: '[]',
-    },
-    metadata: {
-      type: 'jsonb',
-      notNull: true,
-      default: '{}',
-    },
-    created_at: {
-      type: 'timestamp',
-      notNull: true,
-      default: pgm.func('current_timestamp'),
-    },
-  });
-
   pgm.createIndex('approved_utterances', ['meaning_id']);
   pgm.createIndex('approved_utterances', ['language']);
   pgm.createIndex('approved_rules', ['language', 'level']);
   pgm.createIndex('approved_exercises', ['type', 'level']);
-  pgm.createIndex('curriculum_graph', ['concept_id']);
 }
 
 export function down(pgm: MigrationBuilder): void {
-  pgm.dropTable('curriculum_graph');
   pgm.dropTable('approved_exercises');
   pgm.dropTable('approved_rules');
   pgm.dropTable('approved_utterances');
