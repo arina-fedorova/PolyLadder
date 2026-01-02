@@ -42,6 +42,17 @@ const ResetWordResponseSchema = Type.Object({
   message: Type.String(),
 });
 
+const MarkKnownRequestSchema = Type.Object({
+  meaningId: Type.String(),
+});
+
+type MarkKnownRequest = Static<typeof MarkKnownRequestSchema>;
+
+const MarkKnownResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  message: Type.String(),
+});
+
 const StateStatsResponseSchema = Type.Object({
   unknownCount: Type.Number(),
   learningCount: Type.Number(),
@@ -163,6 +174,35 @@ export const wordStateRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(200).send({
         success: true,
         message: 'Word reset to learning state',
+      });
+    }
+  );
+
+  // POST /learning/word-state/mark-known - Mark word as known
+  fastify.post<{
+    Body: MarkKnownRequest;
+  }>(
+    '/word-state/mark-known',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        body: MarkKnownRequestSchema,
+        response: {
+          200: MarkKnownResponseSchema,
+          401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { meaningId } = request.body;
+
+      await wordStateService.markAsKnown(userId, meaningId);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Word marked as known',
       });
     }
   );

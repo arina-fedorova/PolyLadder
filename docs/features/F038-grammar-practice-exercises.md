@@ -3,7 +3,7 @@
 **Feature Code**: F038
 **Created**: 2025-12-17
 **Phase**: 11 - Grammar Learning
-**Status**: ✅ Completed (Backend)
+**Status**: ✅ Completed
 **Implemented**: 2026-01-01
 
 ---
@@ -1316,13 +1316,29 @@ export class GrammarMasteryTrackerService {
 - `cceb64a` - feat(F038-Task2): add grammar exercise API endpoints
 - `b69160c` - feat(F038-Task5): integrate mastery tracking with curriculum progress
 
-### ⏸️ Pending (Frontend)
+### ✅ Completed (Frontend - 2026-01-02)
 
-**Task 3: React Exercise Components** ⏸️
+**Task 3: React Exercise Components** ✅
 
-- Frontend implementation deferred
-- Backend APIs ready for integration
-- TypeBox schemas define all response shapes
+- Files created:
+  - `packages/web/src/components/exercises/FillBlankExercise.tsx`
+  - `packages/web/src/components/exercises/MultipleChoiceExercise.tsx`
+  - `packages/web/src/components/exercises/ReorderExercise.tsx`
+  - `packages/web/src/components/exercises/GrammarExerciseContainer.tsx`
+  - `packages/web/src/components/exercises/index.ts` (updated exports)
+- Features implemented:
+  - Fill-in-the-blank exercise with hint toggle
+  - Multiple choice with shuffled options (useMemo)
+  - Word reordering with arrow buttons (simpler than drag-and-drop)
+  - Exercise container with progress bar and auto-advance
+  - Feedback display with color-coded alerts
+  - Exercise type routing (fill_blank, transformation, error_correction → FillBlankExercise)
+  - "Practice Again" functionality after completion
+- Integration with backend:
+  - React Query for data fetching
+  - API calls to grammar exercise endpoints
+  - Exercise validation endpoint integration
+- All components typecheck and lint passed
 
 ### 📋 Implementation Notes
 

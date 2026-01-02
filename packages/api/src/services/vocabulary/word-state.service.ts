@@ -174,6 +174,32 @@ export class WordStateService {
   }
 
   /**
+   * Manually mark word as known
+   */
+  async markAsKnown(userId: string, meaningId: string): Promise<WordStateInfo> {
+    await this.markAsEncountered(userId, meaningId);
+
+    const currentState = await this.getWordState(userId, meaningId);
+    const newSuccessfulReviews = Math.max(currentState.successfulReviews, KNOWN_THRESHOLD);
+
+    const result = await this.pool.query<Record<string, unknown>>(
+      `UPDATE user_word_state
+       SET state = 'known',
+           marked_known_at = current_timestamp,
+           successful_reviews = $1
+       WHERE user_id = $2 AND meaning_id = $3
+       RETURNING *`,
+      [newSuccessfulReviews, userId, meaningId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Word state not found');
+    }
+
+    return this.mapRowToWordState(result.rows[0]);
+  }
+
+  /**
    * Get word state statistics for a user and language
    */
   async getStateStats(userId: string, language: string) {

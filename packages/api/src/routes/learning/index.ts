@@ -10,6 +10,7 @@ import curriculumRoute from './curriculum';
 import wordStateRoute from './word-state';
 import vocabularyIntroductionRoute from './vocabulary-introduction';
 import grammarRoute from './grammar';
+import recallRoute from './recall';
 
 const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(preferencesRoute);
@@ -23,6 +24,7 @@ const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(wordStateRoute);
   await fastify.register(vocabularyIntroductionRoute);
   await fastify.register(grammarRoute);
+  await fastify.register(recallRoute);
 };
 
 export default learningRoutes;
