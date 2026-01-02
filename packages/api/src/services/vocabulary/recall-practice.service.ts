@@ -66,7 +66,7 @@ export class RecallPracticeService {
     interface DueWordRow {
       meaning_id: string;
       word_text: string | null;
-      definition: string;
+      definition: string | null;
       audio_url: string | null;
       level: string;
       last_reviewed_at: Date | null;
@@ -86,7 +86,7 @@ export class RecallPracticeService {
          SELECT DISTINCT ON (usi.meaning_id)
            usi.meaning_id,
            au.text as word_text,
-           am.definition,
+           au.usage_notes as definition,
            au.audio_url,
            am.level,
            usi.last_reviewed_at,
@@ -110,7 +110,7 @@ export class RecallPracticeService {
       .map((row) => ({
         meaningId: row.meaning_id,
         word: row.word_text!,
-        definition: row.definition,
+        definition: row.definition || `Recall: ${row.word_text!}`,
         audioUrl: row.audio_url,
         cefrLevel: row.level,
         lastReviewedAt: row.last_reviewed_at?.toISOString() ?? null,

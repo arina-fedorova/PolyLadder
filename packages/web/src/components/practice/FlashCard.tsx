@@ -76,7 +76,7 @@ export function FlashCard({ card, onAssessment, disabled }: FlashCardProps) {
           // Front side - show definition
           <div className="flashcard-front card p-8 text-center min-h-[300px] flex flex-col justify-center">
             <p className="text-sm text-gray-500 mb-4">{card.cefrLevel}</p>
-            <p className="text-2xl mb-6">{card.definition}</p>
+            <p className="text-2xl mb-6">{card.definition || `Recall: ${card.word}`}</p>
 
             <button onClick={handleFlip} className="btn btn-primary btn-lg" disabled={disabled}>
               Show Answer (Space)
@@ -101,7 +101,9 @@ export function FlashCard({ card, onAssessment, disabled }: FlashCardProps) {
                 </button>
               )}
 
-              <p className="text-lg text-gray-600 mb-2">Was: {card.definition}</p>
+              <p className="text-lg text-gray-600 mb-2">
+                Was: {card.definition || `Recall: ${card.word}`}
+              </p>
             </div>
 
             <div className="space-y-2">
