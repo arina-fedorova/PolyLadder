@@ -63,7 +63,7 @@ export class RecallPracticeService {
   async getDueWords(userId: string, language: string, limit: number = 20): Promise<DueWord[]> {
     interface DueWordRow {
       meaning_id: string;
-      word_text: string;
+      word_text: string | null;
       level: string;
       last_reviewed_at: Date | null;
       next_review_at: Date;
@@ -85,24 +85,27 @@ export class RecallPracticeService {
            usi.next_review_at
          FROM user_srs_items usi
          JOIN approved_meanings am ON usi.meaning_id = am.id
-         LEFT JOIN approved_utterances au ON au.meaning_id = am.id
+         LEFT JOIN approved_utterances au ON au.meaning_id = am.id AND au.language = $2
          WHERE usi.user_id = $1
            AND usi.language = $2
            AND usi.next_review_at <= current_timestamp
          ORDER BY usi.meaning_id, usi.next_review_at ASC
        ) AS distinct_words
+       WHERE word_text IS NOT NULL
        ORDER BY next_review_at ASC
        LIMIT $3`,
       [userId, language, limit]
     );
 
-    return result.rows.map((row) => ({
-      meaningId: row.meaning_id,
-      word: row.word_text,
-      cefrLevel: row.level,
-      lastReviewedAt: row.last_reviewed_at?.toISOString() ?? null,
-      nextReviewAt: row.next_review_at.toISOString(),
-    }));
+    return result.rows
+      .filter((row) => row.word_text !== null)
+      .map((row) => ({
+        meaningId: row.meaning_id,
+        word: row.word_text!,
+        cefrLevel: row.level,
+        lastReviewedAt: row.last_reviewed_at?.toISOString() ?? null,
+        nextReviewAt: row.next_review_at.toISOString(),
+      }));
   }
 
   /**
