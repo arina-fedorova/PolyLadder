@@ -51,17 +51,29 @@ export function VocabularyLesson({ language }: VocabularyLessonProps) {
     enabled: !!meaningId,
   });
 
-  const markIntroducedMutation = useMutation({
+  const resetToLearningMutation = useMutation({
     mutationFn: async () => {
       if (!meaningId) throw new Error('No meaning ID');
-      return api.post<{ success: boolean; markedCount: number; message: string }>(
-        `/learning/vocabulary-introduction/mark-introduced`,
-        { meaningIds: [meaningId] }
-      );
+      return api.post<{ success: boolean; message: string }>(`/learning/word-state/reset`, {
+        meaningId,
+      });
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['vocabulary-lesson', meaningId, language] });
       void queryClient.invalidateQueries({ queryKey: ['vocabulary-next'] });
-      void navigate(`/learn/${language}/vocabulary`);
+    },
+  });
+
+  const markAsKnownMutation = useMutation({
+    mutationFn: async () => {
+      if (!meaningId) throw new Error('No meaning ID');
+      return api.post<{ success: boolean; message: string }>(`/learning/word-state/mark-known`, {
+        meaningId,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['vocabulary-lesson', meaningId, language] });
+      void queryClient.invalidateQueries({ queryKey: ['vocabulary-next'] });
     },
   });
 
@@ -138,9 +150,15 @@ export function VocabularyLesson({ language }: VocabularyLessonProps) {
 
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => markIntroducedMutation.mutate()}
+              onClick={() => {
+                if (wordState.state === 'known') {
+                  resetToLearningMutation.mutate();
+                } else {
+                  markAsKnownMutation.mutate();
+                }
+              }}
               className="btn btn-secondary"
-              disabled={markIntroducedMutation.isPending}
+              disabled={resetToLearningMutation.isPending || markAsKnownMutation.isPending}
             >
               {wordState.state === 'known' ? 'Mark as Learning' : 'Mark as Known'}
             </button>
