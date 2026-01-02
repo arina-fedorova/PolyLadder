@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 
 interface MultipleChoiceExerciseProps {
   exercise: {
@@ -18,9 +18,13 @@ export function MultipleChoiceExercise({
   disabled,
 }: MultipleChoiceExerciseProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const previousExerciseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setSelectedAnswer(null);
+    if (previousExerciseIdRef.current !== exercise.exerciseId) {
+      setSelectedAnswer(null);
+      previousExerciseIdRef.current = exercise.exerciseId;
+    }
   }, [exercise.exerciseId]);
 
   const options = useMemo(() => {
