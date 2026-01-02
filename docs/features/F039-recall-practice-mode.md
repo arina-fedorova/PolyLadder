@@ -4,7 +4,7 @@
 **Created**: 2025-12-17
 **Implemented**: 2026-01-02
 **Phase**: 12 - Practice Modes
-**Status**: Backend Complete (Frontend Pending)
+**Status**: ✅ Completed
 
 ---
 
@@ -14,15 +14,15 @@ Implement recall practice mode (flashcard-style active retrieval) where users se
 
 ## Success Criteria
 
-- [ ] Flashcard UI with flip animation (front: prompt, back: answer + audio) - **FRONTEND PENDING**
-- [ ] Audio playback on reveal for pronunciation practice - **FRONTEND PENDING**
-- [x] Self-assessment buttons (again, hard, good, easy) following SM-2 standard - **BACKEND COMPLETE** (Quality ratings 0-5 supported)
+- [x] Flashcard UI with flip animation (front: prompt, back: answer + audio) - **COMPLETE**
+- [x] Audio playback on reveal for pronunciation practice - **COMPLETE**
+- [x] Self-assessment buttons (again, hard, good, easy) following SM-2 standard - **COMPLETE** (Quality ratings 0-5 supported)
 - [x] SRS scheduling update based on self-assessment quality - **COMPLETE** (SM-2 algorithm implemented)
 - [x] Progress tracking per session (cards reviewed, accuracy) - **COMPLETE** (Stats endpoint implemented)
 - [x] Support for both vocabulary and sentence recall modes - **COMPLETE** (Single mode, works with approved_meanings)
-- [ ] Keyboard shortcuts for rapid practice (space to flip, 1-4 for ratings) - **FRONTEND PENDING**
-- [ ] Optional hints before revealing answer - **NOT IMPLEMENTED**
-- [x] Session statistics displayed at completion - **BACKEND COMPLETE** (Stats endpoint ready)
+- [x] Keyboard shortcuts for rapid practice (space to flip, 1-4 for ratings) - **COMPLETE**
+- [ ] Optional hints before revealing answer - **NOT IMPLEMENTED** (Deferred to future enhancement)
+- [x] Session statistics displayed at completion - **COMPLETE** (Stats endpoint + frontend display)
 - [x] Integration with word state tracking (updates "known" status) - **COMPLETE** (Via word-state.service)
 
 ---
@@ -908,12 +908,32 @@ export function RecallPracticeSession({ language }: RecallPracticeSessionProps) 
 - Auto-initialization: Learning words (from word_state) automatically added to SRS on first /due request
 - Integration: Leverages existing word state service for tracking learning progress
 
-**Frontend (Pending)**:
+**Frontend (Complete - 2026-01-02)**:
 
-- FlashCard component with flip animation
-- RecallPracticeSession component with keyboard shortcuts
-- Audio playback integration
-- Progress bar and session statistics UI
+1. **FlashCard Component** (`packages/web/src/components/practice/FlashCard.tsx`)
+   - Flip animation (front: definition, back: word + audio)
+   - Keyboard shortcuts (Space to flip, 1-4 for quality ratings)
+   - Audio auto-play on reveal
+   - Self-assessment buttons mapping to quality ratings:
+     - Again (1) → quality 0
+     - Hard (2) → quality 3
+     - Good (3) → quality 4
+     - Easy (4) → quality 5
+   - Disabled state during submission
+
+2. **RecallPracticeSession Component** (`packages/web/src/components/practice/RecallPracticeSession.tsx`)
+   - Fetches due cards from `/learning/recall/due`
+   - Progress bar with card count and reviewed count
+   - Auto-advance after assessment (500ms delay)
+   - Session completion screen with statistics
+   - "Start New Session" functionality
+   - Integration with React Query for data fetching
+
+3. **Features**:
+   - TypeScript interfaces for RecallCard and RecallStats
+   - Proper error handling and loading states
+   - Responsive design with Tailwind CSS
+   - All components typecheck and lint passed
 
 ### Technical Decisions
 
@@ -953,19 +973,13 @@ export function RecallPracticeSession({ language }: RecallPracticeSessionProps) 
 
 ### Next Steps
 
-1. **Frontend Implementation**:
-   - Implement FlashCard component with flip animation
-   - Add keyboard shortcuts (Space, 1-4)
-   - Integrate audio playback
-   - Build RecallPracticeSession component
-
-2. **Enhancements**:
+1. **Enhancements**:
    - Add hint system (show part of answer or example)
    - Add reverse mode (target language → base language)
    - Add sentence recall mode
    - Add audio-first recall (hear → recall meaning)
 
-3. **Analytics**:
+2. **Analytics**:
    - Track response time per card
    - Build retention curves
    - Identify problem cards for additional practice
