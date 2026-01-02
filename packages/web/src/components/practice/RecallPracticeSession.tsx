@@ -62,7 +62,10 @@ export function RecallPracticeSession({ language }: RecallPracticeSessionProps) 
   const { data: statsResponse } = useQuery<{ stats: RecallStats }>({
     queryKey: ['recall-stats', language],
     queryFn: async () => {
-      return api.get<{ stats: RecallStats }>(`/learning/recall/stats?language=${language}`);
+      const response = await api.get<{ stats: RecallStats }>(
+        `/learning/recall/stats?language=${language}`
+      );
+      return response;
     },
     enabled: reviewedCards.length > 0,
     refetchInterval: 5000,
