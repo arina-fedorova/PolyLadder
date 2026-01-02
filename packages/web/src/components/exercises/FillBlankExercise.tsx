@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface FillBlankExerciseProps {
   exercise: {
@@ -14,6 +14,11 @@ interface FillBlankExerciseProps {
 export function FillBlankExercise({ exercise, onSubmit, disabled }: FillBlankExerciseProps) {
   const [answer, setAnswer] = useState('');
   const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    setAnswer('');
+    setShowHint(false);
+  }, [exercise.exerciseId]);
 
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();

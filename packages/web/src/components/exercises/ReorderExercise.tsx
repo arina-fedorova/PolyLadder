@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 interface ReorderExerciseProps {
   exercise: {
@@ -19,6 +19,10 @@ export function ReorderExercise({ exercise, onSubmit, disabled }: ReorderExercis
   }, [exercise.correctAnswer]);
 
   const [words, setWords] = useState<string[]>(scrambledWords);
+
+  useEffect(() => {
+    setWords(scrambledWords);
+  }, [exercise.exerciseId, scrambledWords]);
 
   const moveWord = (from: number, to: number): void => {
     const newWords = [...words];
