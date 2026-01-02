@@ -70,19 +70,28 @@ export class RecallPracticeService {
     }
 
     const result = await this.pool.query<DueWordRow>(
-      `SELECT DISTINCT ON (usi.meaning_id)
-        usi.meaning_id,
-        au.text as word_text,
-        am.level,
-        usi.last_reviewed_at,
-        usi.next_review_at
-       FROM user_srs_items usi
-       JOIN approved_meanings am ON usi.meaning_id = am.id
-       LEFT JOIN approved_utterances au ON au.meaning_id = am.id
-       WHERE usi.user_id = $1
-         AND usi.language = $2
-         AND usi.next_review_at <= current_timestamp
-       ORDER BY usi.meaning_id, usi.next_review_at ASC
+      `SELECT
+        meaning_id,
+        word_text,
+        level,
+        last_reviewed_at,
+        next_review_at
+       FROM (
+         SELECT DISTINCT ON (usi.meaning_id)
+           usi.meaning_id,
+           au.text as word_text,
+           am.level,
+           usi.last_reviewed_at,
+           usi.next_review_at
+         FROM user_srs_items usi
+         JOIN approved_meanings am ON usi.meaning_id = am.id
+         LEFT JOIN approved_utterances au ON au.meaning_id = am.id
+         WHERE usi.user_id = $1
+           AND usi.language = $2
+           AND usi.next_review_at <= current_timestamp
+         ORDER BY usi.meaning_id, usi.next_review_at ASC
+       ) AS distinct_words
+       ORDER BY next_review_at ASC
        LIMIT $3`,
       [userId, language, limit]
     );
