@@ -24,14 +24,14 @@ describe('RecallPracticeService', () => {
         rows: [
           {
             meaning_id: 'en-hello',
-            word: 'hello',
+            word_text: 'hello',
             level: 'A1',
             last_reviewed_at: new Date('2025-12-25'),
             next_review_at: new Date('2026-01-01'),
           },
           {
             meaning_id: 'en-world',
-            word: 'world',
+            word_text: 'world',
             level: 'A1',
             last_reviewed_at: null,
             next_review_at: new Date('2026-01-01'),
@@ -399,7 +399,7 @@ describe('RecallPracticeService', () => {
       [0, 1.3, 'complete blackout (capped at minimum)'],
     ])(
       'should calculate correct ease factor for quality %d (%s)',
-      async (quality: QualityRating, expectedEaseFactor: number) => {
+      async (quality: number, expectedEaseFactor: number) => {
         const querySpy = vi.spyOn(mockPool, 'query');
 
         querySpy.mockResolvedValueOnce({
@@ -430,7 +430,7 @@ describe('RecallPracticeService', () => {
           rowCount: 1,
         } as never);
 
-        const result = await service.submitReview('user-123', 'en-test', quality);
+        const result = await service.submitReview('user-123', 'en-test', quality as QualityRating);
 
         expect(result.easeFactor).toBeCloseTo(expectedEaseFactor, 2);
       }

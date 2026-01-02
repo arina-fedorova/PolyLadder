@@ -63,32 +63,33 @@ export class RecallPracticeService {
   async getDueWords(userId: string, language: string, limit: number = 20): Promise<DueWord[]> {
     interface DueWordRow {
       meaning_id: string;
-      word: string;
+      word_text: string;
       level: string;
       last_reviewed_at: Date | null;
       next_review_at: Date;
     }
 
     const result = await this.pool.query<DueWordRow>(
-      `SELECT
+      `SELECT DISTINCT ON (usi.meaning_id)
         usi.meaning_id,
-        am.word,
+        au.text as word_text,
         am.level,
         usi.last_reviewed_at,
         usi.next_review_at
        FROM user_srs_items usi
        JOIN approved_meanings am ON usi.meaning_id = am.id
+       LEFT JOIN approved_utterances au ON au.meaning_id = am.id
        WHERE usi.user_id = $1
          AND usi.language = $2
          AND usi.next_review_at <= current_timestamp
-       ORDER BY usi.next_review_at ASC
+       ORDER BY usi.meaning_id, usi.next_review_at ASC
        LIMIT $3`,
       [userId, language, limit]
     );
 
     return result.rows.map((row) => ({
       meaningId: row.meaning_id,
-      word: row.word,
+      word: row.word_text,
       cefrLevel: row.level,
       lastReviewedAt: row.last_reviewed_at?.toISOString() ?? null,
       nextReviewAt: row.next_review_at.toISOString(),
