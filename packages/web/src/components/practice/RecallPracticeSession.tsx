@@ -11,6 +11,11 @@ interface RecallCard {
   cefrLevel: string;
 }
 
+interface RecallDueResponse {
+  words: RecallCard[];
+  count: number;
+}
+
 interface RecallStats {
   totalItems: number;
   dueNow: number;
@@ -27,12 +32,14 @@ export function RecallPracticeSession({ language }: RecallPracticeSessionProps) 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCards, setReviewedCards] = useState<string[]>([]);
 
-  const { data: cards, isLoading } = useQuery<RecallCard[]>({
+  const { data: response, isLoading } = useQuery<RecallDueResponse>({
     queryKey: ['recall-due', language],
     queryFn: async () => {
-      return api.get<RecallCard[]>(`/learning/recall/due?language=${language}`);
+      return api.get<RecallDueResponse>(`/learning/recall/due?language=${language}`);
     },
   });
+
+  const cards = response?.words ?? [];
 
   const submitMutation = useMutation({
     mutationFn: async (payload: { meaningId: string; quality: number }) => {
@@ -52,14 +59,16 @@ export function RecallPracticeSession({ language }: RecallPracticeSessionProps) 
     },
   });
 
-  const { data: stats } = useQuery<RecallStats>({
+  const { data: statsResponse } = useQuery<{ stats: RecallStats }>({
     queryKey: ['recall-stats', language],
     queryFn: async () => {
-      return api.get<RecallStats>(`/learning/recall/stats?language=${language}`);
+      return api.get<{ stats: RecallStats }>(`/learning/recall/stats?language=${language}`);
     },
     enabled: reviewedCards.length > 0,
-    refetchInterval: 5000, // Update every 5 seconds
+    refetchInterval: 5000,
   });
+
+  const stats = statsResponse?.stats;
 
   if (isLoading) {
     return <div className="text-center py-8">Loading review queue...</div>;

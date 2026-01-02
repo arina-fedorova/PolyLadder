@@ -14,6 +14,8 @@ type LanguageQuery = Static<typeof LanguageQuerySchema>;
 const DueWordSchema = Type.Object({
   meaningId: Type.String(),
   word: Type.String(),
+  definition: Type.String(),
+  audioUrl: Type.Union([Type.String(), Type.Null()]),
   cefrLevel: Type.Union([
     Type.Literal('A0'),
     Type.Literal('A1'),

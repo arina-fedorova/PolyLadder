@@ -26,6 +26,8 @@ export interface SRSItem {
 export interface DueWord {
   meaningId: string;
   word: string;
+  definition: string;
+  audioUrl: string | null;
   cefrLevel: string;
   lastReviewedAt: string | null;
   nextReviewAt: string;
@@ -64,6 +66,8 @@ export class RecallPracticeService {
     interface DueWordRow {
       meaning_id: string;
       word_text: string | null;
+      definition: string;
+      audio_url: string | null;
       level: string;
       last_reviewed_at: Date | null;
       next_review_at: Date;
@@ -73,6 +77,8 @@ export class RecallPracticeService {
       `SELECT
         meaning_id,
         word_text,
+        definition,
+        audio_url,
         level,
         last_reviewed_at,
         next_review_at
@@ -80,6 +86,8 @@ export class RecallPracticeService {
          SELECT DISTINCT ON (usi.meaning_id)
            usi.meaning_id,
            au.text as word_text,
+           am.definition,
+           au.audio_url,
            am.level,
            usi.last_reviewed_at,
            usi.next_review_at
@@ -102,6 +110,8 @@ export class RecallPracticeService {
       .map((row) => ({
         meaningId: row.meaning_id,
         word: row.word_text!,
+        definition: row.definition,
+        audioUrl: row.audio_url,
         cefrLevel: row.level,
         lastReviewedAt: row.last_reviewed_at?.toISOString() ?? null,
         nextReviewAt: row.next_review_at.toISOString(),
