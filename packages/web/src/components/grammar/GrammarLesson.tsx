@@ -66,7 +66,7 @@ export function GrammarLesson({ language }: GrammarLessonProps) {
     enabled: !!ruleId,
   });
 
-  const { data: comparisonData } = useQuery<ComparisonData>({
+  const { data: comparisonData, isLoading: isLoadingComparison } = useQuery<ComparisonData>({
     queryKey: ['grammar-comparison', ruleId],
     queryFn: async () => {
       return api.get<ComparisonData>(`/learning/grammar/${ruleId}/comparison`);
@@ -129,55 +129,74 @@ export function GrammarLesson({ language }: GrammarLessonProps) {
           <span className="badge badge-lg bg-gray-200 text-gray-700">{rule.category}</span>
         </div>
 
-        {comparison && (
-          <button
-            onClick={() => setShowComparison(!showComparison)}
-            className="btn btn-secondary btn-sm"
-          >
-            {showComparison ? 'Hide' : 'Show'} Cross-Language Comparison
-          </button>
-        )}
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className="btn btn-secondary btn-sm"
+          disabled={isLoadingComparison}
+        >
+          {isLoadingComparison ? 'Loading...' : showComparison ? 'Hide' : 'Show'} Cross-Language
+          Comparison
+        </button>
       </div>
 
       {/* Cross-Linguistic Comparison */}
-      {showComparison && comparison && (
+      {showComparison && (
         <div className="card p-6 mb-6 bg-blue-50 border-2 border-blue-200">
           <h2 className="text-2xl font-bold mb-4">Comparison Across Languages</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {comparison.languages.map((lang) => (
-              <div key={lang.language} className="card p-4 bg-white">
-                <h3 className="font-bold text-lg mb-2">{lang.language}</h3>
-                <p className="text-sm text-gray-700 mb-2">{lang.title}</p>
-                {lang.example && <p className="text-sm italic text-gray-600">"{lang.example}"</p>}
-              </div>
-            ))}
-          </div>
-
-          {comparison.similarities.length > 0 && (
-            <div className="mb-4">
-              <h3 className="font-bold mb-2 text-green-700">✓ Similarities:</h3>
-              <ul className="list-disc list-inside space-y-1">
-                {comparison.similarities.map((sim, idx) => (
-                  <li key={idx} className="text-gray-700">
-                    {sim}
-                  </li>
-                ))}
-              </ul>
+          {isLoadingComparison && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading comparison...</span>
             </div>
           )}
 
-          {comparison.differences.length > 0 && (
-            <div>
-              <h3 className="font-bold mb-2 text-orange-700">⚠ Differences:</h3>
-              <ul className="list-disc list-inside space-y-1">
-                {comparison.differences.map((diff, idx) => (
-                  <li key={idx} className="text-gray-700">
-                    {diff}
-                  </li>
+          {!isLoadingComparison && !comparison && (
+            <p className="text-gray-600 text-center py-4">
+              No cross-language comparison available for this grammar rule.
+            </p>
+          )}
+
+          {!isLoadingComparison && comparison && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {comparison.languages.map((lang) => (
+                  <div key={lang.language} className="card p-4 bg-white">
+                    <h3 className="font-bold text-lg mb-2">{lang.language}</h3>
+                    <p className="text-sm text-gray-700 mb-2">{lang.title}</p>
+                    {lang.example && (
+                      <p className="text-sm italic text-gray-600">"{lang.example}"</p>
+                    )}
+                  </div>
                 ))}
-              </ul>
-            </div>
+              </div>
+
+              {comparison.similarities.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-bold mb-2 text-green-700">✓ Similarities:</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {comparison.similarities.map((sim, idx) => (
+                      <li key={idx} className="text-gray-700">
+                        {sim}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {comparison.differences.length > 0 && (
+                <div>
+                  <h3 className="font-bold mb-2 text-orange-700">⚠ Differences:</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {comparison.differences.map((diff, idx) => (
+                      <li key={idx} className="text-gray-700">
+                        {diff}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
