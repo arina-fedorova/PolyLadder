@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import { getTestPool, cleanupTestData, closeTestPool, setupTestEnv } from '../../../setup';
-import { GrammarLessonService } from '../../../../src/services/grammar/lesson.service';
+import { getTestPool, cleanupTestData, closeTestPool, setupTestEnv } from '../../setup';
+import { GrammarLessonService } from '../../../src/services/grammar/lesson.service';
 
 describe('GrammarLessonService', () => {
   let pool: Pool;
