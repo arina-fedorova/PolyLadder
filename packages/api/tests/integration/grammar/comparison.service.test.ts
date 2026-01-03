@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import { getTestPool, cleanupTestData, closeTestPool, setupTestEnv } from '../../../setup';
-import { GrammarComparisonService } from '../../../../src/services/grammar/comparison.service';
+import { getTestPool, cleanupTestData, closeTestPool, setupTestEnv } from '../../setup';
+import { GrammarComparisonService } from '../../../src/services/grammar/comparison.service';
 
 describe('GrammarComparisonService', () => {
   let pool: Pool;

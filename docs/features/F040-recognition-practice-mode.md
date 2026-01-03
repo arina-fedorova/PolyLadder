@@ -3,7 +3,7 @@
 **Feature Code**: F040
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,16 +13,16 @@ Implement recognition practice mode using multiple choice questions for vocabula
 
 ## Success Criteria
 
-- [ ] Multiple choice questions with 4 options (1 correct + 3 distractors)
-- [ ] Intelligent distractor generation from same CEFR level and category
-- [ ] Immediate visual feedback (green=correct, red=incorrect)
-- [ ] Explanation shown after answer selection
-- [ ] Correct/incorrect tracking feeds into SRS scheduling
-- [ ] Support for vocabulary and grammar recognition
-- [ ] Audio playback for pronunciation practice
-- [ ] Keyboard shortcuts (1-4 for option selection)
-- [ ] Shuffle option order to prevent position bias
-- [ ] Track time-to-answer for adaptive difficulty
+- [x] Multiple choice questions with 4 options (1 correct + 3 distractors)
+- [x] Intelligent distractor generation from same CEFR level and category
+- [x] Immediate visual feedback (green=correct, red=incorrect)
+- [x] Explanation shown after answer selection
+- [x] Correct/incorrect tracking feeds into SRS scheduling
+- [x] Support for vocabulary and grammar recognition
+- [x] Audio playback for pronunciation practice
+- [x] Keyboard shortcuts (1-4 for option selection)
+- [x] Shuffle option order to prevent position bias
+- [x] Track time-to-answer for adaptive difficulty
 
 ---
 
@@ -45,10 +45,7 @@ export class DistractorGenerationService {
    * Generate distractors for vocabulary word
    * Strategy: Same CEFR level, same POS, different meaning
    */
-  async generateVocabularyDistractors(
-    vocabularyId: string,
-    count: number = 3
-  ): Promise<string[]> {
+  async generateVocabularyDistractors(vocabularyId: string, count: number = 3): Promise<string[]> {
     // Get target word info
     const wordResult = await this.pool.query<{
       cefrLevel: CEFRLevel;
@@ -80,7 +77,7 @@ export class DistractorGenerationService {
       [language, cefrLevel, partOfSpeech, vocabularyId, count]
     );
 
-    return distractorsResult.rows.map(r => r.wordText);
+    return distractorsResult.rows.map((r) => r.wordText);
   }
 
   /**
@@ -123,7 +120,7 @@ export class DistractorGenerationService {
       [baseLanguage, cefrLevel, vocabularyId, count]
     );
 
-    return distractorsResult.rows.map(r => r.definition);
+    return distractorsResult.rows.map((r) => r.definition);
   }
 
   /**
@@ -152,8 +149,8 @@ export class DistractorGenerationService {
 
     // Extract unique words, filter out correct form
     const words = distractorsResult.rows
-      .map(r => r.sentenceText)
-      .filter(w => w !== correctForm)
+      .map((r) => r.sentenceText)
+      .filter((w) => w !== correctForm)
       .slice(0, count);
 
     return words;
@@ -162,9 +159,11 @@ export class DistractorGenerationService {
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/practice/distractor.service.ts`
 
 **Distractor Strategies**:
+
 - **Vocabulary**: Same CEFR level + same part of speech + different word
 - **Definitions**: Same CEFR level + different word
 - **Grammar**: Same category + different form/conjugation
@@ -373,7 +372,13 @@ export class RecognitionPracticeService {
                last_reviewed_at = NOW(),
                review_count = review_count + 1
            WHERE id = $1 AND user_id = $2`,
-          [srsItemId, userId, srsUpdate.newInterval, srsUpdate.newEaseFactor, srsUpdate.nextReviewDate]
+          [
+            srsItemId,
+            userId,
+            srsUpdate.newInterval,
+            srsUpdate.newEaseFactor,
+            srsUpdate.nextReviewDate,
+          ]
         );
       }
     }
@@ -417,54 +422,63 @@ export const recognitionPracticeRoutes: FastifyPluginAsync = async (fastify) => 
    * GET /practice/recognition/questions
    * Get recognition practice questions
    */
-  fastify.get('/practice/recognition/questions', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: RecognitionQueueSchema,
+  fastify.get(
+    '/practice/recognition/questions',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: RecognitionQueueSchema,
+      },
     },
-  }, async (request, reply) => {
-    const { language, baseLanguage, limit } = RecognitionQueueSchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language, baseLanguage, limit } = RecognitionQueueSchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const questions = await recognitionService.getRecognitionQuestions(
-      userId,
-      language,
-      baseLanguage,
-      limit
-    );
+      const questions = await recognitionService.getRecognitionQuestions(
+        userId,
+        language,
+        baseLanguage,
+        limit
+      );
 
-    return reply.status(200).send({ questions });
-  });
+      return reply.status(200).send({ questions });
+    }
+  );
 
   /**
    * POST /practice/recognition/submit
    * Submit recognition answer
    */
-  fastify.post('/practice/recognition/submit', {
-    preHandler: authMiddleware,
-    schema: {
-      body: SubmitRecognitionSchema,
+  fastify.post(
+    '/practice/recognition/submit',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: SubmitRecognitionSchema,
+      },
     },
-  }, async (request, reply) => {
-    const { questionId, srsItemId, selectedIndex, correctIndex, timeToAnswerMs } =
-      SubmitRecognitionSchema.parse(request.body);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { questionId, srsItemId, selectedIndex, correctIndex, timeToAnswerMs } =
+        SubmitRecognitionSchema.parse(request.body);
+      const userId = request.user!.userId;
 
-    const result = await recognitionService.submitRecognitionAnswer(
-      userId,
-      questionId,
-      srsItemId,
-      selectedIndex,
-      correctIndex,
-      timeToAnswerMs
-    );
+      const result = await recognitionService.submitRecognitionAnswer(
+        userId,
+        questionId,
+        srsItemId,
+        selectedIndex,
+        correctIndex,
+        timeToAnswerMs
+      );
 
-    return reply.status(200).send({ result });
-  });
+      return reply.status(200).send({ result });
+    }
+  );
 };
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/practice/recognition.service.ts`
 - `packages/api/src/routes/practice/recognition.ts`
 
@@ -687,9 +701,11 @@ export function RecognitionPractice({ language, baseLanguage }: RecognitionPract
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/practice/RecognitionPractice.tsx`
 
 **UI Features**:
+
 - Color-coded feedback (green=correct, red=incorrect)
 - Keyboard shortcuts (1-4)
 - Audio playback button
@@ -715,6 +731,7 @@ export function RecognitionPractice({ language, baseLanguage }: RecognitionPract
 **Context**: Should recognition questions have 3, 4, or 5 options?
 
 **Options**:
+
 1. **3 Options** (1 correct + 2 distractors)
    - Pros: Faster to answer, less cognitive load
    - Cons: 33% chance of guessing correctly
@@ -739,6 +756,7 @@ export function RecognitionPractice({ language, baseLanguage }: RecognitionPract
 **Context**: How to ensure distractors are plausible but not deceptive?
 
 **Options**:
+
 1. **Random from Same CEFR** (Current implementation)
    - Pros: Simple, scalable
    - Cons: May be too easy or too hard
@@ -763,6 +781,7 @@ export function RecognitionPractice({ language, baseLanguage }: RecognitionPract
 **Context**: Should recognition practice contribute equally to SRS as recall practice?
 
 **Options**:
+
 1. **Equal Weight** (Current implementation)
    - Pros: Simple, encourages variety
    - Cons: Recognition is easier, may not indicate mastery
