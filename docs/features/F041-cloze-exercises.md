@@ -3,7 +3,7 @@
 **Feature Code**: F041
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,16 +13,16 @@ Implement cloze (fill-in-the-blank) exercises for vocabulary and grammar practic
 
 ## Success Criteria
 
-- [ ] Sentence displayed with blank(s) where target word(s) removed
-- [ ] Text input for answer submission
-- [ ] Fuzzy matching tolerates accents, capitalization, minor typos
-- [ ] Immediate feedback with correct answer and explanation
-- [ ] Progressive hint system (first letter → word length → POS)
-- [ ] Audio playback of complete sentence
-- [ ] Multiple blanks per sentence support (advanced)
-- [ ] Partial credit for close answers (affects SRS scheduling)
-- [ ] Integration with SRS for optimal spacing
-- [ ] Track attempts per exercise for adaptive difficulty
+- [x] Sentence displayed with blank(s) where target word(s) removed
+- [x] Text input for answer submission
+- [x] Fuzzy matching tolerates accents, capitalization, minor typos
+- [x] Immediate feedback with correct answer and explanation
+- [x] Progressive hint system (first letter → word length → POS)
+- [x] Audio playback of complete sentence
+- [ ] Multiple blanks per sentence support (advanced) - deferred to v2
+- [x] Partial credit for close answers (affects SRS scheduling)
+- [x] Integration with SRS for optimal spacing
+- [x] Track attempts per exercise for adaptive difficulty
 
 ---
 
@@ -236,7 +236,7 @@ export class ClozeExerciseService {
     }
 
     // Check alternatives
-    if (alternativeAnswers.some(alt => alt.toLowerCase() === trimmedAnswer.toLowerCase())) {
+    if (alternativeAnswers.some((alt) => alt.toLowerCase() === trimmedAnswer.toLowerCase())) {
       await this.updateSRS(srsItemId, userId, 5); // Perfect
       return {
         isCorrect: true,
@@ -393,9 +393,11 @@ export class ClozeExerciseService {
 ```
 
 **Files Created**:
+
 - `packages/api/src/services/practice/cloze.service.ts`
 
 **Technical Features**:
+
 - **Word Extraction**: Finds target word in sentence, replaces with blank
 - **Fuzzy Matching**: Levenshtein distance for typo tolerance
 - **Alternative Answers**: Accepts different capitalizations and accent variations
@@ -437,52 +439,62 @@ export const clozeExerciseRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /practice/cloze/exercises
    * Get cloze exercises for practice
    */
-  fastify.get('/practice/cloze/exercises', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: ClozeQueueSchema,
+  fastify.get(
+    '/practice/cloze/exercises',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: ClozeQueueSchema,
+      },
     },
-  }, async (request, reply) => {
-    const { language, limit } = ClozeQueueSchema.parse(request.query);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { language, limit } = ClozeQueueSchema.parse(request.query);
+      const userId = request.user!.userId;
 
-    const exercises = await clozeService.getClozeExercises(userId, language, limit);
+      const exercises = await clozeService.getClozeExercises(userId, language, limit);
 
-    return reply.status(200).send({ exercises });
-  });
+      return reply.status(200).send({ exercises });
+    }
+  );
 
   /**
    * POST /practice/cloze/submit
    * Submit cloze answer for validation
    */
-  fastify.post('/practice/cloze/submit', {
-    preHandler: authMiddleware,
-    schema: {
-      body: SubmitClozeSchema,
+  fastify.post(
+    '/practice/cloze/submit',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: SubmitClozeSchema,
+      },
     },
-  }, async (request, reply) => {
-    const { exerciseId, userAnswer, correctAnswer, alternativeAnswers, srsItemId } =
-      SubmitClozeSchema.parse(request.body);
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const { exerciseId, userAnswer, correctAnswer, alternativeAnswers, srsItemId } =
+        SubmitClozeSchema.parse(request.body);
+      const userId = request.user!.userId;
 
-    const result = await clozeService.validateClozeAnswer(
-      exerciseId,
-      userAnswer,
-      correctAnswer,
-      alternativeAnswers,
-      srsItemId,
-      userId
-    );
+      const result = await clozeService.validateClozeAnswer(
+        exerciseId,
+        userAnswer,
+        correctAnswer,
+        alternativeAnswers,
+        srsItemId,
+        userId
+      );
 
-    return reply.status(200).send({ result });
-  });
+      return reply.status(200).send({ result });
+    }
+  );
 };
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/practice/cloze.ts`
 
 **API Summary**:
+
 - `GET /practice/cloze/exercises` - Get cloze exercises
 - `POST /practice/cloze/submit` - Submit answer with fuzzy matching
 
@@ -780,9 +792,11 @@ export function ClozePractice({ language }: ClozePracticeProps) {
 ```
 
 **Files Created**:
+
 - `packages/web/src/components/practice/ClozePractice.tsx`
 
 **UI Features**:
+
 - Sentence displayed with visual blank (underline)
 - Text input with auto-focus
 - Progressive hint system (unlocks after 2 attempts)
@@ -809,6 +823,7 @@ export function ClozePractice({ language }: ClozePracticeProps) {
 **Context**: Should we support sentences with multiple blanks, or one blank per exercise?
 
 **Options**:
+
 1. **Single Blank** (Current implementation)
    - Pros: Simple, focused practice
    - Cons: Can't practice complex sentences
@@ -833,6 +848,7 @@ export function ClozePractice({ language }: ClozePracticeProps) {
 **Context**: When should hints become available?
 
 **Options**:
+
 1. **After N Attempts** (Current: after 2 wrong attempts)
    - Pros: Encourages independent thinking
    - Cons: May frustrate beginners
@@ -857,6 +873,7 @@ export function ClozePractice({ language }: ClozePracticeProps) {
 **Context**: How tolerant should fuzzy matching be?
 
 **Options**:
+
 1. **Very Strict** (95%+ similarity required)
    - Pros: Enforces accurate spelling
    - Cons: Frustrates learners with minor typos
