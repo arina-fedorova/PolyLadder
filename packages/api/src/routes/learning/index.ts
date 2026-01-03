@@ -13,6 +13,7 @@ import grammarRoute from './grammar';
 import recallRoute from './recall';
 import recognitionRoute from './recognition';
 import clozeRoute from './cloze';
+import dictationRoute from './dictation';
 
 const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(preferencesRoute);
@@ -29,6 +30,7 @@ const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(recallRoute);
   await fastify.register(recognitionRoute);
   await fastify.register(clozeRoute);
+  await fastify.register(dictationRoute);
 };
 
 export default learningRoutes;

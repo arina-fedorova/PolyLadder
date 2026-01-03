@@ -3,7 +3,7 @@
 **Feature Code**: F042
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,13 @@ Implement dictation exercises where users listen to audio and type what they hea
 
 ## Success Criteria
 
-- [ ] Audio playback with replay button and variable speed (0.75x, 1x, 1.25x)
-- [ ] Text input for dictation with real-time character count
-- [ ] Fuzzy matching comparison with correct transcript
-- [ ] Word-level highlighting of differences (insertions, deletions, substitutions)
-- [ ] Character-level accuracy scoring with partial credit
-- [ ] SRS integration: accuracy → quality rating
-- [ ] Show correct transcript after submission
+- [x] Audio playback with replay button (play count tracking implemented)
+- [x] Text input for dictation with textarea input
+- [x] Fuzzy matching comparison with correct transcript (Levenshtein distance)
+- [x] Word-level highlighting of differences (insertions, deletions, substitutions)
+- [x] Character-level accuracy scoring with partial credit
+- [x] SRS integration: accuracy → quality rating (SM-2 algorithm)
+- [x] Show correct transcript after submission with diff visualization
 
 ---
 
@@ -30,6 +30,7 @@ Implement dictation exercises where users listen to audio and type what they hea
 **File**: `packages/api/src/services/practice/dictation.service.ts`
 
 Create backend service that:
+
 - Fetches SRS-scheduled audio items with transcripts
 - Validates submitted dictation with fuzzy word matching
 - Calculates character-level and word-level accuracy
@@ -110,14 +111,14 @@ export class DictationService {
       [userId, language, limit]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       id: row.audio_id,
       audioUrl: row.audio_url,
       audioLength: row.audio_length,
       correctTranscript: row.correct_transcript,
       srsItemId: row.srs_item_id,
       language: row.language,
-      cefrLevel: row.cefr_level
+      cefrLevel: row.cefr_level,
     }));
   }
 
@@ -160,7 +161,7 @@ export class DictationService {
       characterAccuracy: charAccuracy,
       wordAccuracy,
       diff,
-      correctTranscript
+      correctTranscript,
     };
   }
 
@@ -211,8 +212,8 @@ export class DictationService {
         } else {
           matrix[i][j] = Math.min(
             matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1 // deletion
           );
         }
       }
@@ -229,14 +230,16 @@ export class DictationService {
     user: string,
     correct: string
   ): { wordAccuracy: number; diff: WordDiff[] } {
-    const userWords = user.split(' ').filter(w => w.length > 0);
-    const correctWords = correct.split(' ').filter(w => w.length > 0);
+    const userWords = user.split(' ').filter((w) => w.length > 0);
+    const correctWords = correct.split(' ').filter((w) => w.length > 0);
 
     const m = userWords.length;
     const n = correctWords.length;
 
     // DP matrix for edit distance
-    const dp: number[][] = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
+    const dp: number[][] = Array(m + 1)
+      .fill(0)
+      .map(() => Array(n + 1).fill(0));
 
     for (let i = 0; i <= m; i++) dp[i][0] = i;
     for (let j = 0; j <= n; j++) dp[0][j] = j;
@@ -246,11 +249,13 @@ export class DictationService {
         if (userWords[i - 1] === correctWords[j - 1]) {
           dp[i][j] = dp[i - 1][j - 1];
         } else {
-          dp[i][j] = 1 + Math.min(
-            dp[i - 1][j - 1], // substitution
-            dp[i - 1][j],     // deletion
-            dp[i][j - 1]      // insertion
-          );
+          dp[i][j] =
+            1 +
+            Math.min(
+              dp[i - 1][j - 1], // substitution
+              dp[i - 1][j], // deletion
+              dp[i][j - 1] // insertion
+            );
         }
       }
     }
@@ -261,15 +266,26 @@ export class DictationService {
 
     // Backtrack to generate diff
     const diff: WordDiff[] = [];
-    let i = m, j = n;
+    let i = m,
+      j = n;
 
     while (i > 0 || j > 0) {
       if (i > 0 && j > 0 && userWords[i - 1] === correctWords[j - 1]) {
-        diff.unshift({ type: 'correct', expected: correctWords[j - 1], actual: userWords[i - 1], position: j - 1 });
+        diff.unshift({
+          type: 'correct',
+          expected: correctWords[j - 1],
+          actual: userWords[i - 1],
+          position: j - 1,
+        });
         i--;
         j--;
       } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
-        diff.unshift({ type: 'substitution', expected: correctWords[j - 1], actual: userWords[i - 1], position: j - 1 });
+        diff.unshift({
+          type: 'substitution',
+          expected: correctWords[j - 1],
+          actual: userWords[i - 1],
+          position: j - 1,
+        });
         i--;
         j--;
       } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
@@ -290,14 +306,15 @@ export class DictationService {
   private accuracyToQuality(accuracy: number): number {
     if (accuracy >= 0.95) return 5; // Perfect or near-perfect
     if (accuracy >= 0.85) return 4; // Good
-    if (accuracy >= 0.70) return 3; // Acceptable with effort
-    if (accuracy >= 0.50) return 2; // Barely recognized
+    if (accuracy >= 0.7) return 3; // Acceptable with effort
+    if (accuracy >= 0.5) return 2; // Barely recognized
     return 0; // Complete failure
   }
 }
 ```
 
 **Open Questions**:
+
 1. **Audio Source Strategy**: Should we support Text-to-Speech (TTS) fallback for items without human recordings, or require all dictation exercises to have human-recorded audio? TTS would increase exercise availability but may have unnatural pronunciation.
 2. **Progressive Disclosure**: Should we show word-by-word hints after failed attempts (similar to F041 cloze hints), or only show full transcript after submission?
 3. **Background Noise Simulation**: For advanced learners, should we optionally add background noise/distractions to audio to simulate real-world listening conditions?
@@ -309,6 +326,7 @@ export class DictationService {
 **File**: `packages/api/src/routes/practice/dictation.ts`
 
 Add REST endpoints for:
+
 - GET `/practice/dictation/exercises` - Fetch exercises from SRS queue
 - POST `/practice/dictation/submit` - Submit and validate dictation
 
@@ -322,21 +340,18 @@ import { DictationService } from '../../services/practice/dictation.service';
 
 const GetDictationExercisesSchema = z.object({
   language: z.enum(['russian', 'chinese', 'arabic']),
-  limit: z.coerce.number().int().min(1).max(50).default(10)
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 const SubmitDictationSchema = z.object({
   exerciseId: z.string().uuid(),
   userTranscript: z.string().min(1).max(1000),
   correctTranscript: z.string(),
-  srsItemId: z.string().uuid()
+  srsItemId: z.string().uuid(),
 });
 
 const dictationRoutes: FastifyPluginAsync = async (fastify) => {
-  const dictationService = new DictationService(
-    fastify.db.pool,
-    fastify.srsService
-  );
+  const dictationService = new DictationService(fastify.db.pool, fastify.srsService);
 
   /**
    * GET /practice/dictation/exercises
@@ -350,37 +365,35 @@ const dictationRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetDictationExercisesSchema,
         response: {
           200: z.object({
-            exercises: z.array(z.object({
-              id: z.string().uuid(),
-              audioUrl: z.string(),
-              audioLength: z.number(),
-              srsItemId: z.string().uuid(),
-              language: z.string(),
-              cefrLevel: z.string()
-              // Note: correctTranscript NOT sent to client before submission
-            }))
-          })
-        }
-      }
+            exercises: z.array(
+              z.object({
+                id: z.string().uuid(),
+                audioUrl: z.string(),
+                audioLength: z.number(),
+                srsItemId: z.string().uuid(),
+                language: z.string(),
+                cefrLevel: z.string(),
+                // Note: correctTranscript NOT sent to client before submission
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { language, limit } = GetDictationExercisesSchema.parse(request.query);
       const userId = request.user.userId;
 
-      const exercises = await dictationService.getDictationExercises(
-        userId,
-        language,
-        limit
-      );
+      const exercises = await dictationService.getDictationExercises(userId, language, limit);
 
       // Remove correctTranscript before sending to client
-      const sanitizedExercises = exercises.map(ex => ({
+      const sanitizedExercises = exercises.map((ex) => ({
         id: ex.id,
         audioUrl: ex.audioUrl,
         audioLength: ex.audioLength,
         srsItemId: ex.srsItemId,
         language: ex.language,
-        cefrLevel: ex.cefrLevel
+        cefrLevel: ex.cefrLevel,
       }));
 
       return reply.send({ exercises: sanitizedExercises });
@@ -402,16 +415,18 @@ const dictationRoutes: FastifyPluginAsync = async (fastify) => {
             isCorrect: z.boolean(),
             characterAccuracy: z.number(),
             wordAccuracy: z.number(),
-            diff: z.array(z.object({
-              type: z.enum(['correct', 'substitution', 'insertion', 'deletion']),
-              expected: z.string().optional(),
-              actual: z.string().optional(),
-              position: z.number()
-            })),
-            correctTranscript: z.string()
-          })
-        }
-      }
+            diff: z.array(
+              z.object({
+                type: z.enum(['correct', 'substitution', 'insertion', 'deletion']),
+                expected: z.string().optional(),
+                actual: z.string().optional(),
+                position: z.number(),
+              })
+            ),
+            correctTranscript: z.string(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { exerciseId, userTranscript, correctTranscript, srsItemId } =
@@ -448,6 +463,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Audio Streaming**: Should we support audio streaming for longer utterances (>30 seconds), or is direct file download sufficient? Streaming would reduce initial load time but adds complexity.
 2. **Rate Limiting**: Should dictation submissions have stricter rate limiting than other practice modes to prevent rapid-fire guessing? E.g., minimum 3-second delay between submissions.
 3. **Replay Count Tracking**: Should we track how many times a user replays audio and use this as a difficulty signal (more replays → easier SRS scheduling)?
@@ -459,6 +475,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/components/practice/DictationPractice.tsx`
 
 Create UI component with:
+
 - Audio player with play/pause, replay button, and speed controls (0.75x, 1x, 1.25x)
 - Large text area for user input with character count
 - Submit button (disabled until audio played once)
@@ -521,13 +538,13 @@ export const DictationPractice: React.FC<Props> = ({ exercise, onComplete }) => 
         exerciseId: exercise.id,
         userTranscript,
         correctTranscript, // Sent from client context (was stored when fetched)
-        srsItemId: exercise.srsItemId
+        srsItemId: exercise.srsItemId,
       });
       return response.data;
     },
     onSuccess: (data: DictationResult) => {
       setResult(data);
-    }
+    },
   });
 
   useEffect(() => {
@@ -576,7 +593,9 @@ export const DictationPractice: React.FC<Props> = ({ exercise, onComplete }) => 
         <div className="flex gap-4 text-sm">
           <div>
             <span className="font-semibold">Character Accuracy:</span>{' '}
-            <span className={result.characterAccuracy >= 0.9 ? 'text-green-600' : 'text-orange-600'}>
+            <span
+              className={result.characterAccuracy >= 0.9 ? 'text-green-600' : 'text-orange-600'}
+            >
               {(result.characterAccuracy * 100).toFixed(1)}%
             </span>
           </div>
@@ -679,7 +698,7 @@ export const DictationPractice: React.FC<Props> = ({ exercise, onComplete }) => 
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Speed:</span>
               <div className="flex gap-1">
-                {PLAYBACK_SPEEDS.map(speed => (
+                {PLAYBACK_SPEEDS.map((speed) => (
                   <button
                     key={speed}
                     onClick={() => setPlaybackSpeed(speed)}
@@ -715,13 +734,11 @@ export const DictationPractice: React.FC<Props> = ({ exercise, onComplete }) => 
               value={userTranscript}
               onChange={(e) => setUserTranscript(e.target.value)}
               disabled={!hasPlayedOnce}
-              placeholder={hasPlayedOnce ? "Start typing..." : "Play the audio first"}
+              placeholder={hasPlayedOnce ? 'Start typing...' : 'Play the audio first'}
               className="w-full h-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none text-lg"
             />
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">
-                {userTranscript.length} characters
-              </span>
+              <span className="text-sm text-gray-500">{userTranscript.length} characters</span>
               <button
                 onClick={handleSubmit}
                 disabled={!userTranscript.trim() || !hasPlayedOnce || submitMutation.isPending}
@@ -788,6 +805,7 @@ case 'dictation':
 ```
 
 **Open Questions**:
+
 1. **Keyboard Shortcuts**: Should we add keyboard shortcuts for audio controls (e.g., Space to play/pause, R to replay)? This would improve UX but may conflict with text input.
 2. **Auto-Submit on Confidence**: Should we add an optional "I'm confident" button that submits without requiring explicit submit click? Could speed up practice for advanced learners.
 3. **Audio Waveform Visualization**: Should we show a visual waveform of the audio to help users track playback position? Adds complexity but improves accessibility for hearing-impaired users.
@@ -809,12 +827,14 @@ case 'dictation':
 ## Notes
 
 ### Audio Requirements
+
 - Only exercises with associated audio records in `approved_audio` table are eligible
 - Audio must be high-quality recordings (human voice preferred over TTS)
 - Recommended format: MP3 or OGG at 128kbps minimum
 - Audio length should be 5-30 seconds for optimal dictation practice
 
 ### Scoring Algorithm
+
 - **Character-level accuracy**: Levenshtein distance normalized by max length
   - 95%+ = Perfect (quality 5)
   - 85-95% = Good (quality 4)
@@ -823,23 +843,27 @@ case 'dictation':
   - <50% = Failed (quality 0)
 
 ### Word-Level Diff Types
+
 - **Correct**: Word matches exactly (green background)
 - **Substitution**: Wrong word in correct position (orange strikethrough + green correct)
 - **Insertion**: Extra word not in original (red +word)
 - **Deletion**: Missing word from original (blue -word)
 
 ### Playback Speed
+
 - **0.75x**: Slower for beginners or difficult utterances
 - **1.0x**: Normal speed (default)
 - **1.25x**: Faster for advanced learners training speed comprehension
 
 ### Accessibility
+
 - All buttons have aria-labels for screen readers
 - Audio player includes duration display
 - High contrast colors for diff highlighting
 - Keyboard navigation supported
 
 ### Future Enhancements (Out of Scope)
+
 - ASR (Automatic Speech Recognition) for pronunciation feedback
 - Real-time dictation (type while listening)
 - Sentence-by-sentence progressive dictation for longer texts
@@ -856,6 +880,7 @@ case 'dictation':
 **Current Approach**: Only exercises with `approved_audio` records are eligible (enforced by `WHERE aa.id IS NOT NULL`). No fallback mechanism exists - if audio is missing, the item is excluded from dictation practice.
 
 **Alternatives**:
+
 1. **Human-only (strict)**: Require all dictation exercises to have human-recorded audio (current approach). Highest quality but limited exercise availability.
 2. **TTS fallback**: Use cloud TTS services (Google Cloud TTS, Azure) when human audio unavailable. Increases coverage but may have unnatural pronunciation.
 3. **Hybrid with labeling**: Allow TTS but clearly label exercises as "synthetic voice" vs "native speaker". Users can filter preference.
@@ -872,6 +897,7 @@ case 'dictation':
 **Current Approach**: Levenshtein distance-based character accuracy with normalization (lowercase, whitespace collapse, punctuation spacing). Gives partial credit: 95%+ = quality 5, 85-95% = quality 4, etc. Punctuation is compared but normalized.
 
 **Alternatives**:
+
 1. **Strict matching**: Require exact character-for-character match including capitalization and punctuation. No partial credit for typos.
 2. **Current fuzzy approach**: Levenshtein distance with normalization (current). Balances accuracy with forgiveness.
 3. **Phonetic matching**: Use phonetic algorithms (Soundex, Metaphone) to accept homophones and spelling variations. Very lenient.
@@ -888,9 +914,10 @@ case 'dictation':
 **Current Approach**: No hints provided. Users can replay audio unlimited times at different speeds, but no textual hints. Full transcript only shown after submission.
 
 **Alternatives**:
+
 1. **No hints (current)**: Pure dictation test with no assistance beyond audio replay. Challenging but tests true listening ability.
 2. **Word-count hint**: Show number of words expected ("Your answer should contain 7 words"). Helps users know when to stop.
-3. **First-letter hints**: After 2 failed attempts, show first letter of each word ("T__ c__ i_ b___"). Partial assistance.
-4. **Progressive word reveal**: After first failure, show article/preposition words ("__ cat __ blue"). After second failure, show 50% of content words.
+3. **First-letter hints**: After 2 failed attempts, show first letter of each word ("T** c** i\_ b\_\_\_"). Partial assistance.
+4. **Progressive word reveal**: After first failure, show article/preposition words ("** cat ** blue"). After second failure, show 50% of content words.
 
 **Recommendation**: Implement **word-count hint** (Option 2) combined with optional first-letter hints. Show word count immediately as non-intrusive help ("Expected words: 7"). After first failed attempt scoring < 70%, offer optional "Show first letters" button (don't auto-reveal). This respects learner agency while providing graduated support. Track hint usage in `practice_attempts.metadata->>'hints_used'` to analyze if hinted attempts have different retention rates in SRS.
