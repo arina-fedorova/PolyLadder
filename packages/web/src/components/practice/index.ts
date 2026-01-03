@@ -1,2 +1,10 @@
 export { FlashCard } from './FlashCard';
 export { RecallPracticeSession } from './RecallPracticeSession';
+export { RecognitionPracticeSession } from './RecognitionPracticeSession';
+export { RecognitionQuestion } from './RecognitionQuestion';
+export { ClozeExercise } from './ClozeExercise';
+export { ClozePracticeSession } from './ClozePracticeSession';
+export { DictationExercise } from './DictationExercise';
+export { DictationPracticeSession } from './DictationPracticeSession';
+export { TranslationExercise } from './TranslationExercise';
+export { TranslationPracticeSession } from './TranslationPracticeSession';
