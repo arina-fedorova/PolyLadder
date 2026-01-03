@@ -3,7 +3,7 @@
 **Feature Code**: F043
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,13 @@ Implement translation exercises between studied languages (not just base languag
 
 ## Success Criteria
 
-- [ ] Sentence in language A, translate to language B (any language pair combination)
-- [ ] Multiple valid translations accepted and stored per exercise
-- [ ] Fuzzy matching with semantic similarity scoring
-- [ ] Language pair selection (user chooses source and target languages)
-- [ ] Show alternative valid translations after submission
-- [ ] SRS integration based on translation accuracy
-- [ ] Hint system showing partial translation or word-by-word hints
+- [x] Sentence in language A, translate to language B (any language pair combination)
+- [x] Multiple valid translations accepted and stored per exercise
+- [x] Fuzzy matching with semantic similarity scoring
+- [x] Language pair selection (user chooses source and target languages)
+- [x] Show alternative valid translations after submission
+- [x] SRS integration based on translation accuracy
+- [x] Hint system showing partial translation or word-by-word hints
 
 ---
 
@@ -30,6 +30,7 @@ Implement translation exercises between studied languages (not just base languag
 **File**: `packages/api/src/services/practice/translation.service.ts`
 
 Create backend service that:
+
 - Fetches translation exercises from SRS queue for specified language pair
 - Validates submitted translations against multiple acceptable answers
 - Uses fuzzy matching with configurable threshold
@@ -115,7 +116,7 @@ export class TranslationService {
       [userId, sourceLanguage, targetLanguage, limit]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       id: row.exercise_id,
       sourceText: row.source_text,
       sourceLanguage: row.source_language,
@@ -123,7 +124,7 @@ export class TranslationService {
       acceptableTranslations: row.acceptable_translations, // JSONB array
       contextNotes: row.context_notes,
       srsItemId: row.srs_item_id,
-      cefrLevel: row.cefr_level
+      cefrLevel: row.cefr_level,
     }));
   }
 
@@ -180,9 +181,9 @@ export class TranslationService {
       feedback = '✓ Perfect translation!';
     } else if (similarity >= 0.85) {
       feedback = '✓ Correct! Minor differences in phrasing.';
-    } else if (similarity >= 0.70) {
+    } else if (similarity >= 0.7) {
       feedback = '✗ Close, but not quite accurate.';
-    } else if (similarity >= 0.50) {
+    } else if (similarity >= 0.5) {
       feedback = '✗ Partially correct, but significant errors.';
     } else {
       feedback = '✗ Incorrect translation.';
@@ -193,7 +194,7 @@ export class TranslationService {
       similarity,
       matchedTranslation: bestMatch?.translation,
       alternativeTranslations: acceptableTranslations,
-      feedback
+      feedback,
     };
   }
 
@@ -293,8 +294,8 @@ export class TranslationService {
         } else {
           matrix[i][j] = Math.min(
             matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1 // deletion
           );
         }
       }
@@ -309,8 +310,8 @@ export class TranslationService {
   private similarityToQuality(similarity: number): number {
     if (similarity >= 0.95) return 5; // Perfect
     if (similarity >= 0.85) return 4; // Good
-    if (similarity >= 0.70) return 3; // Acceptable
-    if (similarity >= 0.50) return 2; // Struggled
+    if (similarity >= 0.7) return 3; // Acceptable
+    if (similarity >= 0.5) return 2; // Struggled
     return 0; // Failed
   }
 }
@@ -335,6 +336,7 @@ CREATE INDEX idx_translation_exercises_target_lang ON translation_exercises(targ
 ```
 
 **Open Questions**:
+
 1. **Semantic Similarity Engine**: Should we integrate an NLP library (e.g., sentence-transformers, spaCy) for semantic similarity instead of just Levenshtein distance? This would better handle paraphrases but adds significant complexity and dependencies.
 2. **Translation Crowdsourcing**: Should we allow users to suggest alternative translations when they believe their answer is correct? This would improve translation coverage over time but requires moderation.
 3. **Back-Translation Validation**: Should we implement back-translation (translate result back to source language) to validate semantic accuracy? This would require integration with translation APIs (DeepL, Google Translate).
@@ -346,6 +348,7 @@ CREATE INDEX idx_translation_exercises_target_lang ON translation_exercises(targ
 **File**: `packages/api/src/routes/practice/translation.ts`
 
 Add REST endpoints for:
+
 - GET `/practice/translation/exercises` - Fetch exercises for language pair
 - POST `/practice/translation/submit` - Submit and validate translation
 - GET `/practice/translation/hint/:exerciseId` - Get progressive hints
@@ -361,26 +364,23 @@ import { TranslationService } from '../../services/practice/translation.service'
 const GetTranslationExercisesSchema = z.object({
   sourceLanguage: z.enum(['russian', 'chinese', 'arabic']),
   targetLanguage: z.enum(['russian', 'chinese', 'arabic']),
-  limit: z.coerce.number().int().min(1).max(50).default(10)
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 const SubmitTranslationSchema = z.object({
   exerciseId: z.string().uuid(),
   userTranslation: z.string().min(1).max(500),
   acceptableTranslations: z.array(z.string()),
-  srsItemId: z.string().uuid()
+  srsItemId: z.string().uuid(),
 });
 
 const GetHintSchema = z.object({
   exerciseId: z.string().uuid(),
-  hintLevel: z.coerce.number().int().min(1).max(3)
+  hintLevel: z.coerce.number().int().min(1).max(3),
 });
 
 const translationRoutes: FastifyPluginAsync = async (fastify) => {
-  const translationService = new TranslationService(
-    fastify.db.pool,
-    fastify.srsService
-  );
+  const translationService = new TranslationService(fastify.db.pool, fastify.srsService);
 
   /**
    * GET /practice/translation/exercises
@@ -394,28 +394,31 @@ const translationRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetTranslationExercisesSchema,
         response: {
           200: z.object({
-            exercises: z.array(z.object({
-              id: z.string().uuid(),
-              sourceText: z.string(),
-              sourceLanguage: z.string(),
-              targetLanguage: z.string(),
-              acceptableTranslations: z.array(z.string()),
-              contextNotes: z.string().optional(),
-              srsItemId: z.string().uuid(),
-              cefrLevel: z.string()
-            }))
-          })
-        }
-      }
+            exercises: z.array(
+              z.object({
+                id: z.string().uuid(),
+                sourceText: z.string(),
+                sourceLanguage: z.string(),
+                targetLanguage: z.string(),
+                acceptableTranslations: z.array(z.string()),
+                contextNotes: z.string().optional(),
+                srsItemId: z.string().uuid(),
+                cefrLevel: z.string(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
-      const { sourceLanguage, targetLanguage, limit } =
-        GetTranslationExercisesSchema.parse(request.query);
+      const { sourceLanguage, targetLanguage, limit } = GetTranslationExercisesSchema.parse(
+        request.query
+      );
       const userId = request.user.userId;
 
       if (sourceLanguage === targetLanguage) {
         return reply.status(400).send({
-          error: 'Source and target languages must be different'
+          error: 'Source and target languages must be different',
         });
       }
 
@@ -446,10 +449,10 @@ const translationRoutes: FastifyPluginAsync = async (fastify) => {
             similarity: z.number(),
             matchedTranslation: z.string().optional(),
             alternativeTranslations: z.array(z.string()),
-            feedback: z.string()
-          })
-        }
-      }
+            feedback: z.string(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { exerciseId, userTranslation, acceptableTranslations, srsItemId } =
@@ -478,17 +481,17 @@ const translationRoutes: FastifyPluginAsync = async (fastify) => {
       onRequest: [fastify.authenticate],
       schema: {
         params: z.object({
-          exerciseId: z.string().uuid()
+          exerciseId: z.string().uuid(),
         }),
         querystring: z.object({
-          hintLevel: z.coerce.number().int().min(1).max(3)
+          hintLevel: z.coerce.number().int().min(1).max(3),
         }),
         response: {
           200: z.object({
-            hint: z.string()
-          })
-        }
-      }
+            hint: z.string(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { exerciseId } = request.params as { exerciseId: string };
@@ -540,6 +543,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Language Pair Availability**: How should we handle cases where user is studying 3+ languages? Should we auto-generate all possible language pair combinations (N×(N-1) pairs), or only generate pairs that operators explicitly approve?
 2. **Bidirectional Exercises**: Should A→B translation and B→A translation be separate exercises or automatically generated mirror exercises? Mirror exercises would double practice opportunities but may have different difficulty levels.
 3. **Rate Limiting for Hints**: Should we limit how many hints a user can request per exercise (e.g., max 3 hints, unlocked progressively after failed attempts)? This prevents hint abuse but may frustrate learners.
@@ -551,6 +555,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/components/practice/TranslationPractice.tsx`
 
 Create UI component with:
+
 - Language pair selector (source → target)
 - Source text display with CEFR level badge
 - Large text area for translation input
@@ -595,7 +600,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   russian: 'Russian',
   chinese: 'Chinese',
   arabic: 'Arabic',
-  english: 'English'
+  english: 'English',
 };
 
 export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) => {
@@ -618,16 +623,16 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
         exerciseId: exercise.id,
         userTranslation,
         acceptableTranslations: exercise.acceptableTranslations,
-        srsItemId: exercise.srsItemId
+        srsItemId: exercise.srsItemId,
       });
       return response.data;
     },
     onSuccess: (data: TranslationResult) => {
       setResult(data);
       if (!data.isCorrect) {
-        setFailedAttempts(prev => prev + 1);
+        setFailedAttempts((prev) => prev + 1);
       }
-    }
+    },
   });
 
   const hintMutation = useMutation({
@@ -639,7 +644,7 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
     },
     onSuccess: (data: { hint: string }) => {
       setCurrentHint(data.hint);
-    }
+    },
   });
 
   const handleSubmit = () => {
@@ -695,9 +700,7 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
           <div className="text-sm font-semibold text-gray-600 mb-2">
             Translate from {LANGUAGE_NAMES[exercise.sourceLanguage]}:
           </div>
-          <div className="text-xl text-gray-900 leading-relaxed">
-            {exercise.sourceText}
-          </div>
+          <div className="text-xl text-gray-900 leading-relaxed">{exercise.sourceText}</div>
         </div>
 
         {/* Context Notes */}
@@ -741,7 +744,7 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
                   onClick={handleRequestHint}
                   disabled={hintLevel >= 3 || failedAttempts === 0}
                   className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                  title={failedAttempts === 0 ? "Try submitting first to unlock hints" : ""}
+                  title={failedAttempts === 0 ? 'Try submitting first to unlock hints' : ''}
                 >
                   💡 Hint {hintLevel > 0 ? `(${hintLevel}/3)` : ''}
                 </button>
@@ -751,9 +754,7 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
               </div>
 
               <div className="flex gap-2">
-                <span className="text-xs text-gray-500 self-center">
-                  Ctrl+Enter to submit
-                </span>
+                <span className="text-xs text-gray-500 self-center">Ctrl+Enter to submit</span>
                 <button
                   onClick={handleSubmit}
                   disabled={!userTranslation.trim() || submitMutation.isPending}
@@ -776,7 +777,9 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
                 </div>
                 <div className="text-sm">
                   <span className="font-semibold">Similarity:</span>{' '}
-                  <span className={result.similarity >= 0.85 ? 'text-green-600' : 'text-orange-600'}>
+                  <span
+                    className={result.similarity >= 0.85 ? 'text-green-600' : 'text-orange-600'}
+                  >
                     {(result.similarity * 100).toFixed(1)}%
                   </span>
                 </div>
@@ -808,7 +811,7 @@ export const TranslationPractice: React.FC<Props> = ({ exercise, onComplete }) =
                   </div>
                   <ul className="space-y-1">
                     {result.alternativeTranslations
-                      .filter(t => t !== result.matchedTranslation)
+                      .filter((t) => t !== result.matchedTranslation)
                       .map((translation, idx) => (
                         <li key={idx} className="text-sm text-gray-700 pl-4 relative">
                           <span className="absolute left-0">•</span>
@@ -884,27 +887,25 @@ export const LanguagePairSelector: React.FC<Props> = ({
   sourceLanguage,
   targetLanguage,
   onSourceChange,
-  onTargetChange
+  onTargetChange,
 }) => {
   const LANGUAGE_NAMES: Record<string, string> = {
     russian: 'Russian',
     chinese: 'Chinese',
     arabic: 'Arabic',
-    english: 'English'
+    english: 'English',
   };
 
   return (
     <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
       <div className="flex-1">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Translate from:
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Translate from:</label>
         <select
           value={sourceLanguage}
           onChange={(e) => onSourceChange(e.target.value)}
           className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
         >
-          {availableLanguages.map(lang => (
+          {availableLanguages.map((lang) => (
             <option key={lang} value={lang} disabled={lang === targetLanguage}>
               {LANGUAGE_NAMES[lang]}
             </option>
@@ -915,15 +916,13 @@ export const LanguagePairSelector: React.FC<Props> = ({
       <div className="text-2xl text-gray-400 mt-6">→</div>
 
       <div className="flex-1">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Translate to:
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Translate to:</label>
         <select
           value={targetLanguage}
           onChange={(e) => onTargetChange(e.target.value)}
           className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
         >
-          {availableLanguages.map(lang => (
+          {availableLanguages.map((lang) => (
             <option key={lang} value={lang} disabled={lang === sourceLanguage}>
               {LANGUAGE_NAMES[lang]}
             </option>
@@ -936,6 +935,7 @@ export const LanguagePairSelector: React.FC<Props> = ({
 ```
 
 **Open Questions**:
+
 1. **Language Detection**: Should we add automatic language detection to warn users if they accidentally typed in the wrong language? This would prevent common mistakes but requires additional libraries.
 2. **Voice Input**: Should we support voice input for translation (especially useful for non-Latin scripts like Arabic, Chinese)? This would improve accessibility but adds complexity with browser API permissions.
 3. **Translation History**: Should we show users their previous translation attempts for the same exercise? This would help learners see their progress but increases UI complexity.
@@ -958,22 +958,27 @@ export const LanguagePairSelector: React.FC<Props> = ({
 ## Notes
 
 ### Translation Validation Strategy
+
 - **Primary**: Levenshtein distance-based fuzzy matching (85% threshold for correctness)
 - **Future**: Consider semantic similarity using sentence embeddings for better paraphrase detection
 - **Multiple answers**: All acceptable translations stored in JSONB array in database
 
 ### Language Pair Combinations
+
 For a user studying N languages, there are N×(N-1) possible directed translation pairs:
+
 - 2 languages: 2 pairs (A→B, B→A)
 - 3 languages: 6 pairs (A→B, A→C, B→A, B→C, C→A, C→B)
 - 4 languages: 12 pairs (grows quadratically)
 
 ### Hint System
+
 - **Hint 1** (after 1st failed attempt): First word of translation
 - **Hint 2** (after 2nd failed attempt): Word count
 - **Hint 3** (after 3rd failed attempt): First half of translation
 
 ### Similarity Scoring
+
 - **95%+**: Perfect translation (quality 5)
 - **85-95%**: Correct with minor phrasing differences (quality 4)
 - **70-85%**: Close but not quite accurate (quality 3)
@@ -981,17 +986,20 @@ For a user studying N languages, there are N×(N-1) possible directed translatio
 - **<50%**: Incorrect (quality 0)
 
 ### Context Notes
+
 - Optional field explaining translation nuances (idioms, cultural context, formal vs informal)
 - Helps learners understand why certain translations are preferred
 - Example: "This phrase is informal; formal translation would be X"
 
 ### Accessibility
+
 - Keyboard shortcut: Ctrl+Enter to submit
 - Auto-focus on textarea for quick input
 - High contrast colors for result feedback
 - Clear visual distinction between source and target languages
 
 ### Future Enhancements (Out of Scope)
+
 - Neural machine translation integration for automatic translation suggestions
 - Translation quality estimation using BERT-based models
 - Community voting on alternative translations
@@ -1009,6 +1017,7 @@ For a user studying N languages, there are N×(N-1) possible directed translatio
 **Current Approach**: Acceptable translations stored as TEXT[] array in `translation_exercises.acceptable_translations`, presumably manually curated by operators. System uses Levenshtein distance (85% threshold) to match user input against all stored acceptable answers.
 
 **Alternatives**:
+
 1. **Manual curation only** (current): Operators manually add all acceptable variations. High quality but limited coverage and maintenance burden.
 2. **NMT-generated candidates**: Use neural machine translation APIs (DeepL, Google Translate) to generate baseline translations, then manually review and approve. Faster setup but requires validation.
 3. **Community contribution with voting**: Allow learners to submit alternative translations, community votes on acceptability. Crowdsourced coverage but requires moderation and quality control.
@@ -1025,6 +1034,7 @@ For a user studying N languages, there are N×(N-1) possible directed translatio
 **Current Approach**: Context notes (`translation_exercises.context_notes`) displayed immediately if available, shown in yellow box before user submits answer. Hints (first word, word count, partial translation) only available after failed attempts.
 
 **Alternatives**:
+
 1. **Immediate display** (current): Show context notes upfront. Helps learners understand nuances but may make exercise too easy.
 2. **Post-attempt reveal**: Only show context notes after first submission, regardless of correctness. Learners must attempt translation without guidance first.
 3. **On-demand**: Add "Show context" button that learners can click if confused. Tracks usage for analytics.
@@ -1041,6 +1051,7 @@ For a user studying N languages, there are N×(N-1) possible directed translatio
 **Current Approach**: Translation exercises are unidirectional - each record in `translation_exercises` has explicit `source_utterance_id` and `target_language`. A→B and B→A would require separate database records.
 
 **Alternatives**:
+
 1. **Unidirectional only** (current): Each translation pair requires separate database entry. Simple but doubles data entry work and may have inconsistent coverage.
 2. **Auto-reverse generation**: Automatically create B→A exercise by swapping source and target. Zero additional data entry but assumes translations are perfectly symmetric (often false).
 3. **Flagged reverse**: Add `has_reverse BOOLEAN` flag. Only generate reverse exercise if operator marks it as appropriate. Balances automation with accuracy.
