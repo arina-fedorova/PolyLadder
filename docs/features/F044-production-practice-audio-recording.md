@@ -3,7 +3,7 @@
 **Feature Code**: F044
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,14 +13,14 @@ Implement audio recording exercises for pronunciation practice where users recor
 
 ## Success Criteria
 
-- [ ] Microphone access permission with clear user consent
+- [x] Microphone access permission with clear user consent
 - [ ] Audio recording with real-time waveform visualization
-- [ ] Playback controls for both native and user recordings
-- [ ] Side-by-side comparison UI (listen to native, then your recording)
-- [ ] Self-assessment interface (again/hard/good/easy)
-- [ ] Recording saved temporarily for session (optional persistent storage)
-- [ ] SRS integration based on self-assessment
-- [ ] Countdown timer before recording starts
+- [x] Playback controls for both native and user recordings
+- [x] Side-by-side comparison UI (listen to native, then your recording)
+- [x] Self-assessment interface (again/hard/good/easy)
+- [x] Recording saved temporarily for session (optional persistent storage)
+- [x] SRS integration based on self-assessment
+- [x] Countdown timer before recording starts
 
 ---
 
@@ -31,6 +31,7 @@ Implement audio recording exercises for pronunciation practice where users recor
 **File**: `packages/api/src/services/practice/production.service.ts`
 
 Create backend service that:
+
 - Fetches production exercises (utterances/words with native audio) from SRS queue
 - Records self-assessment ratings for SRS scheduling
 - Optionally stores user recording metadata (if persistent storage enabled)
@@ -108,7 +109,7 @@ export class ProductionService {
       [userId, language, 'english', limit] // Assuming English as base language
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       id: row.item_id,
       text: row.text,
       language: row.language,
@@ -117,16 +118,14 @@ export class ProductionService {
       romanization: row.romanization,
       translation: row.translation,
       srsItemId: row.srs_item_id,
-      cefrLevel: row.cefr_level
+      cefrLevel: row.cefr_level,
     }));
   }
 
   /**
    * Record production practice attempt with self-assessment
    */
-  async recordProductionAttempt(
-    assessment: ProductionAssessment
-  ): Promise<void> {
+  async recordProductionAttempt(assessment: ProductionAssessment): Promise<void> {
     const { srsItemId, userId, selfRating, recordingDuration, attemptNumber } = assessment;
 
     // Convert self-rating to SRS quality (0-5)
@@ -146,7 +145,7 @@ export class ProductionService {
         'audio_recording',
         quality >= 3, // Consider "good" or "easy" as correct
         quality / 5.0, // Normalize to 0.0-1.0
-        JSON.stringify({ recordingDuration, attemptNumber })
+        JSON.stringify({ recordingDuration, attemptNumber }),
       ]
     );
   }
@@ -156,17 +155,24 @@ export class ProductionService {
    */
   private selfRatingToQuality(rating: 'again' | 'hard' | 'good' | 'easy'): number {
     switch (rating) {
-      case 'again': return 0; // Complete blackout, couldn't pronounce
-      case 'hard': return 3;  // Pronounced with difficulty, noticeable errors
-      case 'good': return 4;  // Pronounced correctly with minor hesitation
-      case 'easy': return 5;  // Perfect pronunciation, confident
+      case 'again':
+        return 0; // Complete blackout, couldn't pronounce
+      case 'hard':
+        return 3; // Pronounced with difficulty, noticeable errors
+      case 'good':
+        return 4; // Pronounced correctly with minor hesitation
+      case 'easy':
+        return 5; // Perfect pronunciation, confident
     }
   }
 
   /**
    * Get production practice statistics for user
    */
-  async getProductionStats(userId: string, language: string): Promise<{
+  async getProductionStats(
+    userId: string,
+    language: string
+  ): Promise<{
     totalAttempts: number;
     averageQuality: number;
     streakDays: number;
@@ -209,13 +215,14 @@ export class ProductionService {
     return {
       totalAttempts: parseInt(result.rows[0]?.total_attempts || '0'),
       averageQuality: parseFloat(result.rows[0]?.average_quality || '0'),
-      streakDays: parseInt(streakResult.rows[0]?.streak_days || '0')
+      streakDays: parseInt(streakResult.rows[0]?.streak_days || '0'),
     };
   }
 }
 ```
 
 **Open Questions**:
+
 1. **Recording Storage Strategy**: Should we store user recordings persistently, or only keep them in browser memory for the session?
    - **Ephemeral (MVP)**: No storage, recordings discarded after session. Simple, no storage costs.
    - **Persistent**: Store in object storage (S3) with URLs in database. Allows progress review but adds complexity and costs.
@@ -239,6 +246,7 @@ export class ProductionService {
 **File**: `packages/api/src/routes/practice/production.ts`
 
 Add REST endpoints for:
+
 - GET `/practice/production/exercises` - Fetch exercises from SRS queue
 - POST `/practice/production/assess` - Submit self-assessment rating
 
@@ -252,25 +260,22 @@ import { ProductionService } from '../../services/practice/production.service';
 
 const GetProductionExercisesSchema = z.object({
   language: z.enum(['russian', 'chinese', 'arabic']),
-  limit: z.coerce.number().int().min(1).max(50).default(10)
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 const SubmitProductionAssessmentSchema = z.object({
   srsItemId: z.string().uuid(),
   selfRating: z.enum(['again', 'hard', 'good', 'easy']),
   recordingDuration: z.number().min(0).max(60), // Max 60 seconds
-  attemptNumber: z.number().int().min(1).max(10)
+  attemptNumber: z.number().int().min(1).max(10),
 });
 
 const GetProductionStatsSchema = z.object({
-  language: z.enum(['russian', 'chinese', 'arabic'])
+  language: z.enum(['russian', 'chinese', 'arabic']),
 });
 
 const productionRoutes: FastifyPluginAsync = async (fastify) => {
-  const productionService = new ProductionService(
-    fastify.db.pool,
-    fastify.srsService
-  );
+  const productionService = new ProductionService(fastify.db.pool, fastify.srsService);
 
   /**
    * GET /practice/production/exercises
@@ -284,30 +289,28 @@ const productionRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetProductionExercisesSchema,
         response: {
           200: z.object({
-            exercises: z.array(z.object({
-              id: z.string().uuid(),
-              text: z.string(),
-              language: z.string(),
-              nativeAudioUrl: z.string(),
-              nativeAudioLength: z.number(),
-              romanization: z.string().optional(),
-              translation: z.string().optional(),
-              srsItemId: z.string().uuid(),
-              cefrLevel: z.string()
-            }))
-          })
-        }
-      }
+            exercises: z.array(
+              z.object({
+                id: z.string().uuid(),
+                text: z.string(),
+                language: z.string(),
+                nativeAudioUrl: z.string(),
+                nativeAudioLength: z.number(),
+                romanization: z.string().optional(),
+                translation: z.string().optional(),
+                srsItemId: z.string().uuid(),
+                cefrLevel: z.string(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { language, limit } = GetProductionExercisesSchema.parse(request.query);
       const userId = request.user.userId;
 
-      const exercises = await productionService.getProductionExercises(
-        userId,
-        language,
-        limit
-      );
+      const exercises = await productionService.getProductionExercises(userId, language, limit);
 
       return reply.send({ exercises });
     }
@@ -326,10 +329,10 @@ const productionRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: z.object({
             success: z.boolean(),
-            message: z.string()
-          })
-        }
-      }
+            message: z.string(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const assessment = SubmitProductionAssessmentSchema.parse(request.body);
@@ -337,12 +340,12 @@ const productionRoutes: FastifyPluginAsync = async (fastify) => {
 
       await productionService.recordProductionAttempt({
         ...assessment,
-        userId
+        userId,
       });
 
       return reply.send({
         success: true,
-        message: 'Assessment recorded successfully'
+        message: 'Assessment recorded successfully',
       });
     }
   );
@@ -361,10 +364,10 @@ const productionRoutes: FastifyPluginAsync = async (fastify) => {
           200: z.object({
             totalAttempts: z.number(),
             averageQuality: z.number(),
-            streakDays: z.number()
-          })
-        }
-      }
+            streakDays: z.number(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { language } = GetProductionStatsSchema.parse(request.query);
@@ -396,6 +399,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Upload Endpoint for Persistent Storage**: If we decide to store recordings persistently, should we add a `POST /practice/production/upload` endpoint to receive audio files? This would require multipart/form-data handling and S3 integration.
 2. **Audio Transcription API**: Should we add a future endpoint `POST /practice/production/transcribe` that uses ASR (Automatic Speech Recognition) for automatic pronunciation feedback? This would require integration with services like Google Speech-to-Text or Whisper API.
 3. **Pronunciation Scoring**: Should we provide a simple pronunciation scoring API that compares user audio waveform with native audio using signal processing? This would be less accurate than ASR but doesn't require external APIs.
@@ -407,6 +411,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/components/practice/ProductionPractice.tsx`
 
 Create UI component with:
+
 - Microphone permission request with clear explanation
 - Native audio player with play/pause controls
 - Recording button with countdown timer (3-2-1-GO)
@@ -460,8 +465,8 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
 
   useEffect(() => {
     // Check if microphone permission already granted
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      const hasAudioInput = devices.some(device => device.kind === 'audioinput');
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const hasAudioInput = devices.some((device) => device.kind === 'audioinput');
       if (hasAudioInput) {
         // Permission check will happen on first recording attempt
       }
@@ -483,11 +488,13 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setMicPermissionGranted(true);
       // Stop the stream immediately, we'll request it again when recording
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       return true;
     } catch (error) {
       console.error('Microphone permission denied:', error);
-      alert('Microphone access is required for pronunciation practice. Please grant permission in your browser settings.');
+      alert(
+        'Microphone access is required for pronunciation practice. Please grant permission in your browser settings.'
+      );
       return false;
     }
   };
@@ -508,7 +515,7 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
     setCountdown(3);
 
     const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(countdownInterval);
           beginRecording();
@@ -547,7 +554,7 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
         }
 
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
 
         setRecordingState('recorded');
       };
@@ -558,7 +565,7 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
 
       // Track recording duration
       recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 0.1);
+        setRecordingDuration((prev) => prev + 0.1);
       }, 100);
 
       // Auto-stop after max duration (native audio length × 2)
@@ -568,7 +575,6 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
           stopRecording();
         }
       }, maxDuration * 1000);
-
     } catch (error) {
       console.error('Error starting recording:', error);
       alert('Failed to start recording. Please check your microphone.');
@@ -589,7 +595,7 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
   const retryRecording = () => {
     setRecordingState('idle');
     setRecordingDuration(0);
-    setAttemptNumber(prev => prev + 1);
+    setAttemptNumber((prev) => prev + 1);
     if (userAudioRef.current) {
       userAudioRef.current.src = '';
     }
@@ -601,13 +607,13 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
         srsItemId: exercise.srsItemId,
         selfRating,
         recordingDuration: Math.round(recordingDuration * 10) / 10,
-        attemptNumber
+        attemptNumber,
       });
       return response.data;
     },
     onSuccess: () => {
       onComplete();
-    }
+    },
   });
 
   const handleAssessment = (rating: SelfRating) => {
@@ -631,29 +637,19 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
 
         {/* Text to Pronounce */}
         <div className="bg-blue-50 p-6 rounded-lg mb-6">
-          <div className="text-sm font-semibold text-gray-600 mb-2">
-            Pronounce this:
-          </div>
-          <div className="text-2xl text-gray-900 font-semibold mb-2">
-            {exercise.text}
-          </div>
+          <div className="text-sm font-semibold text-gray-600 mb-2">Pronounce this:</div>
+          <div className="text-2xl text-gray-900 font-semibold mb-2">{exercise.text}</div>
           {exercise.romanization && (
-            <div className="text-sm text-gray-600 italic">
-              {exercise.romanization}
-            </div>
+            <div className="text-sm text-gray-600 italic">{exercise.romanization}</div>
           )}
           {exercise.translation && (
-            <div className="text-sm text-gray-500 mt-2">
-              Translation: {exercise.translation}
-            </div>
+            <div className="text-sm text-gray-500 mt-2">Translation: {exercise.translation}</div>
           )}
         </div>
 
         {/* Native Audio */}
         <div className="bg-green-50 p-4 rounded-lg mb-6">
-          <div className="text-sm font-semibold text-gray-700 mb-3">
-            🎧 Native Speaker Audio:
-          </div>
+          <div className="text-sm font-semibold text-gray-700 mb-3">🎧 Native Speaker Audio:</div>
           <audio
             ref={nativeAudioRef}
             src={exercise.nativeAudioUrl}
@@ -683,18 +679,14 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
                 </div>
               )}
               {attemptNumber > 1 && (
-                <div className="text-sm text-gray-600">
-                  Attempt #{attemptNumber}
-                </div>
+                <div className="text-sm text-gray-600">Attempt #{attemptNumber}</div>
               )}
             </div>
           )}
 
           {recordingState === 'countdown' && (
             <div className="text-center space-y-4">
-              <div className="text-6xl font-bold text-blue-600 animate-pulse">
-                {countdown}
-              </div>
+              <div className="text-6xl font-bold text-blue-600 animate-pulse">{countdown}</div>
               <div className="text-lg text-gray-600">Get ready to speak...</div>
             </div>
           )}
@@ -723,9 +715,7 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
             <div className="space-y-4">
               {/* User Recording Playback */}
               <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="text-sm font-semibold text-gray-700 mb-3">
-                  🎙️ Your Recording:
-                </div>
+                <div className="text-sm font-semibold text-gray-700 mb-3">🎙️ Your Recording:</div>
                 <audio ref={userAudioRef} controls className="w-full" />
                 <div className="text-xs text-gray-600 mt-2">
                   Duration: {recordingDuration.toFixed(1)}s
@@ -735,7 +725,8 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
               {/* Comparison Tip */}
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3">
                 <div className="text-sm text-gray-700">
-                  💡 <strong>Compare:</strong> Listen to the native audio, then listen to your recording. How similar is your pronunciation?
+                  💡 <strong>Compare:</strong> Listen to the native audio, then listen to your
+                  recording. How similar is your pronunciation?
                 </div>
               </div>
 
@@ -815,8 +806,8 @@ export const ProductionPractice: React.FC<Props> = ({ exercise, onComplete }) =>
             🎤 Microphone Permission Required
           </div>
           <div className="text-gray-700">
-            This exercise requires microphone access. When you click "Start Recording,"
-            your browser will ask for permission. Please click "Allow" to continue.
+            This exercise requires microphone access. When you click "Start Recording," your browser
+            will ask for permission. Please click "Allow" to continue.
           </div>
         </div>
       )}
@@ -836,6 +827,7 @@ case 'production':
 ```
 
 **Open Questions**:
+
 1. **Waveform Visualization**: Should we add real-time waveform visualization during recording using Web Audio API? This would provide visual feedback but adds complexity (~200 lines of code).
 2. **Recording Limits**: Should we limit the number of retry attempts before forcing assessment (e.g., max 5 retries)? This prevents perfectionism paralysis but may frustrate learners.
 3. **Offline Support**: Should recordings work offline using Service Workers? This would allow practice without internet but requires caching strategy for native audio files.
@@ -857,40 +849,47 @@ case 'production':
 ## Notes
 
 ### MediaRecorder API Browser Support
+
 - **Chrome/Edge**: Full support (WebM/Opus)
 - **Firefox**: Full support (WebM/Opus)
 - **Safari**: Partial support (MP4/AAC on iOS 14.3+)
 - **Fallback**: Check `MediaRecorder.isTypeSupported()` before recording
 
 ### Audio Format Strategy
+
 - **Primary**: WebM with Opus codec (best compression, good quality)
 - **Fallback**: WebM default codec
 - **No encoding**: Browser handles encoding automatically via MediaRecorder API
 
 ### Self-Assessment Ratings
+
 - **Again** (Quality 0): Couldn't pronounce correctly, complete failure
 - **Hard** (Quality 3): Pronounced with difficulty, noticeable errors
 - **Good** (Quality 4): Pronounced correctly with minor hesitation
 - **Easy** (Quality 5): Perfect pronunciation, confident delivery
 
 ### Privacy Considerations
+
 - **Clear permission request**: Explain why microphone access is needed
 - **Ephemeral by default**: Recordings stored in browser memory only, discarded after session
 - **Optional persistence**: If enabled, user must explicitly consent to server storage
 - **No automatic upload**: Recordings never sent to server in MVP (only self-assessment)
 
 ### Recording Duration Limits
+
 - **Minimum**: No minimum (user can stop immediately)
 - **Maximum**: Native audio length × 2 (allows pauses/retries)
 - **Example**: 3-second native audio → max 6-second recording
 
 ### Accessibility
+
 - **Visual countdown**: Large numbers before recording starts
 - **Recording indicator**: Pulsing red dot + timer during recording
 - **Clear button states**: Disabled states with tooltips explaining why
 - **Keyboard navigation**: All buttons keyboard accessible
 
 ### Future Enhancements (Out of Scope)
+
 - **Automatic Speech Recognition (ASR)**: Use Whisper API or Google Speech-to-Text for automatic pronunciation scoring
 - **Phoneme-level feedback**: Highlight specific sounds that need improvement
 - **Native/user audio sync visualization**: Side-by-side waveform comparison
@@ -909,6 +908,7 @@ case 'production':
 **Current Approach**: Ephemeral storage only (MVP). Recordings exist in browser memory via MediaRecorder Blob, played back locally for comparison, then discarded when user moves to next exercise or closes browser. No server upload.
 
 **Alternatives**:
+
 1. **Ephemeral only** (current): Zero storage costs, no privacy concerns, but users can't review past recordings to track pronunciation improvement over time.
 2. **Persistent with user opt-in**: Store recordings in object storage (S3/CloudFlare R2) with expiration (30-90 days). Requires explicit user consent per recording.
 3. **Persistent for premium users**: Free users get ephemeral, paid subscribers get persistent storage with unlimited history.
@@ -925,6 +925,7 @@ case 'production':
 **Current Approach**: No ASR - MVP relies entirely on self-assessment. Users rate own pronunciation against native audio (again/hard/good/easy). Subjective but requires no external dependencies.
 
 **Alternatives**:
+
 1. **No ASR** (current): Simplest, zero API costs, but users may not accurately self-assess pronunciation quality.
 2. **OpenAI Whisper API**: State-of-art multilingual ASR with transcription and confidence scores. Costs $0.006/minute (cheap).
 3. **Google Cloud Speech-to-Text**: Excellent accuracy, per-second pricing, supports 125+ languages with phoneme-level output.
@@ -942,6 +943,7 @@ case 'production':
 **Current Approach**: Simple 4-point scale (again/hard/good/easy) mapped to SRS quality 0/3/4/5. No guidance on calibration. Users may systematically over-rate or under-rate themselves.
 
 **Alternatives**:
+
 1. **No guidance** (current): Simplest but prone to miscalibration. Optimistic users always rate "easy", perfectionist users always rate "hard".
 2. **Rubric with examples**: Provide clear rubric for each rating with audio examples (e.g., "Good = minor accent, understood by native speakers").
 3. **Comparative anchoring**: Before self-assessment, require user to listen to 3 recordings (bad/okay/excellent) to calibrate expectations.
@@ -949,6 +951,7 @@ case 'production':
 5. **Periodic ASR validation**: Every 10th recording gets ASR analysis, shown to user to calibrate future self-assessments.
 
 **Recommendation**: Implement **rubric with examples** (Option 2) combined with **periodic ASR validation** (Option 5). Provide clear rubric in tooltip/modal when hovering over rating buttons:
+
 - **Again**: "Couldn't pronounce, major errors, unrecognizable"
 - **Hard**: "Recognizable but difficult, noticeable accent/hesitation"
 - **Good**: "Clear pronunciation, minor accent, native would understand"

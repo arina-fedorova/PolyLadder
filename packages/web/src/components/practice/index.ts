@@ -8,3 +8,5 @@ export { DictationExercise } from './DictationExercise';
 export { DictationPracticeSession } from './DictationPracticeSession';
 export { TranslationExercise } from './TranslationExercise';
 export { TranslationPracticeSession } from './TranslationPracticeSession';
+export { ProductionExercise } from './ProductionExercise';
+export { ProductionPracticeSession } from './ProductionPracticeSession';
