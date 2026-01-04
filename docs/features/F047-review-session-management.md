@@ -3,7 +3,8 @@
 **Feature Code**: F047
 **Created**: 2025-12-17
 **Phase**: 13 - Spaced Repetition System
-**Status**: Not Started
+**Status**: Implemented
+**Implemented**: 2026-01-04
 
 ---
 
@@ -13,12 +14,67 @@ Implement review session management that queues due items from the SRS schedule 
 
 ## Success Criteria
 
-- [ ] Review queue fetched from user_srs_schedule (due_date <= today)
-- [ ] Items presented in due order (oldest first)
-- [ ] Performance feedback updates SRS schedule via SM-2 algorithm
-- [ ] Review count tracked per session
-- [ ] Session summary shows items reviewed, accuracy, and time spent
-- [ ] Session can be paused and resumed
+- [x] Review queue fetched from user_srs_schedule (due_date <= today)
+- [x] Items presented in due order (oldest first)
+- [x] Performance feedback updates SRS schedule via SM-2 algorithm
+- [x] Review count tracked per session
+- [x] Session summary shows items reviewed, accuracy, and time spent
+- [x] Session can be paused and resumed (via active session tracking)
+
+---
+
+## Implementation Summary
+
+### Files Created
+
+**Database Migration** (`packages/db/src/migrations/`):
+
+- `040_create_user_review_sessions.ts` - Session tracking table with progress and lifecycle
+
+**Review Service** (`packages/api/src/services/review/`):
+
+- `review.interface.ts` - TypeScript interfaces for sessions, queue, and ratings
+- `review-session.service.ts` - Service implementing session management
+- `index.ts` - Module exports
+
+**API Routes** (`packages/api/src/routes/learning/`):
+
+- `review.ts` - All review session endpoints
+
+**Frontend** (`packages/web/src/components/practice/`):
+
+- `ReviewPracticeSession.tsx` - Flashcard-style review UI component
+
+**Unit Tests** (`packages/api/tests/unit/services/review/`):
+
+- `review-session.service.test.ts` - 18 tests covering service logic
+
+### API Endpoints
+
+- `GET /learning/review/queue` - Fetch due items for review
+- `POST /learning/review/session/start` - Start a new session
+- `POST /learning/review/submit` - Submit review with SRS update
+- `GET /learning/review/session/:id` - Get session stats
+- `POST /learning/review/session/:id/complete` - Complete session
+- `GET /learning/review/session/active` - Get active session
+- `GET /learning/review/history` - Get session history
+
+### Key Features
+
+1. **Session Management**:
+   - Start, track, and complete review sessions
+   - Auto-cleanup abandoned sessions (24h inactive)
+   - Track items reviewed, correct count, response time
+
+2. **SRS Integration**:
+   - Uses SM2Calculator from F046 for scheduling
+   - Supports both user_srs_schedule and user_srs_items tables
+   - Records review history for analytics
+
+3. **Frontend Component**:
+   - Flashcard-style review interface
+   - Rating buttons with interval previews
+   - Progress tracking and session summary
 
 ---
 
@@ -31,6 +87,7 @@ Implement review session management that queues due items from the SRS schedule 
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/review-queue.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -69,24 +126,27 @@ const ReviewQueueResponseSchema = Type.Object({
 });
 
 export const reviewQueueRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/queue', {
-    preHandler: authMiddleware,
-    schema: {
-      querystring: Type.Object({
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
-      }),
-      response: {
-        200: ReviewQueueResponseSchema,
+  fastify.get(
+    '/queue',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
+        }),
+        response: {
+          200: ReviewQueueResponseSchema,
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { limit = 50 } = request.query as { limit?: number };
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { limit = 50 } = request.query as { limit?: number };
 
-    try {
-      // Get due items with joined content
-      const queueResult = await fastify.pg.query(
-        `SELECT
+      try {
+        // Get due items with joined content
+        const queueResult = await fastify.pg.query(
+          `SELECT
            s.id,
            s.item_type,
            s.item_id,
@@ -110,49 +170,50 @@ export const reviewQueueRoute: FastifyPluginAsync = async (fastify) => {
          WHERE s.user_id = $1 AND s.due_date <= CURRENT_TIMESTAMP
          ORDER BY s.due_date ASC
          LIMIT $2`,
-        [userId, limit]
-      );
-
-      // Get next upcoming review (if no items due now)
-      let nextReviewAt = null;
-      if (queueResult.rows.length === 0) {
-        const nextResult = await fastify.pg.query(
-          `SELECT MIN(due_date) as next_due_date
-           FROM user_srs_schedule
-           WHERE user_id = $1 AND due_date > CURRENT_TIMESTAMP`,
-          [userId]
+          [userId, limit]
         );
 
-        if (nextResult.rows[0]?.next_due_date) {
-          nextReviewAt = nextResult.rows[0].next_due_date.toISOString();
+        // Get next upcoming review (if no items due now)
+        let nextReviewAt = null;
+        if (queueResult.rows.length === 0) {
+          const nextResult = await fastify.pg.query(
+            `SELECT MIN(due_date) as next_due_date
+           FROM user_srs_schedule
+           WHERE user_id = $1 AND due_date > CURRENT_TIMESTAMP`,
+            [userId]
+          );
+
+          if (nextResult.rows[0]?.next_due_date) {
+            nextReviewAt = nextResult.rows[0].next_due_date.toISOString();
+          }
         }
+
+        const items = queueResult.rows.map((row) => ({
+          id: row.id,
+          itemType: row.item_type,
+          itemId: row.item_id,
+          dueDate: row.due_date.toISOString(),
+          interval: parseInt(row.interval),
+          repetitions: parseInt(row.repetitions),
+          itemData: {
+            wordText: row.word_text || undefined,
+            translation: row.translation || undefined,
+            grammarTopic: row.grammar_topic || undefined,
+            character: row.character || undefined,
+          },
+        }));
+
+        return reply.status(200).send({
+          total: items.length,
+          items,
+          nextReviewAt,
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId }, 'Failed to fetch review queue');
+        throw error;
       }
-
-      const items = queueResult.rows.map(row => ({
-        id: row.id,
-        itemType: row.item_type,
-        itemId: row.item_id,
-        dueDate: row.due_date.toISOString(),
-        interval: parseInt(row.interval),
-        repetitions: parseInt(row.repetitions),
-        itemData: {
-          wordText: row.word_text || undefined,
-          translation: row.translation || undefined,
-          grammarTopic: row.grammar_topic || undefined,
-          character: row.character || undefined,
-        },
-      }));
-
-      return reply.status(200).send({
-        total: items.length,
-        items,
-        nextReviewAt,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId }, 'Failed to fetch review queue');
-      throw error;
     }
-  });
+  );
 };
 ```
 
@@ -167,6 +228,7 @@ export const reviewQueueRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/review-submit.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -196,75 +258,79 @@ const SubmitReviewResponseSchema = Type.Object({
 });
 
 export const reviewSubmitRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/submit', {
-    preHandler: authMiddleware,
-    schema: {
-      body: SubmitReviewRequestSchema,
-      response: {
-        200: SubmitReviewResponseSchema,
-        404: Type.Object({
-          error: Type.Object({
-            statusCode: Type.Literal(404),
-            message: Type.String(),
-            requestId: Type.String(),
+  fastify.post(
+    '/submit',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        body: SubmitReviewRequestSchema,
+        response: {
+          200: SubmitReviewResponseSchema,
+          404: Type.Object({
+            error: Type.Object({
+              statusCode: Type.Literal(404),
+              message: Type.String(),
+              requestId: Type.String(),
+            }),
           }),
-        }),
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { itemId, rating, responseTimeMs, wasCorrect, sessionId } = request.body;
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { itemId, rating, responseTimeMs, wasCorrect, sessionId } = request.body;
 
-    try {
-      // Use SRS service to record review and calculate next schedule
-      const updateResult = await fastify.srs.recordReview(userId, {
-        itemId,
-        rating,
-        responseTimeMs,
-        wasCorrect,
-      });
+      try {
+        // Use SRS service to record review and calculate next schedule
+        const updateResult = await fastify.srs.recordReview(userId, {
+          itemId,
+          rating,
+          responseTimeMs,
+          wasCorrect,
+        });
 
-      // Update session progress if sessionId provided
-      if (sessionId) {
-        await fastify.pg.query(
-          `UPDATE user_review_sessions
+        // Update session progress if sessionId provided
+        if (sessionId) {
+          await fastify.pg.query(
+            `UPDATE user_review_sessions
            SET items_reviewed = items_reviewed + 1,
                correct_count = correct_count + CASE WHEN $3 THEN 1 ELSE 0 END,
                last_activity_at = CURRENT_TIMESTAMP
            WHERE id = $1 AND user_id = $2`,
-          [sessionId, userId, wasCorrect]
+            [sessionId, userId, wasCorrect]
+          );
+        }
+
+        request.log.info(
+          { userId, itemId, rating, nextInterval: updateResult.newInterval },
+          'Review submitted'
         );
-      }
 
-      request.log.info(
-        { userId, itemId, rating, nextInterval: updateResult.newInterval },
-        'Review submitted'
-      );
-
-      return reply.status(200).send({
-        success: true,
-        nextReview: {
-          dueDate: updateResult.nextDueDate.toISOString(),
-          interval: updateResult.newInterval,
-          repetitions: updateResult.newRepetitions,
-          easeFactor: updateResult.newEaseFactor,
-        },
-      });
-    } catch (error) {
-      if (error.message?.includes('No SRS schedule found')) {
-        return reply.status(404).send({
-          error: {
-            statusCode: 404,
-            message: `Item ${itemId} not found in review queue`,
-            requestId: request.id,
+        return reply.status(200).send({
+          success: true,
+          nextReview: {
+            dueDate: updateResult.nextDueDate.toISOString(),
+            interval: updateResult.newInterval,
+            repetitions: updateResult.newRepetitions,
+            easeFactor: updateResult.newEaseFactor,
           },
         });
-      }
+      } catch (error) {
+        if (error.message?.includes('No SRS schedule found')) {
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: `Item ${itemId} not found in review queue`,
+              requestId: request.id,
+            },
+          });
+        }
 
-      request.log.error({ err: error, userId, itemId }, 'Failed to submit review');
-      throw error;
+        request.log.error({ err: error, userId, itemId }, 'Failed to submit review');
+        throw error;
+      }
     }
-  });
+  );
 };
 ```
 
@@ -279,6 +345,7 @@ export const reviewSubmitRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/review-session.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
@@ -303,69 +370,76 @@ const SessionStatsSchema = Type.Object({
 
 export const reviewSessionRoute: FastifyPluginAsync = async (fastify) => {
   // Start a new review session
-  fastify.post('/session/start', {
-    preHandler: authMiddleware,
-    schema: {
-      response: {
-        200: StartSessionResponseSchema,
+  fastify.post(
+    '/session/start',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        response: {
+          200: StartSessionResponseSchema,
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
+    async (request, reply) => {
+      const userId = request.user!.userId;
 
-    try {
-      // Check how many items are due
-      const queueCount = await fastify.pg.query(
-        `SELECT COUNT(*) as count
+      try {
+        // Check how many items are due
+        const queueCount = await fastify.pg.query(
+          `SELECT COUNT(*) as count
          FROM user_srs_schedule
          WHERE user_id = $1 AND due_date <= CURRENT_TIMESTAMP`,
-        [userId]
-      );
+          [userId]
+        );
 
-      const itemsInQueue = parseInt(queueCount.rows[0].count);
+        const itemsInQueue = parseInt(queueCount.rows[0].count);
 
-      // Create session record
-      const sessionResult = await fastify.pg.query(
-        `INSERT INTO user_review_sessions
+        // Create session record
+        const sessionResult = await fastify.pg.query(
+          `INSERT INTO user_review_sessions
          (user_id, items_reviewed, correct_count, status, started_at, last_activity_at)
          VALUES ($1, 0, 0, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING id, started_at`,
-        [userId]
-      );
+          [userId]
+        );
 
-      const session = sessionResult.rows[0];
+        const session = sessionResult.rows[0];
 
-      request.log.info({ userId, sessionId: session.id, itemsInQueue }, 'Review session started');
+        request.log.info({ userId, sessionId: session.id, itemsInQueue }, 'Review session started');
 
-      return reply.status(200).send({
-        sessionId: session.id,
-        itemsInQueue,
-        startedAt: session.started_at.toISOString(),
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId }, 'Failed to start review session');
-      throw error;
+        return reply.status(200).send({
+          sessionId: session.id,
+          itemsInQueue,
+          startedAt: session.started_at.toISOString(),
+        });
+      } catch (error) {
+        request.log.error({ err: error, userId }, 'Failed to start review session');
+        throw error;
+      }
     }
-  });
+  );
 
   // Get session stats
-  fastify.get('/session/:sessionId', {
-    preHandler: authMiddleware,
-    schema: {
-      params: Type.Object({
-        sessionId: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        200: SessionStatsSchema,
+  fastify.get(
+    '/session/:sessionId',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: Type.Object({
+          sessionId: Type.String({ format: 'uuid' }),
+        }),
+        response: {
+          200: SessionStatsSchema,
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { sessionId } = request.params as { sessionId: string };
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { sessionId } = request.params as { sessionId: string };
 
-    try {
-      const result = await fastify.pg.query(
-        `SELECT
+      try {
+        const result = await fastify.pg.query(
+          `SELECT
            id,
            items_reviewed,
            correct_count,
@@ -375,57 +449,61 @@ export const reviewSessionRoute: FastifyPluginAsync = async (fastify) => {
            EXTRACT(EPOCH FROM (COALESCE(completed_at, CURRENT_TIMESTAMP) - started_at)) as duration_seconds
          FROM user_review_sessions
          WHERE id = $1 AND user_id = $2`,
-        [sessionId, userId]
-      );
+          [sessionId, userId]
+        );
 
-      if (result.rows.length === 0) {
-        return reply.status(404).send({
-          error: {
-            statusCode: 404,
-            message: 'Session not found',
-            requestId: request.id,
-          },
+        if (result.rows.length === 0) {
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Session not found',
+              requestId: request.id,
+            },
+          });
+        }
+
+        const session = result.rows[0];
+        const itemsReviewed = parseInt(session.items_reviewed);
+        const correctCount = parseInt(session.correct_count);
+
+        return reply.status(200).send({
+          sessionId: session.id,
+          itemsReviewed,
+          correctCount,
+          accuracyPct: itemsReviewed > 0 ? Math.round((correctCount / itemsReviewed) * 100) : 0,
+          durationSeconds: Math.round(parseFloat(session.duration_seconds)),
+          status: session.status,
+          startedAt: session.started_at.toISOString(),
+          completedAt: session.completed_at ? session.completed_at.toISOString() : null,
         });
+      } catch (error) {
+        request.log.error({ err: error, userId, sessionId }, 'Failed to fetch session stats');
+        throw error;
       }
-
-      const session = result.rows[0];
-      const itemsReviewed = parseInt(session.items_reviewed);
-      const correctCount = parseInt(session.correct_count);
-
-      return reply.status(200).send({
-        sessionId: session.id,
-        itemsReviewed,
-        correctCount,
-        accuracyPct: itemsReviewed > 0 ? Math.round((correctCount / itemsReviewed) * 100) : 0,
-        durationSeconds: Math.round(parseFloat(session.duration_seconds)),
-        status: session.status,
-        startedAt: session.started_at.toISOString(),
-        completedAt: session.completed_at ? session.completed_at.toISOString() : null,
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, sessionId }, 'Failed to fetch session stats');
-      throw error;
     }
-  });
+  );
 
   // Complete a review session
-  fastify.post('/session/:sessionId/complete', {
-    preHandler: authMiddleware,
-    schema: {
-      params: Type.Object({
-        sessionId: Type.String({ format: 'uuid' }),
-      }),
-      response: {
-        200: SessionStatsSchema,
+  fastify.post(
+    '/session/:sessionId/complete',
+    {
+      preHandler: authMiddleware,
+      schema: {
+        params: Type.Object({
+          sessionId: Type.String({ format: 'uuid' }),
+        }),
+        response: {
+          200: SessionStatsSchema,
+        },
       },
     },
-  }, async (request, reply) => {
-    const userId = request.user!.userId;
-    const { sessionId } = request.params as { sessionId: string };
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { sessionId } = request.params as { sessionId: string };
 
-    try {
-      const result = await fastify.pg.query(
-        `UPDATE user_review_sessions
+      try {
+        const result = await fastify.pg.query(
+          `UPDATE user_review_sessions
          SET status = 'completed', completed_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND user_id = $2 AND status = 'active'
          RETURNING
@@ -436,43 +514,44 @@ export const reviewSessionRoute: FastifyPluginAsync = async (fastify) => {
            started_at,
            completed_at,
            EXTRACT(EPOCH FROM (completed_at - started_at)) as duration_seconds`,
-        [sessionId, userId]
-      );
+          [sessionId, userId]
+        );
 
-      if (result.rows.length === 0) {
-        return reply.status(404).send({
-          error: {
-            statusCode: 404,
-            message: 'Session not found or already completed',
-            requestId: request.id,
-          },
+        if (result.rows.length === 0) {
+          return reply.status(404).send({
+            error: {
+              statusCode: 404,
+              message: 'Session not found or already completed',
+              requestId: request.id,
+            },
+          });
+        }
+
+        const session = result.rows[0];
+        const itemsReviewed = parseInt(session.items_reviewed);
+        const correctCount = parseInt(session.correct_count);
+
+        request.log.info(
+          { userId, sessionId, itemsReviewed, correctCount },
+          'Review session completed'
+        );
+
+        return reply.status(200).send({
+          sessionId: session.id,
+          itemsReviewed,
+          correctCount,
+          accuracyPct: itemsReviewed > 0 ? Math.round((correctCount / itemsReviewed) * 100) : 0,
+          durationSeconds: Math.round(parseFloat(session.duration_seconds)),
+          status: session.status,
+          startedAt: session.started_at.toISOString(),
+          completedAt: session.completed_at!.toISOString(),
         });
+      } catch (error) {
+        request.log.error({ err: error, userId, sessionId }, 'Failed to complete session');
+        throw error;
       }
-
-      const session = result.rows[0];
-      const itemsReviewed = parseInt(session.items_reviewed);
-      const correctCount = parseInt(session.correct_count);
-
-      request.log.info(
-        { userId, sessionId, itemsReviewed, correctCount },
-        'Review session completed'
-      );
-
-      return reply.status(200).send({
-        sessionId: session.id,
-        itemsReviewed,
-        correctCount,
-        accuracyPct: itemsReviewed > 0 ? Math.round((correctCount / itemsReviewed) * 100) : 0,
-        durationSeconds: Math.round(parseFloat(session.duration_seconds)),
-        status: session.status,
-        startedAt: session.started_at.toISOString(),
-        completedAt: session.completed_at!.toISOString(),
-      });
-    } catch (error) {
-      request.log.error({ err: error, userId, sessionId }, 'Failed to complete session');
-      throw error;
     }
-  });
+  );
 };
 ```
 
@@ -487,6 +566,7 @@ export const reviewSessionRoute: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/db/migrations/015-user-review-sessions.sql`:
+
 ```sql
 -- User review sessions for tracking study sessions
 CREATE TABLE user_review_sessions (
@@ -550,6 +630,7 @@ $$ LANGUAGE plpgsql;
 **Implementation Plan**:
 
 Create `packages/api/src/routes/learning/review/index.ts`:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { reviewQueueRoute } from './review-queue';
@@ -565,6 +646,7 @@ export const reviewRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 Update `packages/api/src/routes/learning/index.ts` to include review routes:
+
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { languagesRoute } from './languages';
@@ -585,6 +667,7 @@ export const learningRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Files Created**:
+
 - `packages/api/src/routes/learning/review/index.ts`
 - Update `packages/api/src/routes/learning/index.ts`
 
@@ -597,6 +680,7 @@ export const learningRoutes: FastifyPluginAsync = async (fastify) => {
 **Implementation Plan**:
 
 Create `packages/web/src/pages/ReviewSession.tsx`:
+
 ```typescript
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -787,6 +871,7 @@ export const ReviewSession: React.FC = () => {
 **Implementation Plan**:
 
 Create `packages/web/src/pages/ReviewSummary.tsx`:
+
 ```typescript
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -859,6 +944,7 @@ export const ReviewSummary: React.FC = () => {
 **Context**: Users may close browser during review session. Should we auto-pause/resume?
 
 **Options**:
+
 1. Auto-save progress, allow resume from where they left off
    - Pros: Better UX, no lost progress
    - Cons: More complex state management
@@ -878,6 +964,7 @@ export const ReviewSummary: React.FC = () => {
 **Context**: Users with large backlogs (e.g., 500 due items) may be overwhelmed.
 
 **Options**:
+
 1. Show all due items (current implementation)
    - Pros: Complete, users see full backlog
    - Cons: May be demotivating
@@ -897,6 +984,7 @@ export const ReviewSummary: React.FC = () => {
 **Context**: Current implementation shows/hides answer. Should we add card flip animation?
 
 **Options**:
+
 1. Simple show/hide (current)
    - Pros: Simple, fast
    - Cons: Less engaging
