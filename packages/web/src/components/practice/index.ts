@@ -12,3 +12,4 @@ export { ProductionExercise } from './ProductionExercise';
 export { ProductionPracticeSession } from './ProductionPracticeSession';
 export { ReadingComprehension } from './ReadingComprehension';
 export { ReadingPracticeSession } from './ReadingPracticeSession';
+export { ReviewPracticeSession } from './ReviewPracticeSession';
