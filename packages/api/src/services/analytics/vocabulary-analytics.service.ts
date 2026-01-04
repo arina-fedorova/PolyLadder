@@ -350,7 +350,7 @@ export class VocabularyAnalyticsService {
     }
 
     const row = result.rows[0];
-    const daysLearning = parseFloat(row.days_learning);
+    const daysLearning = parseFloat(row.days_learning || '0');
     const totalWords = parseInt(row.total_words);
     const wordsThisWeek = parseInt(row.this_week);
     const wordsLastWeek = parseInt(row.last_week);
