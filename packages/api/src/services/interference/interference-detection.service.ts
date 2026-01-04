@@ -600,7 +600,7 @@ export class InterferenceDetectionService {
    * Calculate interference reduction rate over time
    */
   async calculateInterferenceReduction(
-    userId: string,
+    _userId: string,
     patternId: string,
     periodDays: number = 30
   ): Promise<InterferenceReduction> {
@@ -645,9 +645,7 @@ export class InterferenceDetectionService {
   /**
    * Get exercise details by ID
    */
-  async getExerciseDetails(
-    exerciseId: string
-  ): Promise<{
+  async getExerciseDetails(exerciseId: string): Promise<{
     correctAnswer: string;
     patternId: string;
     targetText: string;
