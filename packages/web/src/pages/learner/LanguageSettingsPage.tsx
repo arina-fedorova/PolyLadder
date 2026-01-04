@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
 import { UserPreferences } from '../../types';
+import { FocusModeControl } from '../../components/focus-mode';
 
 const AVAILABLE_LANGUAGES: Record<string, string> = {
   EN: 'English',
@@ -124,16 +125,6 @@ export function LanguageSettingsPage() {
     },
   });
 
-  // Update focus mode mutation
-  const updateFocusMutation = useMutation({
-    mutationFn: async (data: { enabled: boolean; language?: string }) => {
-      return api.post('/learning/preferences/focus', data);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
-    },
-  });
-
   const handleAddLanguage = (language: string) => {
     addLanguageMutation.mutate(language);
   };
@@ -152,22 +143,6 @@ export function LanguageSettingsPage() {
     ) {
       removeLanguageMutation.mutate(language);
     }
-  };
-
-  const handleToggleFocus = (enabled: boolean) => {
-    if (!enabled) {
-      updateFocusMutation.mutate({ enabled: false });
-    } else if (preferences) {
-      // Default to first language when enabling
-      updateFocusMutation.mutate({
-        enabled: true,
-        language: preferences.studiedLanguages[0],
-      });
-    }
-  };
-
-  const handleChangeFocusLanguage = (language: string) => {
-    updateFocusMutation.mutate({ enabled: true, language });
   };
 
   if (isLoading) {
@@ -265,50 +240,7 @@ export function LanguageSettingsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={preferences.focusModeEnabled}
-              onChange={(e) => handleToggleFocus(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="font-medium text-gray-900">Enable focus mode</span>
-          </label>
-        </div>
-
-        {preferences.focusModeEnabled && (
-          <div className="mt-4 space-y-3">
-            <label htmlFor="focus-language" className="block text-sm font-medium text-gray-700">
-              Focused Language
-            </label>
-            <select
-              id="focus-language"
-              value={preferences.focusLanguage || ''}
-              onChange={(e) => handleChangeFocusLanguage(e.target.value)}
-              className="block w-full max-w-md rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {preferences.studiedLanguages.map((lang) => (
-                <option key={lang} value={lang}>
-                  {AVAILABLE_LANGUAGES[lang]}
-                </option>
-              ))}
-            </select>
-            <p className="text-sm text-gray-600">
-              Only content from{' '}
-              {AVAILABLE_LANGUAGES[preferences.focusLanguage || preferences.studiedLanguages[0]]}{' '}
-              will be shown in your learning sessions.
-            </p>
-          </div>
-        )}
-
-        {!preferences.focusModeEnabled && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm text-gray-700">
-              Focus mode is disabled. You'll see content from all studied languages.
-            </p>
-          </div>
-        )}
+        <FocusModeControl />
       </section>
 
       {/* Add Language Modal */}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Menu, X, User, LogOut } from 'lucide-react';
+import { FocusModeIndicator } from '@/components/focus-mode';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -88,6 +89,7 @@ export function Header() {
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
+            {user?.role === 'learner' && <FocusModeIndicator />}
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
