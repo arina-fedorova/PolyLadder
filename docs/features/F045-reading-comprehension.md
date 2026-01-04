@@ -3,7 +3,7 @@
 **Feature Code**: F045
 **Created**: 2025-12-17
 **Phase**: 12 - Practice Modes
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,13 @@ Implement reading comprehension exercises with passages and multiple-choice ques
 
 ## Success Criteria
 
-- [ ] Reading passage displayed in target language with proper formatting
-- [ ] Multiple choice questions (3-5 per passage) about passage content
-- [ ] Vocabulary hints show definitions on hover/click for difficult words
-- [ ] Progress indicator showing current question
-- [ ] Scoring and detailed feedback after completion
-- [ ] SRS integration for passages and vocabulary encountered
-- [ ] Audio narration of passage (optional, if available)
+- [x] Reading passage displayed in target language with proper formatting
+- [x] Multiple choice questions (3-5 per passage) about passage content
+- [x] Vocabulary hints show definitions on hover/click for difficult words
+- [x] Progress indicator showing current question
+- [x] Scoring and detailed feedback after completion
+- [x] SRS integration for passages and vocabulary encountered
+- [x] Audio narration of passage (optional, if available)
 
 ---
 
@@ -30,6 +30,7 @@ Implement reading comprehension exercises with passages and multiple-choice ques
 **File**: `packages/api/src/services/practice/reading.service.ts`
 
 Create backend service that:
+
 - Fetches reading passages with comprehension questions from SRS queue
 - Filters passages by CEFR level and user progress
 - Validates submitted answers
@@ -156,7 +157,7 @@ export class ReadingComprehensionService {
         source: row.source,
         vocabularyHints,
         questions,
-        srsItemId: row.srs_item_id
+        srsItemId: row.srs_item_id,
       });
     }
 
@@ -179,10 +180,10 @@ export class ReadingComprehensionService {
       [passageId]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       word: row.word,
       definition: row.definition,
-      position: row.position
+      position: row.position,
     }));
   }
 
@@ -204,13 +205,13 @@ export class ReadingComprehensionService {
       [passageId]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       id: row.id,
       questionText: row.question_text,
       questionType: row.question_type,
       options: row.options, // JSONB array
       correctAnswerIndex: row.correct_answer_index,
-      explanation: row.explanation
+      explanation: row.explanation,
     }));
   }
 
@@ -230,7 +231,7 @@ export class ReadingComprehensionService {
     let correctCount = 0;
 
     for (const userAnswer of userAnswers) {
-      const question = questions.find(q => q.id === userAnswer.questionId);
+      const question = questions.find((q) => q.id === userAnswer.questionId);
       if (!question) continue;
 
       const isCorrect = userAnswer.answerIndex === question.correctAnswerIndex;
@@ -241,7 +242,7 @@ export class ReadingComprehensionService {
         userAnswerIndex: userAnswer.answerIndex,
         correctAnswerIndex: question.correctAnswerIndex,
         isCorrect,
-        explanation: question.explanation
+        explanation: question.explanation,
       });
     }
 
@@ -264,7 +265,7 @@ export class ReadingComprehensionService {
         JSON.stringify(userAnswers),
         score >= 0.7, // Consider 70%+ as correct
         score,
-        JSON.stringify({ totalQuestions: questions.length, correctAnswers: correctCount })
+        JSON.stringify({ totalQuestions: questions.length, correctAnswers: correctCount }),
       ]
     );
 
@@ -273,7 +274,7 @@ export class ReadingComprehensionService {
       score,
       totalQuestions: questions.length,
       correctAnswers: correctCount,
-      answers: answerResults
+      answers: answerResults,
     };
   }
 
@@ -282,17 +283,20 @@ export class ReadingComprehensionService {
    */
   private scoreToQuality(score: number): number {
     if (score >= 0.95) return 5; // Perfect comprehension
-    if (score >= 0.80) return 4; // Good comprehension
-    if (score >= 0.60) return 3; // Acceptable comprehension
-    if (score >= 0.40) return 2; // Struggled but got some correct
-    if (score > 0) return 1;     // Minimal comprehension
+    if (score >= 0.8) return 4; // Good comprehension
+    if (score >= 0.6) return 3; // Acceptable comprehension
+    if (score >= 0.4) return 2; // Struggled but got some correct
+    if (score > 0) return 1; // Minimal comprehension
     return 0; // Complete failure
   }
 
   /**
    * Get reading practice statistics
    */
-  async getReadingStats(userId: string, language: string): Promise<{
+  async getReadingStats(
+    userId: string,
+    language: string
+  ): Promise<{
     totalPassagesRead: number;
     averageScore: number;
     wordsRead: number;
@@ -326,7 +330,7 @@ export class ReadingComprehensionService {
     return {
       totalPassagesRead: parseInt(result.rows[0]?.total_passages || '0'),
       averageScore: parseFloat(result.rows[0]?.average_score || '0'),
-      wordsRead: parseInt(wordsResult.rows[0]?.words_read || '0')
+      wordsRead: parseInt(wordsResult.rows[0]?.words_read || '0'),
     };
   }
 }
@@ -377,6 +381,7 @@ CREATE INDEX idx_comprehension_questions_passage ON reading_comprehension_questi
 ```
 
 **Open Questions**:
+
 1. **Passage Sourcing Strategy**: Where will reading passages come from?
    - **Option A**: Operators manually curate and input passages
    - **Option B**: Scrape from public domain sources (Project Gutenberg, Wikipedia)
@@ -403,6 +408,7 @@ CREATE INDEX idx_comprehension_questions_passage ON reading_comprehension_questi
 **File**: `packages/api/src/routes/practice/reading.ts`
 
 Add REST endpoints for:
+
 - GET `/practice/reading/passages` - Fetch passages with questions
 - POST `/practice/reading/submit` - Submit answers and get results
 - GET `/practice/reading/stats` - Get reading practice statistics
@@ -418,27 +424,26 @@ import { ReadingComprehensionService } from '../../services/practice/reading.ser
 const GetReadingPassagesSchema = z.object({
   language: z.enum(['russian', 'chinese', 'arabic']),
   cefrLevel: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
-  limit: z.coerce.number().int().min(1).max(20).default(5)
+  limit: z.coerce.number().int().min(1).max(20).default(5),
 });
 
 const SubmitReadingAnswersSchema = z.object({
   passageId: z.string().uuid(),
   srsItemId: z.string().uuid(),
-  answers: z.array(z.object({
-    questionId: z.string().uuid(),
-    answerIndex: z.number().int().min(0).max(5)
-  }))
+  answers: z.array(
+    z.object({
+      questionId: z.string().uuid(),
+      answerIndex: z.number().int().min(0).max(5),
+    })
+  ),
 });
 
 const GetReadingStatsSchema = z.object({
-  language: z.enum(['russian', 'chinese', 'arabic'])
+  language: z.enum(['russian', 'chinese', 'arabic']),
 });
 
 const readingRoutes: FastifyPluginAsync = async (fastify) => {
-  const readingService = new ReadingComprehensionService(
-    fastify.db.pool,
-    fastify.srsService
-  );
+  const readingService = new ReadingComprehensionService(fastify.db.pool, fastify.srsService);
 
   /**
    * GET /practice/reading/passages
@@ -452,55 +457,55 @@ const readingRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetReadingPassagesSchema,
         response: {
           200: z.object({
-            passages: z.array(z.object({
-              id: z.string().uuid(),
-              title: z.string(),
-              text: z.string(),
-              language: z.string(),
-              cefrLevel: z.string(),
-              wordCount: z.number(),
-              audioUrl: z.string().optional(),
-              source: z.string().optional(),
-              vocabularyHints: z.array(z.object({
-                word: z.string(),
-                definition: z.string(),
-                position: z.number()
-              })),
-              questions: z.array(z.object({
+            passages: z.array(
+              z.object({
                 id: z.string().uuid(),
-                questionText: z.string(),
-                questionType: z.string(),
-                options: z.array(z.string()),
-                // Don't send correctAnswerIndex or explanation to client
-              })),
-              srsItemId: z.string().uuid()
-            }))
-          })
-        }
-      }
+                title: z.string(),
+                text: z.string(),
+                language: z.string(),
+                cefrLevel: z.string(),
+                wordCount: z.number(),
+                audioUrl: z.string().optional(),
+                source: z.string().optional(),
+                vocabularyHints: z.array(
+                  z.object({
+                    word: z.string(),
+                    definition: z.string(),
+                    position: z.number(),
+                  })
+                ),
+                questions: z.array(
+                  z.object({
+                    id: z.string().uuid(),
+                    questionText: z.string(),
+                    questionType: z.string(),
+                    options: z.array(z.string()),
+                    // Don't send correctAnswerIndex or explanation to client
+                  })
+                ),
+                srsItemId: z.string().uuid(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
-      const { language, cefrLevel, limit } =
-        GetReadingPassagesSchema.parse(request.query);
+      const { language, cefrLevel, limit } = GetReadingPassagesSchema.parse(request.query);
       const userId = request.user.userId;
 
-      const passages = await readingService.getReadingPassages(
-        userId,
-        language,
-        cefrLevel,
-        limit
-      );
+      const passages = await readingService.getReadingPassages(userId, language, cefrLevel, limit);
 
       // Remove correct answers and explanations before sending to client
-      const sanitizedPassages = passages.map(passage => ({
+      const sanitizedPassages = passages.map((passage) => ({
         ...passage,
-        questions: passage.questions.map(q => ({
+        questions: passage.questions.map((q) => ({
           id: q.id,
           questionText: q.questionText,
           questionType: q.questionType,
-          options: q.options
+          options: q.options,
           // correctAnswerIndex and explanation omitted
-        }))
+        })),
       }));
 
       return reply.send({ passages: sanitizedPassages });
@@ -523,20 +528,21 @@ const readingRoutes: FastifyPluginAsync = async (fastify) => {
             score: z.number(),
             totalQuestions: z.number(),
             correctAnswers: z.number(),
-            answers: z.array(z.object({
-              questionId: z.string().uuid(),
-              userAnswerIndex: z.number(),
-              correctAnswerIndex: z.number(),
-              isCorrect: z.boolean(),
-              explanation: z.string().optional()
-            }))
-          })
-        }
-      }
+            answers: z.array(
+              z.object({
+                questionId: z.string().uuid(),
+                userAnswerIndex: z.number(),
+                correctAnswerIndex: z.number(),
+                isCorrect: z.boolean(),
+                explanation: z.string().optional(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
-      const { passageId, srsItemId, answers } =
-        SubmitReadingAnswersSchema.parse(request.body);
+      const { passageId, srsItemId, answers } = SubmitReadingAnswersSchema.parse(request.body);
       const userId = request.user.userId;
 
       const result = await readingService.validateReadingAnswers(
@@ -564,10 +570,10 @@ const readingRoutes: FastifyPluginAsync = async (fastify) => {
           200: z.object({
             totalPassagesRead: z.number(),
             averageScore: z.number(),
-            wordsRead: z.number()
-          })
-        }
-      }
+            wordsRead: z.number(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { language } = GetReadingStatsSchema.parse(request.query);
@@ -600,6 +606,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Answer Submission Timing**: Should we allow users to submit answers one-by-one or require all answers before submission?
    - **One-by-one**: Immediate feedback, but may encourage guessing patterns
    - **Batch submission**: More authentic reading test experience
@@ -621,6 +628,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/components/practice/ReadingComprehension.tsx`
 
 Create UI component with:
+
 - Reading passage display with proper text formatting
 - Audio narration player (if available)
 - Vocabulary hints with hover/click tooltips
@@ -695,42 +703,42 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const answers = passage.questions.map(q => ({
+      const answers = passage.questions.map((q) => ({
         questionId: q.id,
-        answerIndex: userAnswers.get(q.id) ?? -1
+        answerIndex: userAnswers.get(q.id) ?? -1,
       }));
 
       const response = await apiClient.post('/practice/reading/submit', {
         passageId: passage.id,
         srsItemId: passage.srsItemId,
-        answers
+        answers,
       });
       return response.data;
     },
     onSuccess: (data: ReadingResult) => {
       setResult(data);
-    }
+    },
   });
 
   const handleAnswerSelect = (questionId: string, answerIndex: number) => {
-    setUserAnswers(prev => new Map(prev).set(questionId, answerIndex));
+    setUserAnswers((prev) => new Map(prev).set(questionId, answerIndex));
   };
 
   const handleNext = () => {
     if (currentQuestionIndex < passage.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+      setCurrentQuestionIndex((prev) => prev - 1);
     }
   };
 
   const handleSubmit = () => {
     // Check if all questions answered
-    const unanswered = passage.questions.filter(q => !userAnswers.has(q.id));
+    const unanswered = passage.questions.filter((q) => !userAnswers.has(q.id));
     if (unanswered.length > 0) {
       const confirm = window.confirm(
         `You have ${unanswered.length} unanswered question(s). Submit anyway?`
@@ -748,8 +756,8 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
     return (
       <div className="text-lg leading-relaxed text-gray-800">
         {words.map((word, idx) => {
-          const hint = passage.vocabularyHints.find(h =>
-            h.word.toLowerCase() === word.toLowerCase().replace(/[.,!?;:]/g, '')
+          const hint = passage.vocabularyHints.find(
+            (h) => h.word.toLowerCase() === word.toLowerCase().replace(/[.,!?;:]/g, '')
           );
 
           if (hint) {
@@ -778,7 +786,7 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
   };
 
   const currentQuestion = passage.questions[currentQuestionIndex];
-  const allAnswered = passage.questions.every(q => userAnswers.has(q.id));
+  const allAnswered = passage.questions.every((q) => userAnswers.has(q.id));
 
   if (result) {
     return (
@@ -787,9 +795,13 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
           {/* Results Header */}
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold mb-2">Reading Comprehension Results</h3>
-            <div className="text-4xl font-bold mb-2" style={{
-              color: result.score >= 0.8 ? '#10b981' : result.score >= 0.6 ? '#f59e0b' : '#ef4444'
-            }}>
+            <div
+              className="text-4xl font-bold mb-2"
+              style={{
+                color:
+                  result.score >= 0.8 ? '#10b981' : result.score >= 0.6 ? '#f59e0b' : '#ef4444',
+              }}
+            >
               {(result.score * 100).toFixed(0)}%
             </div>
             <div className="text-gray-600">
@@ -800,7 +812,7 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
           {/* Question-by-Question Feedback */}
           <div className="space-y-4">
             {passage.questions.map((question, idx) => {
-              const answerResult = result.answers.find(a => a.questionId === question.id);
+              const answerResult = result.answers.find((a) => a.questionId === question.id);
               if (!answerResult) return null;
 
               return (
@@ -862,9 +874,7 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{passage.title}</h3>
-            {passage.source && (
-              <div className="text-sm text-gray-500 mt-1">{passage.source}</div>
-            )}
+            {passage.source && <div className="text-sm text-gray-500 mt-1">{passage.source}</div>}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded">
@@ -887,9 +897,7 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
         )}
 
         {/* Reading Passage */}
-        <div className="mb-8 p-6 bg-gray-50 rounded-lg">
-          {renderPassageWithHints()}
-        </div>
+        <div className="mb-8 p-6 bg-gray-50 rounded-lg">{renderPassageWithHints()}</div>
 
         {/* Vocabulary Hint Legend */}
         {passage.vocabularyHints.length > 0 && (
@@ -917,9 +925,7 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
 
           {/* Current Question */}
           <div className="space-y-4">
-            <div className="text-lg font-medium text-gray-900">
-              {currentQuestion.questionText}
-            </div>
+            <div className="text-lg font-medium text-gray-900">{currentQuestion.questionText}</div>
 
             {/* Answer Options */}
             <div className="space-y-2">
@@ -936,9 +942,11 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                      }`}>
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                        }`}
+                      >
                         {isSelected && <div className="w-3 h-3 bg-white rounded-full" />}
                       </div>
                       <span className="text-gray-900">{option}</span>
@@ -959,7 +967,9 @@ export const ReadingComprehension: React.FC<Props> = ({ passage, onComplete }) =
               </button>
 
               <div className="text-sm text-gray-600">
-                {allAnswered ? 'All questions answered ✓' : `${userAnswers.size}/${passage.questions.length} answered`}
+                {allAnswered
+                  ? 'All questions answered ✓'
+                  : `${userAnswers.size}/${passage.questions.length} answered`}
               </div>
 
               {currentQuestionIndex < passage.questions.length - 1 ? (
@@ -1010,6 +1020,7 @@ case 'reading':
 ```
 
 **Open Questions**:
+
 1. **Text-to-Speech Fallback**: If audio narration is not available, should we offer browser-based text-to-speech as fallback? Quality may vary by browser/language.
 2. **Passage Navigation**: Should users be able to scroll back to the passage while answering questions, or should passage be hidden during questions?
    - **Always visible**: More natural reading experience
@@ -1034,12 +1045,14 @@ case 'reading':
 ## Notes
 
 ### Question Types
+
 - **Factual**: Direct information from text (Who, What, When, Where)
 - **Inferential**: Requires reading between the lines (Why, How, implications)
 - **Vocabulary**: Word meaning in context
 - **Main Idea**: Overall theme or purpose of passage
 
 ### CEFR-Appropriate Passage Characteristics
+
 - **A1**: Simple sentences, present tense, everyday topics (50-100 words)
 - **A2**: Simple connectors, past tense introduced, familiar situations (100-200 words)
 - **B1**: Complex sentences, opinions, abstract topics introduced (200-400 words)
@@ -1047,11 +1060,13 @@ case 'reading':
 - **C1/C2**: Complex structure, idioms, literary/academic texts (600-1000+ words)
 
 ### Vocabulary Hints Strategy
+
 - Target 5-10 hints per passage (most challenging words for level)
 - Definitions should be simple (ideally one CEFR level below passage level)
 - Position tracking allows precise highlighting in UI
 
 ### Scoring Thresholds
+
 - **95%+**: Perfect comprehension (SRS quality 5)
 - **80-95%**: Good comprehension (SRS quality 4)
 - **60-80%**: Acceptable comprehension (SRS quality 3)
@@ -1059,6 +1074,7 @@ case 'reading':
 - **<40%**: Poor comprehension (SRS quality 0-1)
 
 ### Accessibility
+
 - Hover tooltips for vocabulary hints
 - Progress bar shows question completion
 - Clear visual distinction between answered/unanswered questions
@@ -1066,6 +1082,7 @@ case 'reading':
 - High contrast colors for readability
 
 ### Future Enhancements (Out of Scope)
+
 - **Adaptive Reading**: Adjust passage difficulty based on performance
 - **Open-ended Questions**: Free text responses with NLP evaluation
 - **Collaborative Reading**: Multi-user reading discussions
@@ -1085,6 +1102,7 @@ case 'reading':
 **Current Approach**: Manual curation implied by `approved_reading_passages` table. Operators/content creators write or adapt passages specifically for each CEFR level, ensuring appropriate vocabulary and grammar complexity.
 
 **Alternatives**:
+
 1. **Manual creation only** (current): Operators write original passages or professionally adapt existing texts. Highest quality control but very labor-intensive and limited content volume.
 2. **Web scraping with curation**: Automatically scrape news sites, Wikipedia, blogs, etc. Operators review and approve suitable passages. Faster content pipeline but requires filtering for copyright and quality.
 3. **LLM generation**: Use GPT-4/Claude to generate passages for specific CEFR levels and topics. Fast and scalable but may have unnatural language or factual errors.
@@ -1102,6 +1120,7 @@ case 'reading':
 **Current Approach**: No specified distribution. Question types and count determined per passage by content creator. Default to 4 question types (factual, inferential, vocabulary, main idea) as documented in Notes section.
 
 **Alternatives**:
+
 1. **Equal distribution**: 25% each type for all passages. Simple but may not suit all content (some passages better for inference, others for vocabulary).
 2. **CEFR-adaptive distribution**:
    - A1-A2: 60% factual, 20% vocabulary, 20% main idea (focus on literal comprehension)
@@ -1111,6 +1130,7 @@ case 'reading':
 4. **Minimum requirements**: Each passage must have at least 1 of each type, then creator adds more. Ensures coverage without rigidity.
 
 **Recommendation**: Implement **CEFR-adaptive distribution with minimum requirements** (Option 2 + 4 hybrid). Define target distributions per CEFR level (as in Option 2), but enforce minimum 1 question per type. Typical passage has 5-8 questions total:
+
 - A1-A2: 5 questions (3 factual, 1 vocabulary, 1 main idea)
 - B1-B2: 6 questions (2 factual, 2 inferential, 1 vocabulary, 1 main idea)
 - C1-C2: 8 questions (2 of each type)
@@ -1126,6 +1146,7 @@ Store question type distribution analytics to validate if target distributions c
 **Current Approach**: Manual CEFR assignment by content creators stored in `approved_reading_passages.cefr_level`. No automated validation or difficulty metrics. Relies on operator expertise to judge appropriate vocabulary, grammar, and complexity.
 
 **Alternatives**:
+
 1. **Manual only** (current): Operators assign CEFR based on judgment. Simple but prone to inconsistency between different operators.
 2. **Readability formulas**: Use established metrics (Flesch-Kincaid, SMOG, Coleman-Liau) to estimate reading level. Automated but designed for English and may not transfer to other languages.
 3. **Vocabulary frequency analysis**: Calculate % of words from each CEFR word list (A1 words, A2 words, etc.). If passage uses 90%+ A2 words, likely A2 level.
@@ -1133,6 +1154,7 @@ Store question type distribution analytics to validate if target distributions c
 5. **LLM evaluation**: Use GPT-4/Claude to analyze passage and provide CEFR estimate with justification. Fast and scalable but requires validation.
 
 **Recommendation**: Implement **vocabulary frequency analysis** (Option 3) as automated baseline, combined with **field testing** (Option 4) for validation. For each passage, calculate coverage of CEFR-leveled vocabulary lists. Passages should use:
+
 - A1: 90%+ words from A1 list
 - A2: 80%+ from A1+A2 combined
 - B1: 70%+ from A1+A2+B1 combined
