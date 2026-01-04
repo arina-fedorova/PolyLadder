@@ -113,8 +113,7 @@ describe('Vocabulary Analytics Integration Tests', () => {
   beforeEach(async () => {
     await cleanupTestData();
 
-    // Clean up word states and SRS items
-    await pool.query(`DELETE FROM user_srs_items`);
+    // Clean up word states
     await pool.query(`DELETE FROM user_word_state`);
 
     // Create learner user
