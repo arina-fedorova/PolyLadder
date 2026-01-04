@@ -19,6 +19,7 @@ import productionRoute from './production';
 import readingRoute from './reading';
 import reviewRoute from './review';
 import mixedRoute from './mixed';
+import interferenceRoute from './interference';
 
 const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(preferencesRoute);
@@ -41,6 +42,7 @@ const learningRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(readingRoute);
   await fastify.register(reviewRoute);
   await fastify.register(mixedRoute);
+  await fastify.register(interferenceRoute);
 };
 
 export default learningRoutes;
