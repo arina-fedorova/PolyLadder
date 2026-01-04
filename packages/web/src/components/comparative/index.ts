@@ -1,0 +1,1 @@
+export { ComparativeGrammar } from './ComparativeGrammar';
