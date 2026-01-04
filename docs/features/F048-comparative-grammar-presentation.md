@@ -3,7 +3,7 @@
 **Feature Code**: F048
 **Created**: 2025-12-17
 **Phase**: 14 - Parallel Learning Support
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,13 +13,13 @@ Implement side-by-side grammar comparisons between languages the user is studyin
 
 ## Success Criteria
 
-- [ ] Grammar rules compared across 2-3 languages side-by-side
-- [ ] Automatic concept matching (e.g., "past tense" → past tense in all languages)
-- [ ] Visual highlighting of similarities (green) and differences (orange)
-- [ ] Cross-linguistic insights and transfer tips
-- [ ] User selects languages to compare (from studied languages)
-- [ ] Comparison templates for common grammar categories
-- [ ] Examples shown for each language in comparison
+- [x] Grammar rules compared across 2-3 languages side-by-side
+- [x] Automatic concept matching (e.g., "past tense" → past tense in all languages)
+- [x] Visual highlighting of similarities (green) and differences (orange)
+- [x] Cross-linguistic insights and transfer tips
+- [x] User selects languages to compare (from studied languages)
+- [x] Comparison templates for common grammar categories
+- [x] Examples shown for each language in comparison
 
 ---
 
@@ -30,6 +30,7 @@ Implement side-by-side grammar comparisons between languages the user is studyin
 **File**: `packages/api/src/services/comparative/comparative-grammar.service.ts`
 
 Create backend service that:
+
 - Fetches grammar rules for a specific concept across multiple languages
 - Matches equivalent grammar concepts using metadata tags
 - Identifies similarities and differences between language implementations
@@ -104,10 +105,10 @@ export class ComparativeGrammarService {
       [languages]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       conceptKey: row.concept_key,
       conceptName: row.concept_name,
-      languageCount: parseInt(row.language_count)
+      languageCount: parseInt(row.language_count),
     }));
   }
 
@@ -157,7 +158,7 @@ export class ComparativeGrammarService {
         explanation: rule.explanation,
         examples: rule.examples || [], // JSONB array
         conjugationTable: tableResult.rows[0] || undefined,
-        metadata: rule.metadata || {}
+        metadata: rule.metadata || {},
       });
     }
 
@@ -191,7 +192,7 @@ export class ComparativeGrammarService {
       languages: languagesData,
       similarities,
       differences,
-      crossLinguisticInsights: insights
+      crossLinguisticInsights: insights,
     };
   }
 
@@ -206,18 +207,18 @@ export class ComparativeGrammarService {
     const differences: ComparisonDifference[] = [];
 
     // Extract metadata features for comparison
-    const features = languagesData.map(lang => ({
+    const features = languagesData.map((lang) => ({
       language: lang.language,
       hasIrregular: lang.metadata.has_irregular_forms || false,
       formationMethod: lang.metadata.formation_method || 'unknown',
       complexity: lang.metadata.complexity || 'medium',
-      usesAuxiliary: lang.metadata.uses_auxiliary || false
+      usesAuxiliary: lang.metadata.uses_auxiliary || false,
     }));
 
     // Check for similarities
-    const allHaveIrregular = features.every(f => f.hasIrregular);
-    const allLackIrregular = features.every(f => !f.hasIrregular);
-    const allUseAuxiliary = features.every(f => f.usesAuxiliary);
+    const allHaveIrregular = features.every((f) => f.hasIrregular);
+    const allLackIrregular = features.every((f) => !f.hasIrregular);
+    const allUseAuxiliary = features.every((f) => f.usesAuxiliary);
 
     if (allHaveIrregular) {
       similarities.push('All languages have irregular forms for this concept');
@@ -230,30 +231,30 @@ export class ComparativeGrammarService {
     }
 
     // Identify formation method differences
-    const formationMethods = features.map(f => ({
+    const formationMethods = features.map((f) => ({
       language: f.language,
-      description: this.getFormationMethodDescription(f.formationMethod)
+      description: this.getFormationMethodDescription(f.formationMethod),
     }));
 
-    const uniqueMethods = new Set(formationMethods.map(f => f.description));
+    const uniqueMethods = new Set(formationMethods.map((f) => f.description));
     if (uniqueMethods.size > 1) {
       differences.push({
         aspect: 'Formation Method',
-        descriptions: formationMethods
+        descriptions: formationMethods,
       });
     }
 
     // Identify complexity differences
-    const complexities = features.map(f => ({
+    const complexities = features.map((f) => ({
       language: f.language,
-      description: `${f.complexity.charAt(0).toUpperCase() + f.complexity.slice(1)} complexity`
+      description: `${f.complexity.charAt(0).toUpperCase() + f.complexity.slice(1)} complexity`,
     }));
 
-    const uniqueComplexities = new Set(complexities.map(c => c.description));
+    const uniqueComplexities = new Set(complexities.map((c) => c.description));
     if (uniqueComplexities.size > 1) {
       differences.push({
         aspect: 'Complexity Level',
-        descriptions: complexities
+        descriptions: complexities,
       });
     }
 
@@ -265,15 +266,15 @@ export class ComparativeGrammarService {
    */
   private getFormationMethodDescription(method: string): string {
     const descriptions: Record<string, string> = {
-      'suffix': 'Adds suffix to base form',
-      'prefix': 'Adds prefix to base form',
-      'stem_change': 'Changes stem vowel/consonant',
-      'auxiliary': 'Uses auxiliary verb + participle',
-      'tonal': 'Changes tone/pitch',
-      'particle': 'Uses grammatical particle',
-      'infixation': 'Inserts infix within stem',
-      'reduplication': 'Repeats part of the word',
-      'unknown': 'Formation method not documented'
+      suffix: 'Adds suffix to base form',
+      prefix: 'Adds prefix to base form',
+      stem_change: 'Changes stem vowel/consonant',
+      auxiliary: 'Uses auxiliary verb + participle',
+      tonal: 'Changes tone/pitch',
+      particle: 'Uses grammatical particle',
+      infixation: 'Inserts infix within stem',
+      reduplication: 'Repeats part of the word',
+      unknown: 'Formation method not documented',
     };
 
     return descriptions[method] || method;
@@ -299,7 +300,7 @@ export class ComparativeGrammarService {
 
     // Insight: Interference warning
     if (differences.length > 0) {
-      const formationDiff = differences.find(d => d.aspect === 'Formation Method');
+      const formationDiff = differences.find((d) => d.aspect === 'Formation Method');
       if (formationDiff) {
         insights.push(
           `⚠️ Interference Alert: Different formation methods mean you need to consciously switch strategies when changing languages.`
@@ -308,14 +309,12 @@ export class ComparativeGrammarService {
     }
 
     // Insight: Learning order recommendation
-    const complexities = languagesData.map(lang =>
-      lang.metadata.complexity || 'medium'
-    );
+    const complexities = languagesData.map((lang) => lang.metadata.complexity || 'medium');
     const hasEasy = complexities.includes('easy');
     const hasHard = complexities.includes('hard');
 
     if (hasEasy && hasHard) {
-      const easyLang = languagesData.find(l => l.metadata.complexity === 'easy')?.language;
+      const easyLang = languagesData.find((l) => l.metadata.complexity === 'easy')?.language;
       insights.push(
         `📚 Learning Order: Master this concept in ${easyLang} first, then transfer to more complex languages.`
       );
@@ -353,11 +352,11 @@ export class ComparativeGrammarService {
       [userId, limit]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       conceptKey: row.concept_key,
       conceptName: row.concept_name || row.concept_key,
       languages: row.languages,
-      viewedAt: row.viewed_at
+      viewedAt: row.viewed_at,
     }));
   }
 }
@@ -385,18 +384,19 @@ CREATE INDEX idx_user_comparisons_viewed_at ON user_grammar_comparisons_viewed(v
 ```typescript
 // Add to approved_grammar_rules.metadata JSONB structure
 interface GrammarRuleMetadata {
-  concept_key: string;        // e.g., "past_tense", "plural_formation"
-  concept_name: string;       // e.g., "Past Tense", "Plural Formation"
-  formation_method: string;   // 'suffix', 'prefix', 'auxiliary', 'tonal', etc.
+  concept_key: string; // e.g., "past_tense", "plural_formation"
+  concept_name: string; // e.g., "Past Tense", "Plural Formation"
+  formation_method: string; // 'suffix', 'prefix', 'auxiliary', 'tonal', etc.
   has_irregular_forms: boolean;
   uses_auxiliary: boolean;
   complexity: 'easy' | 'medium' | 'hard';
-  cognates?: string[];       // Related concepts in other languages
-  false_friends?: string[];  // Deceptive similarities to avoid
+  cognates?: string[]; // Related concepts in other languages
+  false_friends?: string[]; // Deceptive similarities to avoid
 }
 ```
 
 **Open Questions**:
+
 1. **Concept Taxonomy**: Should we create a formal taxonomy of grammar concepts that works across all languages, or use ad-hoc tagging?
    - **Formal taxonomy**: Consistent, scalable, requires linguistic expertise
    - **Ad-hoc tagging**: Flexible, but may have inconsistencies
@@ -420,6 +420,7 @@ interface GrammarRuleMetadata {
 **File**: `packages/api/src/routes/comparative/grammar.ts`
 
 Add REST endpoints for:
+
 - GET `/comparative/grammar/concepts` - Get available concepts for comparison
 - GET `/comparative/grammar/compare` - Get detailed comparison for a concept
 - GET `/comparative/grammar/history` - Get user's comparison history
@@ -433,16 +434,16 @@ import { z } from 'zod';
 import { ComparativeGrammarService } from '../../services/comparative/comparative-grammar.service';
 
 const GetAvailableConceptsSchema = z.object({
-  languages: z.string().transform(str => str.split(','))
+  languages: z.string().transform((str) => str.split(',')),
 });
 
 const GetComparisonSchema = z.object({
   conceptKey: z.string().min(1),
-  languages: z.string().transform(str => str.split(','))
+  languages: z.string().transform((str) => str.split(',')),
 });
 
 const GetHistorySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(10)
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
@@ -460,14 +461,16 @@ const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetAvailableConceptsSchema,
         response: {
           200: z.object({
-            concepts: z.array(z.object({
-              conceptKey: z.string(),
-              conceptName: z.string(),
-              languageCount: z.number()
-            }))
-          })
-        }
-      }
+            concepts: z.array(
+              z.object({
+                conceptKey: z.string(),
+                conceptName: z.string(),
+                languageCount: z.number(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { languages } = GetAvailableConceptsSchema.parse(request.query);
@@ -475,7 +478,7 @@ const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (languages.length < 2) {
         return reply.status(400).send({
-          error: 'At least 2 languages required for comparison'
+          error: 'At least 2 languages required for comparison',
         });
       }
 
@@ -500,39 +503,51 @@ const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
             comparison: z.object({
               conceptKey: z.string(),
               conceptName: z.string(),
-              languages: z.array(z.object({
-                language: z.string(),
-                ruleId: z.string(),
-                ruleName: z.string(),
-                explanation: z.string(),
-                examples: z.array(z.object({
-                  sentence: z.string(),
-                  translation: z.string(),
-                  highlighted: z.string().optional()
-                })),
-                conjugationTable: z.object({
-                  tableType: z.string(),
-                  headers: z.array(z.string()),
-                  rows: z.array(z.object({
-                    label: z.string(),
-                    cells: z.array(z.string())
-                  }))
-                }).optional(),
-                metadata: z.record(z.any())
-              })),
-              similarities: z.array(z.string()),
-              differences: z.array(z.object({
-                aspect: z.string(),
-                descriptions: z.array(z.object({
+              languages: z.array(
+                z.object({
                   language: z.string(),
-                  description: z.string()
-                }))
-              })),
-              crossLinguisticInsights: z.array(z.string())
-            })
-          })
-        }
-      }
+                  ruleId: z.string(),
+                  ruleName: z.string(),
+                  explanation: z.string(),
+                  examples: z.array(
+                    z.object({
+                      sentence: z.string(),
+                      translation: z.string(),
+                      highlighted: z.string().optional(),
+                    })
+                  ),
+                  conjugationTable: z
+                    .object({
+                      tableType: z.string(),
+                      headers: z.array(z.string()),
+                      rows: z.array(
+                        z.object({
+                          label: z.string(),
+                          cells: z.array(z.string()),
+                        })
+                      ),
+                    })
+                    .optional(),
+                  metadata: z.record(z.any()),
+                })
+              ),
+              similarities: z.array(z.string()),
+              differences: z.array(
+                z.object({
+                  aspect: z.string(),
+                  descriptions: z.array(
+                    z.object({
+                      language: z.string(),
+                      description: z.string(),
+                    })
+                  ),
+                })
+              ),
+              crossLinguisticInsights: z.array(z.string()),
+            }),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { conceptKey, languages } = GetComparisonSchema.parse(request.query);
@@ -540,15 +555,11 @@ const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (languages.length < 2 || languages.length > 3) {
         return reply.status(400).send({
-          error: 'Comparison requires 2-3 languages'
+          error: 'Comparison requires 2-3 languages',
         });
       }
 
-      const comparison = await service.getGrammarComparison(
-        userId,
-        conceptKey,
-        languages
-      );
+      const comparison = await service.getGrammarComparison(userId, conceptKey, languages);
 
       return reply.send({ comparison });
     }
@@ -566,15 +577,17 @@ const comparativeGrammarRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: GetHistorySchema,
         response: {
           200: z.object({
-            history: z.array(z.object({
-              conceptKey: z.string(),
-              conceptName: z.string(),
-              languages: z.array(z.string()),
-              viewedAt: z.date()
-            }))
-          })
-        }
-      }
+            history: z.array(
+              z.object({
+                conceptKey: z.string(),
+                conceptName: z.string(),
+                languages: z.array(z.string()),
+                viewedAt: z.date(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { limit } = GetHistorySchema.parse(request.query);
@@ -602,6 +615,7 @@ export const routes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Real-time Comparison Updates**: Should the comparison data update automatically if grammar rules are modified by operators?
    - **Static snapshot**: Simple, user sees what they saw before
    - **Dynamic updates**: Always current, but may confuse users
@@ -625,6 +639,7 @@ export const routes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/components/comparative/ComparativeGrammar.tsx`
 
 Create UI component with:
+
 - Language selector (choose 2-3 from studied languages)
 - Concept selector (dropdown of available concepts)
 - Side-by-side grammar presentation with synchronized scrolling
@@ -677,7 +692,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   russian: 'Russian',
   chinese: 'Chinese',
   arabic: 'Arabic',
-  english: 'English'
+  english: 'English',
 };
 
 export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
@@ -693,11 +708,11 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
       if (selectedLanguages.length < 2) return { concepts: [] };
 
       const response = await apiClient.get('/comparative/grammar/concepts', {
-        params: { languages: selectedLanguages.join(',') }
+        params: { languages: selectedLanguages.join(',') },
       });
       return response.data;
     },
-    enabled: selectedLanguages.length >= 2
+    enabled: selectedLanguages.length >= 2,
   });
 
   // Fetch detailed comparison
@@ -707,20 +722,20 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
       const response = await apiClient.get('/comparative/grammar/compare', {
         params: {
           conceptKey: selectedConcept,
-          languages: selectedLanguages.join(',')
-        }
+          languages: selectedLanguages.join(','),
+        },
       });
       return response.data;
     },
-    enabled: !!selectedConcept && selectedLanguages.length >= 2
+    enabled: !!selectedConcept && selectedLanguages.length >= 2,
   });
 
   const comparison: GrammarComparison | null = comparisonData?.comparison || null;
 
   const handleLanguageToggle = (language: string) => {
-    setSelectedLanguages(prev => {
+    setSelectedLanguages((prev) => {
       if (prev.includes(language)) {
-        return prev.filter(l => l !== language);
+        return prev.filter((l) => l !== language);
       } else if (prev.length < 3) {
         return [...prev, language];
       }
@@ -734,9 +749,10 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
     const sourceRef = scrollRefs.current[sourceLanguage];
     if (!sourceRef) return;
 
-    const scrollPercentage = sourceRef.scrollTop / (sourceRef.scrollHeight - sourceRef.clientHeight);
+    const scrollPercentage =
+      sourceRef.scrollTop / (sourceRef.scrollHeight - sourceRef.clientHeight);
 
-    Object.keys(scrollRefs.current).forEach(lang => {
+    Object.keys(scrollRefs.current).forEach((lang) => {
       if (lang !== sourceLanguage && scrollRefs.current[lang]) {
         const targetRef = scrollRefs.current[lang]!;
         targetRef.scrollTop = scrollPercentage * (targetRef.scrollHeight - targetRef.clientHeight);
@@ -750,7 +766,8 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-2xl font-bold mb-2">Comparative Grammar</h2>
         <p className="text-gray-600">
-          Compare grammar concepts across languages you're studying to identify patterns and avoid interference.
+          Compare grammar concepts across languages you're studying to identify patterns and avoid
+          interference.
         </p>
       </div>
 
@@ -758,7 +775,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold mb-4">Select Languages to Compare (2-3)</h3>
         <div className="flex flex-wrap gap-3">
-          {availableLanguages.map(language => {
+          {availableLanguages.map((language) => {
             const isSelected = selectedLanguages.includes(language);
             const isDisabled = !isSelected && selectedLanguages.length >= 3;
 
@@ -771,8 +788,8 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
                   isSelected
                     ? 'bg-blue-600 text-white'
                     : isDisabled
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
                 {LANGUAGE_NAMES[language]}
@@ -820,9 +837,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
           {/* Similarities */}
           {comparison.similarities.length > 0 && (
             <div className="bg-green-50 border-l-4 border-green-400 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-green-900 mb-3">
-                ✓ Similarities
-              </h3>
+              <h3 className="text-lg font-semibold text-green-900 mb-3">✓ Similarities</h3>
               <ul className="space-y-2">
                 {comparison.similarities.map((similarity, idx) => (
                   <li key={idx} className="text-green-800">
@@ -836,15 +851,11 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
           {/* Differences */}
           {comparison.differences.length > 0 && (
             <div className="bg-orange-50 border-l-4 border-orange-400 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-orange-900 mb-3">
-                ⚠️ Differences
-              </h3>
+              <h3 className="text-lg font-semibold text-orange-900 mb-3">⚠️ Differences</h3>
               <div className="space-y-4">
                 {comparison.differences.map((diff, idx) => (
                   <div key={idx}>
-                    <div className="font-semibold text-orange-900 mb-2">
-                      {diff.aspect}:
-                    </div>
+                    <div className="font-semibold text-orange-900 mb-2">{diff.aspect}:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {diff.descriptions.map((desc, descIdx) => (
                         <div
@@ -867,9 +878,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
           {/* Cross-Linguistic Insights */}
           {comparison.crossLinguisticInsights.length > 0 && (
             <div className="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">
-                💡 Learning Insights
-              </h3>
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Learning Insights</h3>
               <div className="space-y-2">
                 {comparison.crossLinguisticInsights.map((insight, idx) => (
                   <div key={idx} className="text-blue-800">
@@ -882,7 +891,9 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
 
           {/* Side-by-Side Grammar Details */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-xl font-bold mb-6">{comparison.conceptName} - Detailed Comparison</h3>
+            <h3 className="text-xl font-bold mb-6">
+              {comparison.conceptName} - Detailed Comparison
+            </h3>
 
             <div className={`grid grid-cols-1 md:grid-cols-${comparison.languages.length} gap-6`}>
               {comparison.languages.map((langData, idx) => (
@@ -898,7 +909,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
 
                   {/* Scrollable Content */}
                   <div
-                    ref={el => (scrollRefs.current[langData.language] = el)}
+                    ref={(el) => (scrollRefs.current[langData.language] = el)}
                     onScroll={() => handleScroll(langData.language)}
                     className="overflow-y-auto"
                     style={{ maxHeight: '600px' }}
@@ -917,10 +928,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
                             <tr className="bg-gray-100">
                               <th className="border border-gray-300 px-2 py-1"></th>
                               {langData.conjugationTable.headers.map((header, hIdx) => (
-                                <th
-                                  key={hIdx}
-                                  className="border border-gray-300 px-2 py-1 text-sm"
-                                >
+                                <th key={hIdx} className="border border-gray-300 px-2 py-1 text-sm">
                                   {header}
                                 </th>
                               ))}
@@ -953,9 +961,7 @@ export const ComparativeGrammar: React.FC<Props> = ({ availableLanguages }) => {
                       {langData.examples.map((example, exIdx) => (
                         <div key={exIdx} className="bg-gray-50 p-3 rounded">
                           <div className="font-medium text-gray-900">{example.sentence}</div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            → {example.translation}
-                          </div>
+                          <div className="text-sm text-gray-600 mt-1">→ {example.translation}</div>
                         </div>
                       ))}
                     </div>
@@ -980,10 +986,11 @@ import { ComparativeGrammar } from './components/comparative/ComparativeGrammar'
 <Route
   path="/comparative/grammar"
   element={<ComparativeGrammar availableLanguages={userLanguages} />}
-/>
+/>;
 ```
 
 **Open Questions**:
+
 1. **Print/Export Functionality**: Should users be able to export comparisons as PDF for offline study?
    - Would require PDF generation library (e.g., jsPDF)
    - Recommendation: Add in future iteration if users request
@@ -1014,6 +1021,7 @@ import { ComparativeGrammar } from './components/comparative/ComparativeGrammar'
 ## Notes
 
 ### Concept Matching Strategy
+
 - Grammar rules must have `metadata.concept_key` to enable comparison
 - Common concept keys should follow consistent naming:
   - Tense: `present_tense`, `past_tense`, `future_tense`
@@ -1023,6 +1031,7 @@ import { ComparativeGrammar } from './components/comparative/ComparativeGrammar'
   - Gender: `masculine`, `feminine`, `neuter`
 
 ### Visual Design Principles
+
 - **Green highlighting**: Universal similarities (positive transfer)
 - **Orange highlighting**: Important differences (potential interference)
 - **Blue highlighting**: Cross-linguistic insights (actionable tips)
@@ -1030,13 +1039,16 @@ import { ComparativeGrammar } from './components/comparative/ComparativeGrammar'
 - **Synchronized scrolling**: Keep related content aligned
 
 ### Cognitive Load Management
+
 - Limit to 2-3 languages maximum to avoid overwhelming users
 - Present similarities before differences (positive framing)
 - Provide actionable insights, not just data
 - Use visual cues (colors, icons) to guide attention
 
 ### Metadata Requirements for Operators
+
 When creating grammar rules, operators should include:
+
 ```json
 {
   "concept_key": "past_tense",
@@ -1049,6 +1061,7 @@ When creating grammar rules, operators should include:
 ```
 
 ### Future Enhancements (Out of Scope)
+
 - **Automated Concept Mapping**: Use NLP to suggest concept mappings
 - **Visualizations**: Graphs showing language similarity clusters
 - **Historical Linguistics**: Show etymology and language family relationships
@@ -1067,6 +1080,7 @@ When creating grammar rules, operators should include:
 **Current Approach**: Manual concept tagging using `metadata.concept_key` field in `approved_grammar_rules`. Operators assign standardized keys (e.g., "past_tense", "nominative_case") when creating grammar rules. System matches rules across languages by identical `concept_key` values.
 
 **Alternatives**:
+
 1. **Manual tagging only** (current): Operators assign concept keys when creating grammar content. High quality but labor-intensive, requires linguistic expertise, and may have gaps in coverage.
 2. **Automated NLP matching**: Use multilingual language models (mBERT, XLM-RoBerta) to compute semantic similarity between grammar rule descriptions and auto-suggest matches. Fast but may produce false positives.
 3. **Taxonomy-based mapping**: Use existing linguistic typology databases (WALS - World Atlas of Language Structures, GRAMBANK) to pre-populate concept mappings for common language pairs. Comprehensive but requires integration with external databases.
@@ -1084,6 +1098,7 @@ When creating grammar rules, operators should include:
 **Current Approach**: Comparison triggered when user viewing grammar lesson for language A can compare with any other studied language. UI allows selecting comparison language from dropdown. No prioritization logic - all studied languages equally available.
 
 **Alternatives**:
+
 1. **User chooses freely** (current): Dropdown shows all studied languages, user manually selects which to compare. Maximum flexibility but no intelligent suggestions.
 2. **Same language family first**: Prioritize comparisons within language families (e.g., if studying Russian + Arabic + Spanish, suggest Russian-Spanish first as both Indo-European). Leverages linguistic similarity.
 3. **CEFR level similarity**: Compare languages at similar proficiency levels. If user is B1 in Russian and A2 in Chinese, suggest comparing those rather than Russian vs C1 English.
@@ -1091,6 +1106,7 @@ When creating grammar rules, operators should include:
 5. **Curriculum graph proximity**: Compare concepts that appear at similar points in curriculum graph. Temporal alignment in learning journey.
 
 **Recommendation**: Implement **intelligent prioritization** combining multiple signals (Options 2-5). In comparison language dropdown, sort by composite score:
+
 - **Weight 40%**: Interference score (from F050 - languages user actually confuses)
 - **Weight 30%**: CEFR proximity (closer levels = more comparable learning stage)
 - **Weight 20%**: Language family similarity (same family = easier to find patterns)
@@ -1107,6 +1123,7 @@ Display top 3 suggested comparisons with reasoning badges: "🔥 Common confusio
 **Current Approach**: Side-by-side column layout with synchronized scrolling. Language A in left column, Language B in right column. Works well on desktop (>1024px width) but may be cramped on mobile.
 
 **Alternatives**:
+
 1. **Side-by-side always** (current): Desktop and mobile both use columns, mobile gets horizontal scroll or very narrow columns. Consistent but poor mobile UX.
 2. **Responsive toggle**: Desktop uses side-by-side, mobile uses tab-based toggle ("Language A" / "Language B" tabs). Adaptive but loses direct comparison on mobile.
 3. **Accordion**: Desktop side-by-side, mobile uses expandable accordions (tap to expand Language B section below Language A). Preserves context but requires more scrolling.
