@@ -10,3 +10,5 @@ export { TranslationExercise } from './TranslationExercise';
 export { TranslationPracticeSession } from './TranslationPracticeSession';
 export { ProductionExercise } from './ProductionExercise';
 export { ProductionPracticeSession } from './ProductionPracticeSession';
+export { ReadingComprehension } from './ReadingComprehension';
+export { ReadingPracticeSession } from './ReadingPracticeSession';
