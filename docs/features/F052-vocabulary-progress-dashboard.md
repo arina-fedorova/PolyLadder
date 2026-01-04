@@ -3,7 +3,7 @@
 **Feature Code**: F052
 **Created**: 2025-12-17
 **Phase**: 15 - Progress Tracking & Analytics
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,11 +13,11 @@ Implement dashboard showing vocabulary progress: words learned, words in review,
 
 ## Success Criteria
 
-- [ ] Word count by state (unknown, learning, known)
-- [ ] Per-language breakdown
-- [ ] Progress over time (chart)
-- [ ] Recent words learned
-- [ ] CEFR level distribution
+- [x] Word count by state (unknown, learning, known)
+- [x] Per-language breakdown
+- [x] Progress over time (chart)
+- [x] Recent words learned
+- [x] CEFR level distribution
 
 ---
 
@@ -96,10 +96,7 @@ export class VocabularyAnalyticsService {
   /**
    * Get overall vocabulary statistics for a user
    */
-  async getVocabularyStats(
-    userId: string,
-    language?: string
-  ): Promise<VocabularyStats> {
+  async getVocabularyStats(userId: string, language?: string): Promise<VocabularyStats> {
     // Total words by state
     let stateQuery = `
       SELECT
@@ -122,10 +119,10 @@ export class VocabularyAnalyticsService {
     const byState = {
       unknown: 0,
       learning: 0,
-      known: 0
+      known: 0,
     };
 
-    stateResult.rows.forEach(row => {
+    stateResult.rows.forEach((row) => {
       byState[row.state as keyof typeof byState] = parseInt(row.count);
     });
 
@@ -148,12 +145,12 @@ export class VocabularyAnalyticsService {
 
     const languageResult = await this.pool.query(languageQuery, params);
 
-    const byLanguage = languageResult.rows.map(row => ({
+    const byLanguage = languageResult.rows.map((row) => ({
       language: row.language,
       totalWords: parseInt(row.total_words),
       unknown: parseInt(row.unknown),
       learning: parseInt(row.learning),
-      known: parseInt(row.known)
+      known: parseInt(row.known),
     }));
 
     // CEFR level distribution
@@ -180,9 +177,9 @@ export class VocabularyAnalyticsService {
 
     const cefrResult = await this.pool.query(cefrQuery, params);
 
-    const byCEFR = cefrResult.rows.map(row => ({
+    const byCEFR = cefrResult.rows.map((row) => ({
       level: row.cefr_level,
-      count: parseInt(row.count)
+      count: parseInt(row.count),
     }));
 
     // Recently learned words (state changed to 'known' in last 30 days)
@@ -205,12 +202,12 @@ export class VocabularyAnalyticsService {
 
     const recentResult = await this.pool.query(recentQuery, params);
 
-    const recentlyLearned = recentResult.rows.map(row => ({
+    const recentlyLearned = recentResult.rows.map((row) => ({
       wordId: row.word_id,
       text: row.text,
       language: row.language,
       translations: row.translations,
-      learnedAt: new Date(row.learned_at)
+      learnedAt: new Date(row.learned_at),
     }));
 
     return {
@@ -218,7 +215,7 @@ export class VocabularyAnalyticsService {
       byState,
       byLanguage,
       byCEFR,
-      recentlyLearned
+      recentlyLearned,
     };
   }
 
@@ -270,21 +267,18 @@ export class VocabularyAnalyticsService {
 
     const result = await this.pool.query(query, params);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: row.date,
       totalWords: parseInt(row.total_words),
       learning: parseInt(row.learning),
-      known: parseInt(row.known)
+      known: parseInt(row.known),
     }));
   }
 
   /**
    * Get detailed word information
    */
-  async getWordDetails(
-    userId: string,
-    wordId: string
-  ): Promise<WordDetails | null> {
+  async getWordDetails(userId: string, wordId: string): Promise<WordDetails | null> {
     const query = `
       SELECT
         ws.word_id,
@@ -323,17 +317,14 @@ export class VocabularyAnalyticsService {
       lastReviewed: row.last_reviewed ? new Date(row.last_reviewed) : null,
       nextReview: row.next_review ? new Date(row.next_review) : null,
       easeFactor: parseFloat(row.ease_factor || '2.5'),
-      interval: parseInt(row.interval || '0')
+      interval: parseInt(row.interval || '0'),
     };
   }
 
   /**
    * Calculate learning velocity (words learned per day/week)
    */
-  async getLearningVelocity(
-    userId: string,
-    language?: string
-  ): Promise<LearningVelocity> {
+  async getLearningVelocity(userId: string, language?: string): Promise<LearningVelocity> {
     const params: any[] = [userId];
     let languageFilter = '';
 
@@ -386,7 +377,7 @@ export class VocabularyAnalyticsService {
         wordsPerWeek: 0,
         wordsThisWeek: 0,
         wordsLastWeek: 0,
-        trend: 'stable'
+        trend: 'stable',
       };
     }
 
@@ -413,7 +404,7 @@ export class VocabularyAnalyticsService {
       wordsPerWeek: Math.round(wordsPerWeek),
       wordsThisWeek,
       wordsLastWeek,
-      trend
+      trend,
     };
   }
 
@@ -478,7 +469,7 @@ export class VocabularyAnalyticsService {
 
     const wordsResult = await this.pool.query(wordsQuery, params);
 
-    const words = wordsResult.rows.map(row => ({
+    const words = wordsResult.rows.map((row) => ({
       wordId: row.word_id,
       text: row.text,
       language: row.language,
@@ -489,7 +480,7 @@ export class VocabularyAnalyticsService {
       lastReviewed: row.last_reviewed ? new Date(row.last_reviewed) : null,
       nextReview: row.next_review ? new Date(row.next_review) : null,
       easeFactor: parseFloat(row.ease_factor || '2.5'),
-      interval: parseInt(row.interval || '0')
+      interval: parseInt(row.interval || '0'),
     }));
 
     return { words, total };
@@ -498,6 +489,7 @@ export class VocabularyAnalyticsService {
 ```
 
 **Key Features**:
+
 1. **Aggregate Statistics**: Total words, state distribution, CEFR breakdown
 2. **Per-Language Breakdown**: Statistics split by each studied language
 3. **Trend Analysis**: Word count over time with cumulative totals
@@ -522,23 +514,32 @@ import { VocabularyAnalyticsService } from '../../services/analytics/vocabulary-
 
 // Request/Response Schemas
 const GetStatsQuerySchema = z.object({
-  language: z.string().optional()
+  language: z.string().optional(),
 });
 
 const GetTrendsQuerySchema = z.object({
   language: z.string().optional(),
-  days: z.string().transform(val => parseInt(val, 10)).optional()
+  days: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
 });
 
 const GetWordsByStateQuerySchema = z.object({
   state: z.enum(['unknown', 'learning', 'known']),
   language: z.string().optional(),
-  offset: z.string().transform(val => parseInt(val, 10)).optional(),
-  limit: z.string().transform(val => parseInt(val, 10)).optional()
+  offset: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
+  limit: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
 });
 
 const GetWordDetailsParamsSchema = z.object({
-  wordId: z.string().uuid()
+  wordId: z.string().uuid(),
 });
 
 export async function vocabularyAnalyticsRoutes(fastify: FastifyInstance) {
@@ -548,147 +549,227 @@ export async function vocabularyAnalyticsRoutes(fastify: FastifyInstance) {
    * GET /analytics/vocabulary/stats
    * Get overall vocabulary statistics
    */
-  fastify.get('/analytics/vocabulary/stats', {
-    schema: {
-      querystring: GetStatsQuerySchema,
-      response: {
-        200: z.object({
-          totalWords: z.number(),
-          byState: z.object({
-            unknown: z.number(),
-            learning: z.number(),
-            known: z.number()
-          }),
-          byLanguage: z.array(z.object({
-            language: z.string(),
+  fastify.get(
+    '/analytics/vocabulary/stats',
+    {
+      schema: {
+        querystring: GetStatsQuerySchema,
+        response: {
+          200: z.object({
             totalWords: z.number(),
-            unknown: z.number(),
-            learning: z.number(),
-            known: z.number()
-          })),
-          byCEFR: z.array(z.object({
-            level: z.string(),
-            count: z.number()
-          })),
-          recentlyLearned: z.array(z.object({
-            wordId: z.string(),
-            text: z.string(),
-            language: z.string(),
-            translations: z.array(z.string()),
-            learnedAt: z.string()
-          }))
-        })
-      }
+            byState: z.object({
+              unknown: z.number(),
+              learning: z.number(),
+              known: z.number(),
+            }),
+            byLanguage: z.array(
+              z.object({
+                language: z.string(),
+                totalWords: z.number(),
+                unknown: z.number(),
+                learning: z.number(),
+                known: z.number(),
+              })
+            ),
+            byCEFR: z.array(
+              z.object({
+                level: z.string(),
+                count: z.number(),
+              })
+            ),
+            recentlyLearned: z.array(
+              z.object({
+                wordId: z.string(),
+                text: z.string(),
+                language: z.string(),
+                translations: z.array(z.string()),
+                learnedAt: z.string(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language } = request.query;
 
-    try {
-      const stats = await vocabularyService.getVocabularyStats(userId, language);
+      try {
+        const stats = await vocabularyService.getVocabularyStats(userId, language);
 
-      return reply.status(200).send({
-        ...stats,
-        recentlyLearned: stats.recentlyLearned.map(w => ({
-          ...w,
-          learnedAt: w.learnedAt.toISOString()
-        }))
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch vocabulary statistics',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({
+          ...stats,
+          recentlyLearned: stats.recentlyLearned.map((w) => ({
+            ...w,
+            learnedAt: w.learnedAt.toISOString(),
+          })),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch vocabulary statistics',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/vocabulary/trends
    * Get vocabulary learning trends over time
    */
-  fastify.get('/analytics/vocabulary/trends', {
-    schema: {
-      querystring: GetTrendsQuerySchema,
-      response: {
-        200: z.object({
-          trends: z.array(z.object({
-            date: z.string(),
-            totalWords: z.number(),
-            learning: z.number(),
-            known: z.number()
-          }))
-        })
-      }
+  fastify.get(
+    '/analytics/vocabulary/trends',
+    {
+      schema: {
+        querystring: GetTrendsQuerySchema,
+        response: {
+          200: z.object({
+            trends: z.array(
+              z.object({
+                date: z.string(),
+                totalWords: z.number(),
+                learning: z.number(),
+                known: z.number(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language, days } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language, days } = request.query;
 
-    try {
-      const trends = await vocabularyService.getVocabularyTrends(
-        userId,
-        language,
-        days || 30
-      );
+      try {
+        const trends = await vocabularyService.getVocabularyTrends(userId, language, days || 30);
 
-      return reply.status(200).send({ trends });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch vocabulary trends',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({ trends });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch vocabulary trends',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/vocabulary/velocity
    * Get learning velocity (words per day/week)
    */
-  fastify.get('/analytics/vocabulary/velocity', {
-    schema: {
-      querystring: GetStatsQuerySchema,
-      response: {
-        200: z.object({
-          wordsPerDay: z.number(),
-          wordsPerWeek: z.number(),
-          wordsThisWeek: z.number(),
-          wordsLastWeek: z.number(),
-          trend: z.enum(['increasing', 'stable', 'decreasing'])
-        })
-      }
+  fastify.get(
+    '/analytics/vocabulary/velocity',
+    {
+      schema: {
+        querystring: GetStatsQuerySchema,
+        response: {
+          200: z.object({
+            wordsPerDay: z.number(),
+            wordsPerWeek: z.number(),
+            wordsThisWeek: z.number(),
+            wordsLastWeek: z.number(),
+            trend: z.enum(['increasing', 'stable', 'decreasing']),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language } = request.query;
 
-    try {
-      const velocity = await vocabularyService.getLearningVelocity(userId, language);
+      try {
+        const velocity = await vocabularyService.getLearningVelocity(userId, language);
 
-      return reply.status(200).send(velocity);
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to calculate learning velocity',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send(velocity);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to calculate learning velocity',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/vocabulary/words
    * Get words by state with pagination
    */
-  fastify.get('/analytics/vocabulary/words', {
-    schema: {
-      querystring: GetWordsByStateQuerySchema,
-      response: {
-        200: z.object({
-          words: z.array(z.object({
+  fastify.get(
+    '/analytics/vocabulary/words',
+    {
+      schema: {
+        querystring: GetWordsByStateQuerySchema,
+        response: {
+          200: z.object({
+            words: z.array(
+              z.object({
+                wordId: z.string(),
+                text: z.string(),
+                language: z.string(),
+                translations: z.array(z.string()),
+                state: z.enum(['unknown', 'learning', 'known']),
+                cefrLevel: z.string(),
+                reviewCount: z.number(),
+                lastReviewed: z.string().nullable(),
+                nextReview: z.string().nullable(),
+                easeFactor: z.number(),
+                interval: z.number(),
+              })
+            ),
+            total: z.number(),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { state, language, offset, limit } = request.query;
+
+      try {
+        const result = await vocabularyService.getWordsByState(
+          userId,
+          state,
+          language,
+          offset || 0,
+          limit || 50
+        );
+
+        return reply.status(200).send({
+          words: result.words.map((w) => ({
+            ...w,
+            lastReviewed: w.lastReviewed?.toISOString() || null,
+            nextReview: w.nextReview?.toISOString() || null,
+          })),
+          total: result.total,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch words',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+  );
+
+  /**
+   * GET /analytics/vocabulary/word/:wordId
+   * Get detailed information about a specific word
+   */
+  fastify.get(
+    '/analytics/vocabulary/word/:wordId',
+    {
+      schema: {
+        params: GetWordDetailsParamsSchema,
+        response: {
+          200: z.object({
             wordId: z.string(),
             text: z.string(),
             language: z.string(),
@@ -699,105 +780,52 @@ export async function vocabularyAnalyticsRoutes(fastify: FastifyInstance) {
             lastReviewed: z.string().nullable(),
             nextReview: z.string().nullable(),
             easeFactor: z.number(),
-            interval: z.number()
-          })),
-          total: z.number()
-        })
-      }
+            interval: z.number(),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { state, language, offset, limit } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { wordId } = request.params;
 
-    try {
-      const result = await vocabularyService.getWordsByState(
-        userId,
-        state,
-        language,
-        offset || 0,
-        limit || 50
-      );
+      try {
+        const word = await vocabularyService.getWordDetails(userId, wordId);
 
-      return reply.status(200).send({
-        words: result.words.map(w => ({
-          ...w,
-          lastReviewed: w.lastReviewed?.toISOString() || null,
-          nextReview: w.nextReview?.toISOString() || null
-        })),
-        total: result.total
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch words',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
+        if (!word) {
+          return reply.status(404).send({ error: 'Word not found' });
+        }
 
-  /**
-   * GET /analytics/vocabulary/word/:wordId
-   * Get detailed information about a specific word
-   */
-  fastify.get('/analytics/vocabulary/word/:wordId', {
-    schema: {
-      params: GetWordDetailsParamsSchema,
-      response: {
-        200: z.object({
-          wordId: z.string(),
-          text: z.string(),
-          language: z.string(),
-          translations: z.array(z.string()),
-          state: z.enum(['unknown', 'learning', 'known']),
-          cefrLevel: z.string(),
-          reviewCount: z.number(),
-          lastReviewed: z.string().nullable(),
-          nextReview: z.string().nullable(),
-          easeFactor: z.number(),
-          interval: z.number()
-        })
+        return reply.status(200).send({
+          ...word,
+          lastReviewed: word.lastReviewed?.toISOString() || null,
+          nextReview: word.nextReview?.toISOString() || null,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch word details',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
-    },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { wordId } = request.params;
-
-    try {
-      const word = await vocabularyService.getWordDetails(userId, wordId);
-
-      if (!word) {
-        return reply.status(404).send({ error: 'Word not found' });
-      }
-
-      return reply.status(200).send({
-        ...word,
-        lastReviewed: word.lastReviewed?.toISOString() || null,
-        nextReview: word.nextReview?.toISOString() || null
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch word details',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
-  });
+  );
 }
 ```
 
 **API Endpoints Summary**:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/analytics/vocabulary/stats` | Get overall vocabulary statistics |
-| GET | `/analytics/vocabulary/trends` | Get learning trends over time |
-| GET | `/analytics/vocabulary/velocity` | Get learning velocity (words/day) |
-| GET | `/analytics/vocabulary/words` | Get words by state (paginated) |
-| GET | `/analytics/vocabulary/word/:wordId` | Get detailed word information |
+| Method | Endpoint                             | Description                       |
+| ------ | ------------------------------------ | --------------------------------- |
+| GET    | `/analytics/vocabulary/stats`        | Get overall vocabulary statistics |
+| GET    | `/analytics/vocabulary/trends`       | Get learning trends over time     |
+| GET    | `/analytics/vocabulary/velocity`     | Get learning velocity (words/day) |
+| GET    | `/analytics/vocabulary/words`        | Get words by state (paginated)    |
+| GET    | `/analytics/vocabulary/word/:wordId` | Get detailed word information     |
 
 **Key Features**:
+
 1. **Flexible Filtering**: Optional language filter on all endpoints
 2. **Time Range Selection**: Configurable period for trends
 3. **Pagination**: Efficient large dataset handling
@@ -1220,6 +1248,7 @@ export function VocabularyDashboard() {
 ```
 
 **Component Features**:
+
 1. **Summary Cards**: Total words, learning/known counts with percentages
 2. **Learning Velocity**: Words per day with trend indicator (↑↓)
 3. **State Pie Chart**: Visual distribution of unknown/learning/known
@@ -1234,6 +1263,7 @@ export function VocabularyDashboard() {
 ## Open Questions
 
 ### 1. **Chart Library Selection**
+
 - **Question**: Which charting library should we use? Recharts (current choice) vs Chart.js vs D3.js?
 - **Options**:
   - Recharts: React-native, composable, good for simple charts
@@ -1242,6 +1272,7 @@ export function VocabularyDashboard() {
 - **Recommendation**: Start with Recharts for MVP (already in implementation), consider D3.js for advanced features later
 
 ### 2. **Data Refresh Strategy**
+
 - **Question**: How often should the dashboard refresh statistics? Real-time, manual refresh, or timed interval?
 - **Options**:
   - Manual refresh only (user clicks button)
@@ -1250,6 +1281,7 @@ export function VocabularyDashboard() {
 - **Recommendation**: Manual refresh for MVP, add auto-refresh on data mutations (after practice sessions) in phase 2
 
 ### 3. **Export Functionality**
+
 - **Question**: Should users be able to export their vocabulary data (CSV, JSON)?
 - **Options**:
   - No export (view only)
