@@ -24,7 +24,7 @@ describe('ComparativeGrammarService', () => {
           { category: 'plural_formation', language_count: '2' },
         ],
         rowCount: 2,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       const result = await service.getAvailableConcepts('user-123', ['EN', 'RU', 'DE']);
 
@@ -41,7 +41,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       const result = await service.getAvailableConcepts('user-123', ['EN', 'ZH']);
 
@@ -52,7 +52,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       await service.getAvailableConcepts('user-123', ['EN', 'FR']);
 
@@ -88,11 +88,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult); // For recording view
+        } as unknown as QueryResult); // For recording view
 
       const result = await service.getGrammarComparison('user-123', 'past_tense', ['EN', 'RU']);
 
@@ -129,11 +129,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       const result = await service.getGrammarComparison('user-123', 'pronouns', ['EN', 'ZH']);
 
@@ -177,11 +177,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       const result = await service.getGrammarComparison('user-123', 'conditionals', ['EN', 'DE']);
 
@@ -193,7 +193,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       await expect(
         service.getGrammarComparison('user-123', 'nonexistent', ['EN', 'RU'])
@@ -224,11 +224,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       await service.getGrammarComparison('user-123', 'test', ['RU', 'EN']);
 
@@ -264,11 +264,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       const result = await service.getGrammarComparison('user-123', 'articles', ['EN', 'DE']);
 
@@ -294,7 +294,7 @@ describe('ComparativeGrammarService', () => {
           },
         ],
         rowCount: 2,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       const result = await service.getUserComparisonHistory('user-123', 10);
 
@@ -309,7 +309,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       const result = await service.getUserComparisonHistory('user-123');
 
@@ -320,7 +320,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       await service.getUserComparisonHistory('user-123', 5);
 
@@ -331,7 +331,7 @@ describe('ComparativeGrammarService', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       await service.getUserComparisonHistory('user-123');
 
@@ -347,7 +347,7 @@ describe('ComparativeGrammarService', () => {
           { category: 'future_perfect_continuous', language_count: '2' },
         ],
         rowCount: 2,
-      } as QueryResult);
+      } as unknown as QueryResult);
 
       const result = await service.getAvailableConcepts('user-123', ['EN', 'RU']);
 
@@ -381,11 +381,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       const result = await service.getGrammarComparison('user-123', 'test', ['EN', 'RU']);
 
@@ -417,11 +417,11 @@ describe('ComparativeGrammarService', () => {
             },
           ],
           rowCount: 2,
-        } as QueryResult)
+        } as unknown as QueryResult)
         .mockResolvedValueOnce({
           rows: [],
           rowCount: 0,
-        } as QueryResult);
+        } as unknown as QueryResult);
 
       const result = await service.getGrammarComparison('user-123', 'test', ['EN', 'RU']);
 
