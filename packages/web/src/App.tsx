@@ -18,6 +18,7 @@ import { PipelineTaskDetailPage } from '@/pages/operator/PipelineTaskDetailPage'
 import { PipelinesPage } from '@/pages/operator/PipelinesPage';
 import { PipelineDetailPage } from '@/pages/operator/PipelineDetailPage';
 import { PipelineStatusPage } from '@/pages/operator/PipelineStatusPage';
+import { InterferencePage } from '@/pages/learner/InterferencePage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -120,6 +121,19 @@ export function App() {
                 <OnboardingCheck>
                   <MainLayout>
                     <OrthographyExercisesPage />
+                  </MainLayout>
+                </OnboardingCheck>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/learning/interference"
+            element={
+              <ProtectedRoute>
+                <OnboardingCheck>
+                  <MainLayout>
+                    <InterferencePage />
                   </MainLayout>
                 </OnboardingCheck>
               </ProtectedRoute>
