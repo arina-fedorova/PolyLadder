@@ -3,7 +3,7 @@
 **Feature Code**: F050
 **Created**: 2025-12-17
 **Phase**: 14 - Parallel Learning Support
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,11 +13,11 @@ Detect when users confuse similar words/grammar across languages and provide tar
 
 ## Success Criteria
 
-- [ ] Track error patterns (e.g., using Spanish word in Italian)
-- [ ] Detect interference based on answer analysis
-- [ ] Generate remediation exercises for confused pairs
-- [ ] Show warning when interference detected
-- [ ] Track interference reduction over time
+- [x] Track error patterns (e.g., using Spanish word in Italian)
+- [x] Detect interference based on answer analysis
+- [x] Generate remediation exercises for confused pairs
+- [x] Show warning when interference detected
+- [x] Track interference reduction over time
 
 ---
 
@@ -38,15 +38,15 @@ import { SRSService } from '../srs/srs.service.ts';
 interface InterferencePattern {
   id: string;
   userId: string;
-  targetLanguage: string;        // Language user was practicing
-  sourceLanguage: string;        // Language the interference came from
-  targetItemId: string;          // Correct item ID
-  targetText: string;            // Correct text
-  interferingItemId: string;     // Interfering item from another language
-  interferingText: string;       // Text user incorrectly used
+  targetLanguage: string; // Language user was practicing
+  sourceLanguage: string; // Language the interference came from
+  targetItemId: string; // Correct item ID
+  targetText: string; // Correct text
+  interferingItemId: string; // Interfering item from another language
+  interferingText: string; // Text user incorrectly used
   interferenceType: 'vocabulary' | 'grammar' | 'syntax';
-  confidenceScore: number;       // 0-1, how confident we are this is interference
-  occurrenceCount: number;       // How many times this confusion occurred
+  confidenceScore: number; // 0-1, how confident we are this is interference
+  occurrenceCount: number; // How many times this confusion occurred
   lastOccurrence: Date;
   remediationCompleted: boolean;
   createdAt: Date;
@@ -118,14 +118,14 @@ export class InterferenceDetectionService {
       [userId, targetLanguage]
     );
 
-    const otherLanguages = otherLanguagesResult.rows.map(r => r.language);
+    const otherLanguages = otherLanguagesResult.rows.map((r) => r.language);
 
     if (otherLanguages.length === 0) {
       return {
         isInterference: false,
         confidenceScore: 0,
         pattern: null,
-        explanation: 'User is not studying other languages'
+        explanation: 'User is not studying other languages',
       };
     }
 
@@ -138,12 +138,7 @@ export class InterferenceDetectionService {
     } | null = null;
 
     for (const language of otherLanguages) {
-      const match = await this.findSimilarityInLanguage(
-        userId,
-        language,
-        userAnswer,
-        itemType
-      );
+      const match = await this.findSimilarityInLanguage(userId, language, userAnswer, itemType);
 
       if (match && (!bestMatch || match.similarity > bestMatch.similarity)) {
         bestMatch = { language, ...match };
@@ -198,7 +193,7 @@ export class InterferenceDetectionService {
             bestMatch.itemId,
             bestMatch.matchedText,
             itemType,
-            bestMatch.similarity
+            bestMatch.similarity,
           ]
         );
         pattern = this.mapRowToPattern(insertResult.rows[0]);
@@ -213,7 +208,7 @@ export class InterferenceDetectionService {
           correctText,
           bestMatch.language,
           bestMatch.matchedText
-        )
+        ),
       };
     }
 
@@ -221,7 +216,7 @@ export class InterferenceDetectionService {
       isInterference: false,
       confidenceScore: bestMatch?.similarity || 0,
       pattern: null,
-      explanation: 'No strong interference pattern detected'
+      explanation: 'No strong interference pattern detected',
     };
   }
 
@@ -279,7 +274,7 @@ export class InterferenceDetectionService {
     return {
       itemId: result.rows[0].item_id,
       matchedText: result.rows[0].matched_text,
-      similarity: parseFloat(result.rows[0].similarity_score)
+      similarity: parseFloat(result.rows[0].similarity_score),
     };
   }
 
@@ -293,16 +288,16 @@ export class InterferenceDetectionService {
     interferingText: string
   ): string {
     const languageNames: Record<string, string> = {
-      'ru': 'Russian',
-      'zh': 'Chinese',
-      'ar': 'Arabic',
-      'es': 'Spanish',
-      'it': 'Italian',
-      'fr': 'French',
-      'de': 'German',
-      'pt': 'Portuguese',
-      'ja': 'Japanese',
-      'ko': 'Korean'
+      ru: 'Russian',
+      zh: 'Chinese',
+      ar: 'Arabic',
+      es: 'Spanish',
+      it: 'Italian',
+      fr: 'French',
+      de: 'German',
+      pt: 'Portuguese',
+      ja: 'Japanese',
+      ko: 'Korean',
     };
 
     const targetLangName = languageNames[targetLanguage] || targetLanguage;
@@ -330,15 +325,13 @@ export class InterferenceDetectionService {
     query += ` ORDER BY occurrence_count DESC, last_occurrence DESC`;
 
     const result = await this.pool.query(query, [userId]);
-    return result.rows.map(row => this.mapRowToPattern(row));
+    return result.rows.map((row) => this.mapRowToPattern(row));
   }
 
   /**
    * Generate remediation exercises for an interference pattern
    */
-  async generateRemediationExercises(
-    patternId: string
-  ): Promise<RemediationExercise[]> {
+  async generateRemediationExercises(patternId: string): Promise<RemediationExercise[]> {
     // Get pattern details
     const patternResult = await this.pool.query(
       `SELECT * FROM interference_patterns WHERE id = $1`,
@@ -375,16 +368,16 @@ export class InterferenceDetectionService {
       targetItem: {
         language: pattern.targetLanguage,
         text: targetDetails.text,
-        translation: targetDetails.translation
+        translation: targetDetails.translation,
       },
       interferingItem: {
         language: pattern.sourceLanguage,
         text: interferingDetails.text,
-        translation: interferingDetails.translation
+        translation: interferingDetails.translation,
       },
       prompt: `Which word means "${targetDetails.translation}" in ${this.getLanguageName(pattern.targetLanguage)}?`,
       correctAnswer: targetDetails.text,
-      distractors: [interferingDetails.text]
+      distractors: [interferingDetails.text],
     });
 
     // Exercise 2: Fill in the blank (target language)
@@ -395,16 +388,19 @@ export class InterferenceDetectionService {
       targetItem: {
         language: pattern.targetLanguage,
         text: targetDetails.text,
-        translation: targetDetails.translation
+        translation: targetDetails.translation,
       },
       interferingItem: {
         language: pattern.sourceLanguage,
         text: interferingDetails.text,
-        translation: interferingDetails.translation
+        translation: interferingDetails.translation,
       },
       prompt: `Complete this ${this.getLanguageName(pattern.targetLanguage)} sentence: "${targetDetails.exampleSentence}"`,
       correctAnswer: targetDetails.text,
-      distractors: [interferingDetails.text, ...await this.getDistractors(pattern.targetLanguage, 2)]
+      distractors: [
+        interferingDetails.text,
+        ...(await this.getDistractors(pattern.targetLanguage, 2)),
+      ],
     });
 
     // Exercise 3: Fill in the blank (source language)
@@ -415,16 +411,16 @@ export class InterferenceDetectionService {
       targetItem: {
         language: pattern.targetLanguage,
         text: targetDetails.text,
-        translation: targetDetails.translation
+        translation: targetDetails.translation,
       },
       interferingItem: {
         language: pattern.sourceLanguage,
         text: interferingDetails.text,
-        translation: interferingDetails.translation
+        translation: interferingDetails.translation,
       },
       prompt: `Complete this ${this.getLanguageName(pattern.sourceLanguage)} sentence: "${interferingDetails.exampleSentence}"`,
       correctAnswer: interferingDetails.text,
-      distractors: [targetDetails.text, ...await this.getDistractors(pattern.sourceLanguage, 2)]
+      distractors: [targetDetails.text, ...(await this.getDistractors(pattern.sourceLanguage, 2))],
     });
 
     // Exercise 4: Multiple choice - Language identification
@@ -435,16 +431,16 @@ export class InterferenceDetectionService {
       targetItem: {
         language: pattern.targetLanguage,
         text: targetDetails.text,
-        translation: targetDetails.translation
+        translation: targetDetails.translation,
       },
       interferingItem: {
         language: pattern.sourceLanguage,
         text: interferingDetails.text,
-        translation: interferingDetails.translation
+        translation: interferingDetails.translation,
       },
       prompt: `Which language is "${targetDetails.text}" from?`,
       correctAnswer: this.getLanguageName(pattern.targetLanguage),
-      distractors: [this.getLanguageName(pattern.sourceLanguage)]
+      distractors: [this.getLanguageName(pattern.sourceLanguage)],
     });
 
     return exercises;
@@ -515,12 +511,12 @@ export class InterferenceDetectionService {
       totalPatterns: parseInt(totalResult.rows[0].total),
       activePatterns: parseInt(activeResult.rows[0].active),
       remediatedPatterns: parseInt(remediatedResult.rows[0].remediated),
-      topInterferenceLanguagePairs: topPairsResult.rows.map(r => ({
+      topInterferenceLanguagePairs: topPairsResult.rows.map((r) => ({
         targetLanguage: r.target_language,
         sourceLanguage: r.source_language,
-        count: parseInt(r.count)
+        count: parseInt(r.count),
       })),
-      recentPatterns: recentResult.rows.map(r => this.mapRowToPattern(r))
+      recentPatterns: recentResult.rows.map((r) => this.mapRowToPattern(r)),
     };
   }
 
@@ -592,7 +588,7 @@ export class InterferenceDetectionService {
       return {
         text: result.rows[0].text,
         translation: result.rows[0].translation,
-        exampleSentence: result.rows[0].example || ''
+        exampleSentence: result.rows[0].example || '',
       };
     } else {
       const result = await this.pool.query(
@@ -604,7 +600,7 @@ export class InterferenceDetectionService {
       return {
         text: result.rows[0].text,
         translation: result.rows[0].translation,
-        exampleSentence: result.rows[0].example_sentence || ''
+        exampleSentence: result.rows[0].example_sentence || '',
       };
     }
   }
@@ -620,7 +616,7 @@ export class InterferenceDetectionService {
        LIMIT $2`,
       [language, count]
     );
-    return result.rows.map(r => r.text);
+    return result.rows.map((r) => r.text);
   }
 
   /**
@@ -628,16 +624,16 @@ export class InterferenceDetectionService {
    */
   private getLanguageName(code: string): string {
     const names: Record<string, string> = {
-      'ru': 'Russian',
-      'zh': 'Chinese',
-      'ar': 'Arabic',
-      'es': 'Spanish',
-      'it': 'Italian',
-      'fr': 'French',
-      'de': 'German',
-      'pt': 'Portuguese',
-      'ja': 'Japanese',
-      'ko': 'Korean'
+      ru: 'Russian',
+      zh: 'Chinese',
+      ar: 'Arabic',
+      es: 'Spanish',
+      it: 'Italian',
+      fr: 'French',
+      de: 'German',
+      pt: 'Portuguese',
+      ja: 'Japanese',
+      ko: 'Korean',
     };
     return names[code] || code;
   }
@@ -660,7 +656,7 @@ export class InterferenceDetectionService {
       occurrenceCount: parseInt(row.occurrence_count),
       lastOccurrence: new Date(row.last_occurrence),
       remediationCompleted: row.remediation_completed,
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     };
   }
 }
@@ -734,6 +730,7 @@ CREATE INDEX idx_remediation_attempts_exercise ON remediation_attempts(exercise_
 ```
 
 **Key Features**:
+
 1. **Interference Detection**: Compares incorrect answers against vocabulary from other studied languages using PostgreSQL trigram similarity
 2. **Pattern Tracking**: Records and updates interference patterns with occurrence counts
 3. **Remediation Generation**: Creates 4 types of exercises (contrast, fill-blank target/source, language identification)
@@ -761,386 +758,426 @@ const AnalyzeInterferenceSchema = z.object({
   correctText: z.string().min(1),
   userAnswer: z.string().min(1),
   itemId: z.string().uuid(),
-  itemType: z.enum(['vocabulary', 'grammar', 'syntax'])
+  itemType: z.enum(['vocabulary', 'grammar', 'syntax']),
 });
 
 const GetPatternsQuerySchema = z.object({
-  includeRemediated: z.string().transform(val => val === 'true').optional()
+  includeRemediated: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
 });
 
 const GenerateRemediationSchema = z.object({
-  patternId: z.string().uuid()
+  patternId: z.string().uuid(),
 });
 
 const SubmitRemediationAttemptSchema = z.object({
   exerciseId: z.string().uuid(),
   userAnswer: z.string().min(1),
-  timeSpent: z.number().int().min(0)
+  timeSpent: z.number().int().min(0),
 });
 
 const GetReductionQuerySchema = z.object({
   patternId: z.string().uuid(),
-  periodDays: z.string().transform(val => parseInt(val, 10)).optional()
+  periodDays: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
 });
 
 export async function interferenceRoutes(fastify: FastifyInstance) {
-  const interferenceService = new InterferenceDetectionService(
-    fastify.pg.pool,
-    fastify.srsService
-  );
+  const interferenceService = new InterferenceDetectionService(fastify.pg.pool, fastify.srsService);
 
   /**
    * POST /interference/analyze
    * Analyze an incorrect answer for potential interference
    */
-  fastify.post('/interference/analyze', {
-    schema: {
-      body: AnalyzeInterferenceSchema,
-      response: {
-        200: z.object({
-          isInterference: z.boolean(),
-          confidenceScore: z.number(),
-          pattern: z.object({
-            id: z.string(),
-            targetLanguage: z.string(),
-            sourceLanguage: z.string(),
-            targetText: z.string(),
-            interferingText: z.string(),
-            occurrenceCount: z.number()
-          }).nullable(),
-          explanation: z.string()
-        })
-      }
+  fastify.post(
+    '/interference/analyze',
+    {
+      schema: {
+        body: AnalyzeInterferenceSchema,
+        response: {
+          200: z.object({
+            isInterference: z.boolean(),
+            confidenceScore: z.number(),
+            pattern: z
+              .object({
+                id: z.string(),
+                targetLanguage: z.string(),
+                sourceLanguage: z.string(),
+                targetText: z.string(),
+                interferingText: z.string(),
+                occurrenceCount: z.number(),
+              })
+              .nullable(),
+            explanation: z.string(),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { targetLanguage, correctText, userAnswer, itemId, itemType } = request.body;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { targetLanguage, correctText, userAnswer, itemId, itemType } = request.body;
 
-    try {
-      const result = await interferenceService.analyzeForInterference(
-        userId,
-        targetLanguage,
-        correctText,
-        userAnswer,
-        itemId,
-        itemType
-      );
+      try {
+        const result = await interferenceService.analyzeForInterference(
+          userId,
+          targetLanguage,
+          correctText,
+          userAnswer,
+          itemId,
+          itemType
+        );
 
-      return reply.status(200).send({
-        isInterference: result.isInterference,
-        confidenceScore: result.confidenceScore,
-        pattern: result.pattern ? {
-          id: result.pattern.id,
-          targetLanguage: result.pattern.targetLanguage,
-          sourceLanguage: result.pattern.sourceLanguage,
-          targetText: result.pattern.targetText,
-          interferingText: result.pattern.interferingText,
-          occurrenceCount: result.pattern.occurrenceCount
-        } : null,
-        explanation: result.explanation
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to analyze interference',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({
+          isInterference: result.isInterference,
+          confidenceScore: result.confidenceScore,
+          pattern: result.pattern
+            ? {
+                id: result.pattern.id,
+                targetLanguage: result.pattern.targetLanguage,
+                sourceLanguage: result.pattern.sourceLanguage,
+                targetText: result.pattern.targetText,
+                interferingText: result.pattern.interferingText,
+                occurrenceCount: result.pattern.occurrenceCount,
+              }
+            : null,
+          explanation: result.explanation,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to analyze interference',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /interference/patterns
    * Get all interference patterns for the current user
    */
-  fastify.get('/interference/patterns', {
-    schema: {
-      querystring: GetPatternsQuerySchema,
-      response: {
-        200: z.object({
-          patterns: z.array(z.object({
-            id: z.string(),
-            targetLanguage: z.string(),
-            sourceLanguage: z.string(),
-            targetText: z.string(),
-            interferingText: z.string(),
-            interferenceType: z.enum(['vocabulary', 'grammar', 'syntax']),
-            confidenceScore: z.number(),
-            occurrenceCount: z.number(),
-            lastOccurrence: z.string(),
-            remediationCompleted: z.boolean()
-          }))
-        })
-      }
+  fastify.get(
+    '/interference/patterns',
+    {
+      schema: {
+        querystring: GetPatternsQuerySchema,
+        response: {
+          200: z.object({
+            patterns: z.array(
+              z.object({
+                id: z.string(),
+                targetLanguage: z.string(),
+                sourceLanguage: z.string(),
+                targetText: z.string(),
+                interferingText: z.string(),
+                interferenceType: z.enum(['vocabulary', 'grammar', 'syntax']),
+                confidenceScore: z.number(),
+                occurrenceCount: z.number(),
+                lastOccurrence: z.string(),
+                remediationCompleted: z.boolean(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { includeRemediated } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { includeRemediated } = request.query;
 
-    try {
-      const patterns = await interferenceService.getUserInterferencePatterns(
-        userId,
-        includeRemediated || false
-      );
+      try {
+        const patterns = await interferenceService.getUserInterferencePatterns(
+          userId,
+          includeRemediated || false
+        );
 
-      return reply.status(200).send({
-        patterns: patterns.map(p => ({
-          id: p.id,
-          targetLanguage: p.targetLanguage,
-          sourceLanguage: p.sourceLanguage,
-          targetText: p.targetText,
-          interferingText: p.interferingText,
-          interferenceType: p.interferenceType,
-          confidenceScore: p.confidenceScore,
-          occurrenceCount: p.occurrenceCount,
-          lastOccurrence: p.lastOccurrence.toISOString(),
-          remediationCompleted: p.remediationCompleted
-        }))
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch patterns',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({
+          patterns: patterns.map((p) => ({
+            id: p.id,
+            targetLanguage: p.targetLanguage,
+            sourceLanguage: p.sourceLanguage,
+            targetText: p.targetText,
+            interferingText: p.interferingText,
+            interferenceType: p.interferenceType,
+            confidenceScore: p.confidenceScore,
+            occurrenceCount: p.occurrenceCount,
+            lastOccurrence: p.lastOccurrence.toISOString(),
+            remediationCompleted: p.remediationCompleted,
+          })),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch patterns',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * POST /interference/remediation/generate
    * Generate remediation exercises for a specific pattern
    */
-  fastify.post('/interference/remediation/generate', {
-    schema: {
-      body: GenerateRemediationSchema,
-      response: {
-        200: z.object({
-          exercises: z.array(z.object({
-            id: z.string(),
-            exerciseType: z.enum(['contrast', 'fill_blank', 'multiple_choice']),
-            targetItem: z.object({
-              language: z.string(),
-              text: z.string(),
-              translation: z.string()
-            }),
-            interferingItem: z.object({
-              language: z.string(),
-              text: z.string(),
-              translation: z.string()
-            }),
-            prompt: z.string(),
-            correctAnswer: z.string(),
-            distractors: z.array(z.string())
-          }))
-        })
-      }
+  fastify.post(
+    '/interference/remediation/generate',
+    {
+      schema: {
+        body: GenerateRemediationSchema,
+        response: {
+          200: z.object({
+            exercises: z.array(
+              z.object({
+                id: z.string(),
+                exerciseType: z.enum(['contrast', 'fill_blank', 'multiple_choice']),
+                targetItem: z.object({
+                  language: z.string(),
+                  text: z.string(),
+                  translation: z.string(),
+                }),
+                interferingItem: z.object({
+                  language: z.string(),
+                  text: z.string(),
+                  translation: z.string(),
+                }),
+                prompt: z.string(),
+                correctAnswer: z.string(),
+                distractors: z.array(z.string()),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const { patternId } = request.body;
+    async (request, reply) => {
+      const { patternId } = request.body;
 
-    try {
-      const exercises = await interferenceService.generateRemediationExercises(patternId);
+      try {
+        const exercises = await interferenceService.generateRemediationExercises(patternId);
 
-      return reply.status(200).send({ exercises });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to generate remediation exercises',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({ exercises });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to generate remediation exercises',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * POST /interference/remediation/submit
    * Submit an answer for a remediation exercise
    */
-  fastify.post('/interference/remediation/submit', {
-    schema: {
-      body: SubmitRemediationAttemptSchema,
-      response: {
-        200: z.object({
-          isCorrect: z.boolean(),
-          correctAnswer: z.string(),
-          feedback: z.string()
-        })
-      }
+  fastify.post(
+    '/interference/remediation/submit',
+    {
+      schema: {
+        body: SubmitRemediationAttemptSchema,
+        response: {
+          200: z.object({
+            isCorrect: z.boolean(),
+            correctAnswer: z.string(),
+            feedback: z.string(),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { exerciseId, userAnswer, timeSpent } = request.body;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { exerciseId, userAnswer, timeSpent } = request.body;
 
-    try {
-      // Fetch exercise details
-      const exerciseResult = await fastify.pg.pool.query(
-        `SELECT re.*, ip.target_text, ip.interfering_text, ip.id as pattern_id
+      try {
+        // Fetch exercise details
+        const exerciseResult = await fastify.pg.pool.query(
+          `SELECT re.*, ip.target_text, ip.interfering_text, ip.id as pattern_id
          FROM remediation_exercises re
          JOIN interference_patterns ip ON ip.id = re.pattern_id
          WHERE re.id = $1`,
-        [exerciseId]
-      );
+          [exerciseId]
+        );
 
-      if (exerciseResult.rows.length === 0) {
-        return reply.status(404).send({ error: 'Exercise not found' });
-      }
+        if (exerciseResult.rows.length === 0) {
+          return reply.status(404).send({ error: 'Exercise not found' });
+        }
 
-      const exercise = exerciseResult.rows[0];
-      const isCorrect = userAnswer.trim().toLowerCase() ===
-                        exercise.correct_answer.trim().toLowerCase();
+        const exercise = exerciseResult.rows[0];
+        const isCorrect =
+          userAnswer.trim().toLowerCase() === exercise.correct_answer.trim().toLowerCase();
 
-      // Record attempt
-      await fastify.pg.pool.query(
-        `INSERT INTO remediation_attempts (exercise_id, user_id, user_answer, is_correct, time_spent)
+        // Record attempt
+        await fastify.pg.pool.query(
+          `INSERT INTO remediation_attempts (exercise_id, user_id, user_answer, is_correct, time_spent)
          VALUES ($1, $2, $3, $4, $5)`,
-        [exerciseId, userId, userAnswer, isCorrect, timeSpent]
-      );
+          [exerciseId, userId, userAnswer, isCorrect, timeSpent]
+        );
 
-      // If all exercises for this pattern are completed successfully, mark pattern as remediated
-      if (isCorrect) {
-        const attemptsResult = await fastify.pg.pool.query(
-          `SELECT COUNT(*) as total, SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
+        // If all exercises for this pattern are completed successfully, mark pattern as remediated
+        if (isCorrect) {
+          const attemptsResult = await fastify.pg.pool.query(
+            `SELECT COUNT(*) as total, SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct
            FROM remediation_attempts ra
            JOIN remediation_exercises re ON re.id = ra.exercise_id
            WHERE ra.user_id = $1 AND re.pattern_id = $2`,
-          [userId, exercise.pattern_id]
-        );
+            [userId, exercise.pattern_id]
+          );
 
-        const stats = attemptsResult.rows[0];
+          const stats = attemptsResult.rows[0];
 
-        // Mark as remediated if user got at least 3 exercises correct
-        if (parseInt(stats.correct) >= 3) {
-          await interferenceService.markRemediationCompleted(exercise.pattern_id);
+          // Mark as remediated if user got at least 3 exercises correct
+          if (parseInt(stats.correct) >= 3) {
+            await interferenceService.markRemediationCompleted(exercise.pattern_id);
+          }
         }
+
+        const feedback = isCorrect
+          ? `Correct! You're successfully distinguishing between "${exercise.target_text}" and "${exercise.interfering_text}".`
+          : `Not quite. The correct answer is "${exercise.correct_answer}". Remember: "${exercise.target_text}" is used in the target language, while "${exercise.interfering_text}" is from the interfering language.`;
+
+        return reply.status(200).send({
+          isCorrect,
+          correctAnswer: exercise.correct_answer,
+          feedback,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to submit remediation attempt',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
-
-      const feedback = isCorrect
-        ? `Correct! You're successfully distinguishing between "${exercise.target_text}" and "${exercise.interfering_text}".`
-        : `Not quite. The correct answer is "${exercise.correct_answer}". Remember: "${exercise.target_text}" is used in the target language, while "${exercise.interfering_text}" is from the interfering language.`;
-
-      return reply.status(200).send({
-        isCorrect,
-        correctAnswer: exercise.correct_answer,
-        feedback
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to submit remediation attempt',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
-  });
+  );
 
   /**
    * GET /interference/summary
    * Get summary statistics for user's interference patterns
    */
-  fastify.get('/interference/summary', {
-    schema: {
-      response: {
-        200: z.object({
-          totalPatterns: z.number(),
-          activePatterns: z.number(),
-          remediatedPatterns: z.number(),
-          topInterferenceLanguagePairs: z.array(z.object({
-            targetLanguage: z.string(),
-            sourceLanguage: z.string(),
-            count: z.number()
-          })),
-          recentPatterns: z.array(z.object({
-            id: z.string(),
-            targetLanguage: z.string(),
-            sourceLanguage: z.string(),
-            targetText: z.string(),
-            interferingText: z.string(),
-            occurrenceCount: z.number()
-          }))
-        })
-      }
+  fastify.get(
+    '/interference/summary',
+    {
+      schema: {
+        response: {
+          200: z.object({
+            totalPatterns: z.number(),
+            activePatterns: z.number(),
+            remediatedPatterns: z.number(),
+            topInterferenceLanguagePairs: z.array(
+              z.object({
+                targetLanguage: z.string(),
+                sourceLanguage: z.string(),
+                count: z.number(),
+              })
+            ),
+            recentPatterns: z.array(
+              z.object({
+                id: z.string(),
+                targetLanguage: z.string(),
+                sourceLanguage: z.string(),
+                targetText: z.string(),
+                interferingText: z.string(),
+                occurrenceCount: z.number(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
+    async (request, reply) => {
+      const userId = request.user.id;
 
-    try {
-      const summary = await interferenceService.getInterferenceSummary(userId);
+      try {
+        const summary = await interferenceService.getInterferenceSummary(userId);
 
-      return reply.status(200).send({
-        totalPatterns: summary.totalPatterns,
-        activePatterns: summary.activePatterns,
-        remediatedPatterns: summary.remediatedPatterns,
-        topInterferenceLanguagePairs: summary.topInterferenceLanguagePairs,
-        recentPatterns: summary.recentPatterns.map(p => ({
-          id: p.id,
-          targetLanguage: p.targetLanguage,
-          sourceLanguage: p.sourceLanguage,
-          targetText: p.targetText,
-          interferingText: p.interferingText,
-          occurrenceCount: p.occurrenceCount
-        }))
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch summary',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({
+          totalPatterns: summary.totalPatterns,
+          activePatterns: summary.activePatterns,
+          remediatedPatterns: summary.remediatedPatterns,
+          topInterferenceLanguagePairs: summary.topInterferenceLanguagePairs,
+          recentPatterns: summary.recentPatterns.map((p) => ({
+            id: p.id,
+            targetLanguage: p.targetLanguage,
+            sourceLanguage: p.sourceLanguage,
+            targetText: p.targetText,
+            interferingText: p.interferingText,
+            occurrenceCount: p.occurrenceCount,
+          })),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch summary',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /interference/reduction
    * Get interference reduction statistics for a pattern
    */
-  fastify.get('/interference/reduction', {
-    schema: {
-      querystring: GetReductionQuerySchema,
-      response: {
-        200: z.object({
-          rate: z.number(),
-          trend: z.enum(['improving', 'stable', 'worsening'])
-        })
-      }
+  fastify.get(
+    '/interference/reduction',
+    {
+      schema: {
+        querystring: GetReductionQuerySchema,
+        response: {
+          200: z.object({
+            rate: z.number(),
+            trend: z.enum(['improving', 'stable', 'worsening']),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { patternId, periodDays } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { patternId, periodDays } = request.query;
 
-    try {
-      const result = await interferenceService.calculateInterferenceReduction(
-        userId,
-        patternId,
-        periodDays || 30
-      );
+      try {
+        const result = await interferenceService.calculateInterferenceReduction(
+          userId,
+          patternId,
+          periodDays || 30
+        );
 
-      return reply.status(200).send(result);
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to calculate reduction',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send(result);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to calculate reduction',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 }
 ```
 
 **API Endpoints Summary**:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/interference/analyze` | Analyze incorrect answer for interference |
-| GET | `/interference/patterns` | Get all user's interference patterns |
-| POST | `/interference/remediation/generate` | Generate remediation exercises |
-| POST | `/interference/remediation/submit` | Submit remediation exercise answer |
-| GET | `/interference/summary` | Get summary statistics |
-| GET | `/interference/reduction` | Get reduction rate for pattern |
+| Method | Endpoint                             | Description                               |
+| ------ | ------------------------------------ | ----------------------------------------- |
+| POST   | `/interference/analyze`              | Analyze incorrect answer for interference |
+| GET    | `/interference/patterns`             | Get all user's interference patterns      |
+| POST   | `/interference/remediation/generate` | Generate remediation exercises            |
+| POST   | `/interference/remediation/submit`   | Submit remediation exercise answer        |
+| GET    | `/interference/summary`              | Get summary statistics                    |
+| GET    | `/interference/reduction`            | Get reduction rate for pattern            |
 
 **Key Features**:
+
 1. **Automatic Analysis**: Called whenever user submits incorrect answer
 2. **Pattern Tracking**: Lists all active/remediated patterns
 3. **Exercise Generation**: Creates 4 targeted exercises per pattern
@@ -1565,6 +1602,7 @@ export function InterferenceDashboard() {
 ```
 
 **Component Features**:
+
 1. **Summary Dashboard**: Shows total, active, and remediated patterns with statistics
 2. **Top Interference Pairs**: Displays most common language confusion pairs
 3. **Pattern List**: Shows all detected patterns with occurrence counts
@@ -1622,6 +1660,7 @@ export function InterferenceAlert({
 ## Open Questions
 
 ### 1. **False Positive Handling**
+
 - **Question**: How do we handle false positives where similarity is high but not actual interference (e.g., user simply made a typo)?
 - **Options**:
   - Require minimum occurrence count (e.g., 2+) before showing pattern
@@ -1630,6 +1669,7 @@ export function InterferenceAlert({
 - **Recommendation**: Start with occurrence threshold of 2, add user dismissal in later iteration
 
 ### 2. **Remediation Exercise Difficulty**
+
 - **Question**: Should remediation exercises adapt difficulty based on user performance?
 - **Options**:
   - Fixed set of 4 exercises per pattern
@@ -1638,6 +1678,7 @@ export function InterferenceAlert({
 - **Recommendation**: Start with fixed 4 exercises, require 3/4 correct to mark as remediated
 
 ### 3. **Proactive Interference Warnings**
+
 - **Question**: Should we show warnings BEFORE user makes an interference error (e.g., "Watch out: Spanish 'embarazada' looks like English 'embarrassed' but means 'pregnant'")?
 - **Options**:
   - Passive: Only detect after errors occur
@@ -1656,8 +1697,33 @@ export function InterferenceAlert({
 
 ## Notes
 
-- Interference detected by analyzing incorrect answers using PostgreSQL trigram similarity
+- Interference detected by analyzing incorrect answers using Levenshtein distance similarity
 - False friends and cognates are the most common source of interference
-- Requires PostgreSQL `pg_trgm` extension for similarity matching
+- Uses JavaScript Levenshtein algorithm for portability (no PostgreSQL extension required)
 - Remediation exercises automatically mark patterns as resolved after 3+ correct answers
-- System tracks interference reduction over time using linear regression on occurrence counts
+- System tracks interference reduction over time based on occurrence count changes
+
+## Implementation Summary
+
+**Backend**:
+
+- Migration: `packages/db/src/migrations/043_create_interference_detection.ts`
+- Service: `packages/api/src/services/interference/interference-detection.service.ts`
+- Routes: `packages/api/src/routes/learning/interference.ts`
+- Tests: 18 unit tests covering all service methods
+
+**Frontend**:
+
+- Dashboard: `packages/web/src/components/interference/InterferenceDashboard.tsx`
+- Alert: `packages/web/src/components/interference/InterferenceAlert.tsx`
+- Page: `/learning/interference`
+
+**API Endpoints**:
+
+- POST `/learning/interference/analyze` - Analyze incorrect answer for interference
+- GET `/learning/interference/patterns` - Get user's interference patterns
+- GET `/learning/interference/remediation/:patternId` - Generate remediation exercises
+- POST `/learning/interference/remediation/submit` - Submit remediation attempt
+- GET `/learning/interference/summary` - Get interference summary stats
+- GET `/learning/interference/reduction/:patternId` - Calculate reduction trends
+- POST `/learning/interference/patterns/:patternId/complete` - Mark pattern complete
