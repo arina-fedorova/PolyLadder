@@ -119,6 +119,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
           200: EnableFocusModeResponseSchema,
           400: ErrorResponseSchema,
           401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -137,7 +138,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof FocusModeError) {
-          return reply.code(error.statusCode).send({ error: error.message });
+          return reply.code(error.statusCode as 400 | 404).send({ error: error.message });
         }
         throw error;
       }
@@ -155,6 +156,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         response: {
           200: DisableFocusModeResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           404: ErrorResponseSchema,
         },
@@ -172,7 +174,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof FocusModeError) {
-          return reply.code(error.statusCode).send({ error: error.message });
+          return reply.code(error.statusCode as 400 | 404).send({ error: error.message });
         }
         throw error;
       }
@@ -195,6 +197,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
           200: EnableFocusModeResponseSchema,
           400: ErrorResponseSchema,
           401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -213,7 +216,7 @@ export const focusModeRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof FocusModeError) {
-          return reply.code(error.statusCode).send({ error: error.message });
+          return reply.code(error.statusCode as 400 | 404).send({ error: error.message });
         }
         throw error;
       }

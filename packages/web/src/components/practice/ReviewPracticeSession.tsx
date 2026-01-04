@@ -61,7 +61,10 @@ export function ReviewPracticeSession({ language }: ReviewPracticeSessionProps) 
   // Start session on mount
   const startSessionMutation = useMutation({
     mutationFn: async () => {
-      return api.post<StartSessionResponse>(`/learning/review/session/start?language=${language}`);
+      return api.post<StartSessionResponse>(
+        `/learning/review/session/start?language=${language}`,
+        {}
+      );
     },
     onSuccess: (result) => {
       setSessionId(result.sessionId);
@@ -109,7 +112,7 @@ export function ReviewPracticeSession({ language }: ReviewPracticeSessionProps) 
   const completeSessionMutation = useMutation({
     mutationFn: async () => {
       if (!sessionId) throw new Error('No session');
-      return api.post<SessionStats>(`/learning/review/session/${sessionId}/complete`);
+      return api.post<SessionStats>(`/learning/review/session/${sessionId}/complete`, {});
     },
     onSuccess: (result) => {
       setFinalStats(result);
