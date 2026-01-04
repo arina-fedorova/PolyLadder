@@ -3,7 +3,7 @@
 **Feature Code**: F049
 **Created**: 2025-12-17
 **Phase**: 14 - Parallel Learning Support
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,13 @@ Implement practice sessions that randomly mix exercises from all languages the u
 
 ## Success Criteria
 
-- [ ] Practice session pulls exercises from all studied languages simultaneously
-- [ ] Randomized ordering with no predictable patterns
-- [ ] Clear language indicator for each exercise (flag, color badge, language name)
-- [ ] Separate performance tracking per language within session
-- [ ] User preference to enable/disable mixing (opt-in)
-- [ ] Mixing ratio configurable (equal distribution vs weighted by proficiency)
-- [ ] Session summary showing per-language breakdown
+- [x] Practice session pulls exercises from all studied languages simultaneously
+- [x] Randomized ordering with no predictable patterns
+- [x] Clear language indicator for each exercise (flag, color badge, language name)
+- [x] Separate performance tracking per language within session
+- [x] User preference to enable/disable mixing (opt-in)
+- [x] Mixing ratio configurable (equal distribution vs weighted by proficiency)
+- [x] Session summary showing per-language breakdown
 
 ---
 
@@ -30,6 +30,7 @@ Implement practice sessions that randomly mix exercises from all languages the u
 **File**: `packages/api/src/services/practice/mixed-session.service.ts`
 
 Create backend service that:
+
 - Fetches SRS items from all user's languages
 - Creates randomized mixed queue with configurable distribution
 - Tracks performance per language within mixed session
@@ -101,7 +102,7 @@ export class MixedSessionService {
       [config.userId]
     );
 
-    const languages = languagesResult.rows.map(r => r.language);
+    const languages = languagesResult.rows.map((r) => r.language);
 
     if (languages.length < 2) {
       throw new Error('Mixed practice requires at least 2 active languages');
@@ -157,7 +158,7 @@ export class MixedSessionService {
 
     return {
       sessionId: sessionResult.rows[0].id,
-      items: finalItems
+      items: finalItems,
     };
   }
 
@@ -193,13 +194,13 @@ export class MixedSessionService {
       [userId, language, limit]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       id: row.srs_item_id,
       language: row.language,
       practiceType: row.practice_type,
       srsItemId: row.srs_item_id,
       content: { text: row.content },
-      estimatedDifficulty: 6 - row.difficulty // Invert ease factor to difficulty
+      estimatedDifficulty: 6 - row.difficulty, // Invert ease factor to difficulty
     }));
   }
 
@@ -215,7 +216,7 @@ export class MixedSessionService {
     const result: MixedExerciseItem[] = [];
 
     for (const language of languages) {
-      const langItems = items.filter(i => i.language === language);
+      const langItems = items.filter((i) => i.language === language);
       result.push(...langItems.slice(0, itemsPerLanguage));
     }
 
@@ -240,7 +241,7 @@ export class MixedSessionService {
     );
 
     const proficiencies = new Map(
-      proficiencyResult.rows.map(r => [r.language, r.proficiency_score || 0])
+      proficiencyResult.rows.map((r) => [r.language, r.proficiency_score || 0])
     );
 
     // Calculate weights (inverse of proficiency)
@@ -248,7 +249,7 @@ export class MixedSessionService {
     const weights = new Map(
       Array.from(proficiencies.entries()).map(([lang, prof]) => [
         lang,
-        maxProficiency - prof + 1 // Inverse weight
+        maxProficiency - prof + 1, // Inverse weight
       ])
     );
 
@@ -259,7 +260,7 @@ export class MixedSessionService {
     for (const language of languages) {
       const weight = weights.get(language) || 1;
       const itemCount = Math.floor((weight / totalWeight) * totalItems);
-      const langItems = items.filter(i => i.language === language);
+      const langItems = items.filter((i) => i.language === language);
       result.push(...langItems.slice(0, itemCount));
     }
 
@@ -334,12 +335,12 @@ export class MixedSessionService {
       [sessionId]
     );
 
-    const languageBreakdown: LanguagePerformance[] = languageResult.rows.map(row => ({
+    const languageBreakdown: LanguagePerformance[] = languageResult.rows.map((row) => ({
       language: row.language,
       itemsAttempted: parseInt(row.items_attempted),
       correctAnswers: parseInt(row.correct_answers),
       averageTime: parseFloat(row.average_time),
-      accuracy: parseFloat(row.accuracy)
+      accuracy: parseFloat(row.accuracy),
     }));
 
     // Calculate switching efficiency (penalty for language switches with errors)
@@ -359,7 +360,7 @@ export class MixedSessionService {
       totalCorrect: parseInt(overallResult.rows[0].total_correct),
       totalTime: parseInt(overallResult.rows[0].total_time),
       languageBreakdown,
-      switchingEfficiency
+      switchingEfficiency,
     };
   }
 
@@ -433,6 +434,7 @@ CREATE INDEX idx_mixed_attempts_created ON mixed_session_attempts(created_at);
 ```
 
 **Open Questions**:
+
 1. **Switching Penalty**: Should we add a small time buffer after language switches to let users mentally adjust?
    - **No buffer**: Natural switching practice
    - **1-2 second buffer**: Reduces frustration, more forgiving
@@ -455,6 +457,7 @@ CREATE INDEX idx_mixed_attempts_created ON mixed_session_attempts(created_at);
 **File**: `packages/api/src/routes/practice/mixed-session.ts`
 
 Add REST endpoints for:
+
 - POST `/practice/mixed/start` - Start a new mixed session
 - POST `/practice/mixed/submit` - Submit answer for an item
 - GET `/practice/mixed/summary/:sessionId` - Get session summary
@@ -473,7 +476,7 @@ const StartMixedSessionSchema = z.object({
   practiceTypes: z.array(z.enum(['recall', 'recognition', 'cloze', 'translation', 'production'])),
   itemsPerLanguage: z.number().int().min(5).max(50).default(10),
   mixingStrategy: z.enum(['equal', 'weighted', 'random']).default('equal'),
-  totalItems: z.number().int().min(10).max(100).default(20)
+  totalItems: z.number().int().min(10).max(100).default(20),
 });
 
 const SubmitMixedAttemptSchema = z.object({
@@ -481,13 +484,13 @@ const SubmitMixedAttemptSchema = z.object({
   itemId: z.string(),
   language: z.string(),
   isCorrect: z.boolean(),
-  timeSpent: z.number().int().min(0).max(600) // Max 10 minutes per item
+  timeSpent: z.number().int().min(0).max(600), // Max 10 minutes per item
 });
 
 const UpdatePreferencesSchema = z.object({
   enableLanguageMixing: z.boolean(),
   mixingStrategy: z.enum(['equal', 'weighted', 'random']),
-  itemsPerSession: z.number().int().min(10).max(100)
+  itemsPerSession: z.number().int().min(10).max(100),
 });
 
 const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -506,17 +509,19 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: z.object({
             sessionId: z.string().uuid(),
-            items: z.array(z.object({
-              id: z.string(),
-              language: z.string(),
-              practiceType: z.string(),
-              srsItemId: z.string(),
-              content: z.any(),
-              estimatedDifficulty: z.number()
-            }))
-          })
-        }
-      }
+            items: z.array(
+              z.object({
+                id: z.string(),
+                language: z.string(),
+                practiceType: z.string(),
+                srsItemId: z.string(),
+                content: z.any(),
+                estimatedDifficulty: z.number(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const config = StartMixedSessionSchema.parse(request.body);
@@ -524,7 +529,7 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
 
       const session = await service.createMixedSession({
         userId,
-        ...config
+        ...config,
       });
 
       return reply.send(session);
@@ -543,14 +548,15 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
         body: SubmitMixedAttemptSchema,
         response: {
           200: z.object({
-            success: z.boolean()
-          })
-        }
-      }
+            success: z.boolean(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
-      const { sessionId, itemId, language, isCorrect, timeSpent } =
-        SubmitMixedAttemptSchema.parse(request.body);
+      const { sessionId, itemId, language, isCorrect, timeSpent } = SubmitMixedAttemptSchema.parse(
+        request.body
+      );
 
       await service.recordMixedAttempt(sessionId, itemId, language, isCorrect, timeSpent);
 
@@ -568,7 +574,7 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
       onRequest: [fastify.authenticate],
       schema: {
         params: z.object({
-          sessionId: z.string().uuid()
+          sessionId: z.string().uuid(),
         }),
         response: {
           200: z.object({
@@ -577,18 +583,20 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
               totalItems: z.number(),
               totalCorrect: z.number(),
               totalTime: z.number(),
-              languageBreakdown: z.array(z.object({
-                language: z.string(),
-                itemsAttempted: z.number(),
-                correctAnswers: z.number(),
-                averageTime: z.number(),
-                accuracy: z.number()
-              })),
-              switchingEfficiency: z.number()
-            })
-          })
-        }
-      }
+              languageBreakdown: z.array(
+                z.object({
+                  language: z.string(),
+                  itemsAttempted: z.number(),
+                  correctAnswers: z.number(),
+                  averageTime: z.number(),
+                  accuracy: z.number(),
+                })
+              ),
+              switchingEfficiency: z.number(),
+            }),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const { sessionId } = request.params as { sessionId: string };
@@ -612,11 +620,11 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
             preferences: z.object({
               enableLanguageMixing: z.boolean(),
               mixingStrategy: z.string(),
-              itemsPerSession: z.number()
-            })
-          })
-        }
-      }
+              itemsPerSession: z.number(),
+            }),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const userId = request.user.userId;
@@ -631,15 +639,15 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
       const preferences = result.rows[0] || {
         enable_language_mixing: false,
         mixing_strategy: 'equal',
-        items_per_session: 20
+        items_per_session: 20,
       };
 
       return reply.send({
         preferences: {
           enableLanguageMixing: preferences.enable_language_mixing,
           mixingStrategy: preferences.mixing_strategy,
-          itemsPerSession: preferences.items_per_session
-        }
+          itemsPerSession: preferences.items_per_session,
+        },
       });
     }
   );
@@ -656,10 +664,10 @@ const mixedSessionRoutes: FastifyPluginAsync = async (fastify) => {
         body: UpdatePreferencesSchema,
         response: {
           200: z.object({
-            success: z.boolean()
-          })
-        }
-      }
+            success: z.boolean(),
+          }),
+        },
+      },
     },
     async (request, reply) => {
       const userId = request.user.userId;
@@ -701,6 +709,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 ```
 
 **Open Questions**:
+
 1. **Session Persistence**: Should unfinished mixed sessions be saved and resumable?
    - **Ephemeral**: Session lost on browser close, simpler
    - **Persistent**: Can resume later, better UX
@@ -725,6 +734,7 @@ export const practiceRoutes: FastifyPluginAsync = async (fastify) => {
 **File**: `packages/web/src/pages/MixedPracticeSession.tsx`
 
 Create UI component with:
+
 - Session configuration (mixing strategy, item count)
 - Language indicator badge for each exercise (prominent, color-coded)
 - Practice exercise display (delegates to specific practice components)
@@ -771,14 +781,14 @@ const LANGUAGE_COLORS: Record<string, string> = {
   russian: 'bg-red-100 text-red-800 border-red-300',
   chinese: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   arabic: 'bg-green-100 text-green-800 border-green-300',
-  english: 'bg-blue-100 text-blue-800 border-blue-300'
+  english: 'bg-blue-100 text-blue-800 border-blue-300',
 };
 
 const LANGUAGE_NAMES: Record<string, string> = {
   russian: 'Russian',
   chinese: 'Chinese',
   arabic: 'Arabic',
-  english: 'English'
+  english: 'English',
 };
 
 export const MixedPracticeSession: React.FC = () => {
@@ -800,14 +810,14 @@ export const MixedPracticeSession: React.FC = () => {
       setItems(data.items);
       setCurrentIndex(0);
       setStartTime(Date.now());
-    }
+    },
   });
 
   // Submit attempt
   const submitAttemptMutation = useMutation({
     mutationFn: async (attempt: any) => {
       await apiClient.post('/practice/mixed/submit', attempt);
-    }
+    },
   });
 
   // Get summary
@@ -817,7 +827,7 @@ export const MixedPracticeSession: React.FC = () => {
       const response = await apiClient.get(`/practice/mixed/summary/${sessionId}`);
       return response.data;
     },
-    enabled: sessionComplete && !!sessionId
+    enabled: sessionComplete && !!sessionId,
   });
 
   useEffect(() => {
@@ -831,7 +841,7 @@ export const MixedPracticeSession: React.FC = () => {
       practiceTypes: ['recall', 'recognition', 'cloze'],
       itemsPerLanguage: 10,
       mixingStrategy: 'equal',
-      totalItems: 20
+      totalItems: 20,
     });
   };
 
@@ -845,12 +855,12 @@ export const MixedPracticeSession: React.FC = () => {
       itemId: currentItem.id,
       language: currentItem.language,
       isCorrect,
-      timeSpent
+      timeSpent,
     });
 
     // Move to next item or complete session
     if (currentIndex < items.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
       setStartTime(Date.now());
     } else {
       setSessionComplete(true);
@@ -863,7 +873,8 @@ export const MixedPracticeSession: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h2 className="text-2xl font-bold mb-4">Mixed Language Practice</h2>
           <p className="text-gray-600 mb-6">
-            Practice all your languages in one session to build mental agility and reduce interference.
+            Practice all your languages in one session to build mental agility and reduce
+            interference.
           </p>
           <button
             onClick={handleStartSession}
@@ -911,27 +922,37 @@ export const MixedPracticeSession: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h3 className="text-2xl font-bold mb-6">Per-Language Performance</h3>
           <div className="space-y-4">
-            {summary.languageBreakdown.map(lang => (
+            {summary.languageBreakdown.map((lang) => (
               <div key={lang.language} className="border-2 border-gray-200 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <span className={`px-4 py-2 rounded-lg font-semibold border-2 ${LANGUAGE_COLORS[lang.language]}`}>
+                    <span
+                      className={`px-4 py-2 rounded-lg font-semibold border-2 ${LANGUAGE_COLORS[lang.language]}`}
+                    >
                       {LANGUAGE_NAMES[lang.language]}
                     </span>
-                    <span className="text-gray-600">
-                      {lang.itemsAttempted} items
-                    </span>
+                    <span className="text-gray-600">{lang.itemsAttempted} items</span>
                   </div>
-                  <div className="text-2xl font-bold" style={{
-                    color: lang.accuracy >= 0.8 ? '#10b981' : lang.accuracy >= 0.6 ? '#f59e0b' : '#ef4444'
-                  }}>
+                  <div
+                    className="text-2xl font-bold"
+                    style={{
+                      color:
+                        lang.accuracy >= 0.8
+                          ? '#10b981'
+                          : lang.accuracy >= 0.6
+                            ? '#f59e0b'
+                            : '#ef4444',
+                    }}
+                  >
                     {(lang.accuracy * 100).toFixed(0)}%
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Correct: </span>
-                    <span className="font-semibold">{lang.correctAnswers}/{lang.itemsAttempted}</span>
+                    <span className="font-semibold">
+                      {lang.correctAnswers}/{lang.itemsAttempted}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Avg Time: </span>
@@ -950,23 +971,26 @@ export const MixedPracticeSession: React.FC = () => {
         </div>
 
         {/* Switching Efficiency Insight */}
-        <div className={`rounded-lg p-6 border-l-4 ${
-          summary.switchingEfficiency >= 0.8
-            ? 'bg-green-50 border-green-400'
-            : summary.switchingEfficiency >= 0.6
-            ? 'bg-yellow-50 border-yellow-400'
-            : 'bg-orange-50 border-orange-400'
-        }`}>
+        <div
+          className={`rounded-lg p-6 border-l-4 ${
+            summary.switchingEfficiency >= 0.8
+              ? 'bg-green-50 border-green-400'
+              : summary.switchingEfficiency >= 0.6
+                ? 'bg-yellow-50 border-yellow-400'
+                : 'bg-orange-50 border-orange-400'
+          }`}
+        >
           <h4 className="font-semibold mb-2">Language Switching Analysis</h4>
           <p className="text-gray-700">
             {summary.switchingEfficiency >= 0.8
               ? '🎉 Excellent! You handle language switches very well with minimal errors.'
               : summary.switchingEfficiency >= 0.6
-              ? '👍 Good switching ability. Continue practicing to improve consistency.'
-              : '💪 Language switches are challenging for you. This is normal - keep practicing!'}
+                ? '👍 Good switching ability. Continue practicing to improve consistency.'
+                : '💪 Language switches are challenging for you. This is normal - keep practicing!'}
           </p>
           <div className="mt-3 text-sm text-gray-600">
-            Your accuracy immediately after switching languages: {(summary.switchingEfficiency * 100).toFixed(0)}%
+            Your accuracy immediately after switching languages:{' '}
+            {(summary.switchingEfficiency * 100).toFixed(0)}%
           </div>
         </div>
 
@@ -985,7 +1009,7 @@ export const MixedPracticeSession: React.FC = () => {
             Start Another Session
           </button>
           <button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={() => (window.location.href = '/dashboard')}
             className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
           >
             Back to Dashboard
@@ -1011,9 +1035,7 @@ export const MixedPracticeSession: React.FC = () => {
           <span className="text-sm font-medium text-gray-600">
             Progress: {currentIndex + 1} / {items.length}
           </span>
-          <span className="text-sm font-medium text-gray-600">
-            {progress.toFixed(0)}% Complete
-          </span>
+          <span className="text-sm font-medium text-gray-600">{progress.toFixed(0)}% Complete</span>
         </div>
         <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
           <div
@@ -1027,7 +1049,9 @@ export const MixedPracticeSession: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <span className={`px-6 py-3 rounded-lg font-bold text-lg border-2 ${LANGUAGE_COLORS[currentItem.language]}`}>
+            <span
+              className={`px-6 py-3 rounded-lg font-bold text-lg border-2 ${LANGUAGE_COLORS[currentItem.language]}`}
+            >
               {LANGUAGE_NAMES[currentItem.language]}
             </span>
             {languageSwitched && (
@@ -1044,22 +1068,13 @@ export const MixedPracticeSession: React.FC = () => {
         {/* Exercise Component */}
         <div className="mt-6">
           {currentItem.practiceType === 'recall' && (
-            <RecallPractice
-              exercise={currentItem}
-              onComplete={handleExerciseComplete}
-            />
+            <RecallPractice exercise={currentItem} onComplete={handleExerciseComplete} />
           )}
           {currentItem.practiceType === 'recognition' && (
-            <RecognitionPractice
-              exercise={currentItem}
-              onComplete={handleExerciseComplete}
-            />
+            <RecognitionPractice exercise={currentItem} onComplete={handleExerciseComplete} />
           )}
           {currentItem.practiceType === 'cloze' && (
-            <ClozeExercise
-              exercise={currentItem}
-              onComplete={handleExerciseComplete}
-            />
+            <ClozeExercise exercise={currentItem} onComplete={handleExerciseComplete} />
           )}
         </div>
       </div>
@@ -1074,13 +1089,11 @@ export const MixedPracticeSession: React.FC = () => {
 import { MixedPracticeSession } from './pages/MixedPracticeSession';
 
 // In route configuration:
-<Route
-  path="/practice/mixed"
-  element={<MixedPracticeSession />}
-/>
+<Route path="/practice/mixed" element={<MixedPracticeSession />} />;
 ```
 
 **Open Questions**:
+
 1. **Visual Language Switching Cue**: Should we add a brief transition animation when language switches to help users prepare?
    - **No animation**: Immediate switch, more challenging
    - **Brief flash/fade**: 0.5s visual cue, helps cognitive preparation
@@ -1113,35 +1126,42 @@ import { MixedPracticeSession } from './pages/MixedPracticeSession';
 ## Notes
 
 ### Cognitive Benefits of Language Mixing
+
 - **Reduced Interference**: Regular switching trains brain to separate languages
 - **Mental Agility**: Improves ability to rapidly change linguistic context
 - **Real-world Simulation**: Mimics bilingual/multilingual environments
 - **Stronger Encoding**: Context switching leads to deeper memory encoding
 
 ### Mixing Strategies
+
 - **Equal**: Same number from each language (fair, balanced)
 - **Weighted**: More items from weaker languages (adaptive, efficiency-focused)
 - **Random**: Purely random selection (most challenging, unpredictable)
 
 ### Switching Efficiency Metric
+
 Measures accuracy immediately after language switches:
+
 - **80%+**: Excellent switching ability, minimal interference
 - **60-80%**: Good, some interference but manageable
 - **<60%**: Significant switching penalty, needs more practice
 
 ### Best Practices
+
 - Start with 2 languages before adding 3rd
 - Begin with equal distribution, try weighted later
 - Short sessions (15-20 items) more effective than long ones
 - Practice regularly to maintain switching skills
 
 ### Accessibility
+
 - Clear language indicators with color and text
 - Progress visualization
 - Optional switching notifications
 - Per-language performance breakdown
 
 ### Future Enhancements (Out of Scope)
+
 - **Adaptive Mixing**: AI adjusts mixing ratio based on performance
 - **Clustering Prevention**: Enforce max consecutive same-language items
 - **Language Hints**: Optional hints when switching (e.g., "Remember, this is Russian")
@@ -1160,6 +1180,7 @@ Measures accuracy immediately after language switches:
 **Current Approach**: User-configurable strategy in session settings UI with three presets: "Equal" (50/50 for 2 languages), "Weighted" (more from weaker languages based on SRS due counts), and "Random" (purely random selection). Default is "Equal".
 
 **Alternatives**:
+
 1. **Equal distribution always**: Fixed 50/50 for 2 languages, 33/33/33 for 3 languages, etc. Simple and balanced but ignores learning needs.
 2. **SRS-weighted** (current "Weighted" option): Proportion matches ratio of due items in each language. If 70% of due items are Russian and 30% Chinese, session will be 70/30. Efficient but may create very imbalanced sessions.
 3. **Proficiency-weighted**: More exercises from languages at lower CEFR levels. Helps weaker languages catch up.
@@ -1167,6 +1188,7 @@ Measures accuracy immediately after language switches:
 5. **Adaptive AI**: Machine learning model predicts optimal ratio based on historical performance, interference patterns, and progress velocity.
 
 **Recommendation**: Implement **hybrid presets** combining multiple weighting strategies. Provide 4 preset options:
+
 - **"Balanced"**: Equal distribution (current "Equal")
 - **"Focus Weak Languages"**: Proficiency-weighted (Option 3) - languages with lower CEFR level get 2x representation
 - **"Clear Backlog"**: SRS-weighted (current "Weighted" - Option 2)
@@ -1183,6 +1205,7 @@ Default to "Balanced" for first 10 mixed sessions, then suggest "Focus Weak Lang
 **Current Approach**: Random interleaving with no clustering constraints. In a 20-item session with 50/50 Russian/Chinese, the sequence is completely random - could theoretically get all 10 Russian items consecutively, though unlikely (p<0.001).
 
 **Alternatives**:
+
 1. **Pure random** (current): No constraints. Realistic but may create frustrating clusters.
 2. **Max cluster size**: Enforce maximum N consecutive items from same language (e.g., max 3). Prevents long stretches but may feel artificial.
 3. **Alternating**: Strictly alternate languages (A-B-A-B-A-B...). Maximum switching frequency but potentially exhausting.
@@ -1200,6 +1223,7 @@ Default to "Balanced" for first 10 mixed sessions, then suggest "Focus Weak Lang
 **Current Approach**: Implicit language indicators only. Language flag icon and name always visible on each exercise card, but no explicit "Language switching!" notification between items.
 
 **Alternatives**:
+
 1. **No notifications** (current): User must notice language indicator on each card. Most realistic but may catch users off-guard initially.
 2. **Always notify**: Full-screen interstitial between language switches ("Now practicing: Russian 🇷🇺"). Clear but disruptive, breaks flow.
 3. **First-switch notification only**: Notify on first switch in session, then no more notifications. Primes user awareness.
@@ -1208,6 +1232,7 @@ Default to "Balanced" for first 10 mixed sessions, then suggest "Focus Weak Lang
 6. **Customizable**: User preference toggle - "Switch notifications: Always / On Errors / Never".
 
 **Recommendation**: Implement **gradual fade-out with performance triggers** (Option 4 + 5 + 6 hybrid). Default behavior:
+
 - **Sessions 1-5**: Show 2-second "Switching to [Language]" banner with flag on every switch
 - **Sessions 6-15**: Show banner only on first switch of session
 - **Session 16+**: No automatic banner, but show if previous item was incorrect (performance trigger)
