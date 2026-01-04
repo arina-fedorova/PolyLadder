@@ -1,0 +1,1 @@
+export { VocabularyDashboard } from './VocabularyDashboard';
