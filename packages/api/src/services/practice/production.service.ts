@@ -250,7 +250,7 @@ export class ProductionService {
     meaningId: string,
     selfRating: SelfRating,
     isCorrect: boolean,
-    accuracy: number,
+    _accuracy: number,
     recordingDuration: number,
     attemptNumber: number,
     timeSpentMs: number
