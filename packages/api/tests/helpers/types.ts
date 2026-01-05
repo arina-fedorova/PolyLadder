@@ -44,9 +44,15 @@ export interface HealthResponse {
   service: string;
   timestamp: string;
   version: string;
+  uptime?: number;
   database: {
     connected: boolean;
     latencyMs?: number;
+  };
+  memory?: {
+    heapUsedMB: number;
+    heapTotalMB: number;
+    rssMB: number;
   };
 }
 
