@@ -207,6 +207,12 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const startTime = Date.now();
+      const memUsage = process.memoryUsage();
+      const memory = {
+        heapUsedMB: Math.round((memUsage.heapUsed / 1024 / 1024) * 100) / 100,
+        heapTotalMB: Math.round((memUsage.heapTotal / 1024 / 1024) * 100) / 100,
+        rssMB: Math.round((memUsage.rss / 1024 / 1024) * 100) / 100,
+      };
 
       try {
         await dbPool.query('SELECT 1');
@@ -217,10 +223,12 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
           timestamp: new Date().toISOString(),
           service: 'polyladder-api',
           version: env.APP_VERSION ?? '0.1.0',
+          uptime: Math.round(process.uptime()),
           database: {
             connected: true,
             latencyMs,
           },
+          memory,
         });
       } catch (error) {
         request.log.error({ err: error }, 'Health check failed');
@@ -230,9 +238,11 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
           timestamp: new Date().toISOString(),
           service: 'polyladder-api',
           version: env.APP_VERSION ?? '0.1.0',
+          uptime: Math.round(process.uptime()),
           database: {
             connected: false,
           },
+          memory,
         });
       }
     }

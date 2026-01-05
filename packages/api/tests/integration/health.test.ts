@@ -30,6 +30,33 @@ describe('Health Integration Tests', () => {
       expect(body.database.connected).toBe(true);
       expect(body.database.latencyMs).toBeGreaterThanOrEqual(0);
     });
+
+    it('should return uptime in seconds', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/health',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json<HealthResponse>();
+      expect(body.uptime).toBeDefined();
+      expect(typeof body.uptime).toBe('number');
+      expect(body.uptime).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should return memory metrics', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/health',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json<HealthResponse>();
+      expect(body.memory).toBeDefined();
+      expect(body.memory?.heapUsedMB).toBeGreaterThan(0);
+      expect(body.memory?.heapTotalMB).toBeGreaterThan(0);
+      expect(body.memory?.rssMB).toBeGreaterThan(0);
+    });
   });
 
   describe('GET /', () => {

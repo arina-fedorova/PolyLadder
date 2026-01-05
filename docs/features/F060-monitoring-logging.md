@@ -2,8 +2,9 @@
 
 **Feature Code**: F060
 **Created**: 2025-12-17
+**Completed**: 2026-01-06
 **Phase**: 16 - Production Deployment
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,202 +14,169 @@ Implement comprehensive monitoring and logging for production environment with e
 
 ## Success Criteria
 
-- [ ] Structured logging (JSON format)
-- [ ] Log levels (debug, info, warn, error)
-- [ ] Error tracking with stack traces
-- [ ] Performance monitoring (request duration, database queries)
-- [ ] Health endpoint returns system status
-- [ ] Log aggregation (Fly.io logs or external service)
-- [ ] Alerting for critical errors
+- [x] Structured logging (JSON format)
+- [x] Log levels (debug, info, warn, error)
+- [x] Error tracking with stack traces
+- [x] Performance monitoring (request duration, database queries)
+- [x] Health endpoint returns system status
+- [x] Log aggregation (Fly.io logs or external service)
+- [x] Alerting for critical errors (GitHub Actions backup failure alerts)
 
 ---
 
-## Tasks
+## Implementation Summary
 
-### Task 1: Implement Structured Logging
+### Files Modified/Created
 
-**Implementation Plan**:
-
-Create `packages/api/src/utils/logger.ts`:
-```typescript
-import pino from 'pino';
-
-export const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport:
-    process.env.NODE_ENV === 'development'
-      ? { target: 'pino-pretty' }
-      : undefined,
-});
-
-export function logRequest(req: FastifyRequest) {
-  logger.info({
-    method: req.method,
-    url: req.url,
-    ip: req.ip,
-    userId: req.user?.userId,
-  }, 'Incoming request');
-}
-
-export function logError(error: Error, context?: Record<string, unknown>) {
-  logger.error({
-    error: {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    },
-    ...context,
-  }, 'Error occurred');
-}
-```
-
-Install dependencies:
-```bash
-pnpm add pino pino-pretty
-```
-
-**Files Created**: `packages/api/src/utils/logger.ts`
+| File                                            | Description                                 |
+| ----------------------------------------------- | ------------------------------------------- |
+| `packages/api/src/utils/logger.ts`              | Enhanced structured logging with utilities  |
+| `packages/api/src/middleware/request-logger.ts` | Added response time tracking                |
+| `packages/api/src/schemas/common.ts`            | Added uptime/memory to HealthResponseSchema |
+| `packages/api/src/server.ts`                    | Enhanced health endpoint with metrics       |
+| `packages/api/src/index.ts`                     | Export logger utilities                     |
+| `packages/api/tests/unit/utils/logger.test.ts`  | Logger unit tests                           |
+| `packages/api/tests/integration/health.test.ts` | Health endpoint tests                       |
+| `docs/MONITORING.md`                            | Comprehensive monitoring guide              |
 
 ---
 
-### Task 2: Create Health Check Endpoint
+### Task 1: Structured Logging Utilities
 
-**Implementation Plan**:
+**Files**: `packages/api/src/utils/logger.ts`
 
-Create `packages/api/src/routes/health.ts`:
+Enhanced the existing pino logger with:
+
+- `logError(error, context)` - Structured error logging with stack traces
+- `logPerformance(metrics)` - Performance metrics logging
+- `createChildLogger(bindings)` - Scoped logger creation
+- ISO timestamp formatting
+- Level label formatting
+
+**Usage**:
+
 ```typescript
-import { FastifyPluginAsync } from 'fastify';
+import { logger, logError, logPerformance, createChildLogger } from '@polyladder/api';
 
-export const healthRoute: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/health', async (request, reply) => {
-    // Check database connection
-    try {
-      await fastify.pg.query('SELECT 1');
-    } catch (error) {
-      logger.error('Database health check failed', { error });
-      return reply.status(503).send({
-        status: 'unhealthy',
-        database: 'down',
-      });
-    }
+// Error logging
+logError(error, { requestId: 'req-123', method: 'POST' });
 
-    return reply.status(200).send({
-      status: 'healthy',
-      database: 'up',
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-    });
-  });
-};
+// Performance logging
+logPerformance({ operation: 'db.query', durationMs: 45, success: true });
+
+// Child logger
+const authLogger = createChildLogger({ component: 'auth' });
 ```
-
-**Files Created**: `packages/api/src/routes/health.ts`
 
 ---
 
-### Task 3: Add Request Logging Middleware
+### Task 2: Request Logging with Response Time
 
-**Implementation Plan**:
+**Files**: `packages/api/src/middleware/request-logger.ts`
 
-Update `packages/api/src/index.ts`:
-```typescript
-import { logger, logRequest } from './utils/logger';
+Enhanced request logging middleware with:
 
-fastify.addHook('onRequest', async (request, reply) => {
-  logRequest(request);
-});
+- Request start time tracking
+- Response time calculation in milliseconds
+- User-Agent header logging
+- Content-Length in response logs
 
-fastify.addHook('onResponse', async (request, reply) => {
-  logger.info({
-    method: request.method,
-    url: request.url,
-    statusCode: reply.statusCode,
-    responseTime: reply.getResponseTime(),
-  }, 'Request completed');
-});
+**Log output**:
 
-fastify.setErrorHandler((error, request, reply) => {
-  logError(error, {
-    method: request.method,
-    url: request.url,
-    userId: request.user?.userId,
-  });
-
-  reply.status(500).send({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? error.message : undefined,
-  });
-});
-```
-
-**Files Created**: None (update existing)
-
----
-
-### Task 4: Configure Error Tracking (Optional)
-
-**Implementation Plan**:
-
-For Sentry integration (optional):
-```typescript
-import * as Sentry from '@sentry/node';
-
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV,
-    tracesSampleRate: 0.1,
-  });
-
-  fastify.setErrorHandler((error, request, reply) => {
-    Sentry.captureException(error);
-    logError(error, { method: request.method, url: request.url });
-    reply.status(500).send({ error: 'Internal Server Error' });
-  });
+```json
+{
+  "level": "info",
+  "method": "GET",
+  "url": "/api/v1/users/profile",
+  "statusCode": 200,
+  "responseTimeMs": 45,
+  "contentLength": 256,
+  "msg": "Request completed in 45ms"
 }
 ```
 
-**Files Created**: None (optional Sentry integration)
+---
+
+### Task 3: Enhanced Health Endpoint
+
+**Files**: `packages/api/src/server.ts`, `packages/api/src/schemas/common.ts`
+
+Added new metrics to the `/health` endpoint:
+
+- Server uptime in seconds
+- Memory usage (heap used/total, RSS)
+
+**Response**:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-06T00:00:00.000Z",
+  "service": "polyladder-api",
+  "version": "0.1.0",
+  "uptime": 3600,
+  "database": {
+    "connected": true,
+    "latencyMs": 5
+  },
+  "memory": {
+    "heapUsedMB": 45.23,
+    "heapTotalMB": 128.0,
+    "rssMB": 156.78
+  }
+}
+```
 
 ---
 
-### Task 5: Set Up Log Viewing
+### Task 4: Monitoring Documentation
 
-**Implementation Plan**:
+**Files**: `docs/MONITORING.md`
 
-For Fly.io logs:
-```bash
-# View realtime logs
-fly logs --app polyladder
+Created comprehensive documentation covering:
 
-# Filter errors only
-fly logs --app polyladder | grep ERROR
+- Structured logging configuration
+- Health endpoint usage
+- Viewing Fly.io logs
+- Log levels and configuration
+- Performance monitoring
+- Alerting setup
+- Troubleshooting guide
 
-# Export logs to file
-fly logs --app polyladder > logs.txt
-```
+---
 
-For external log aggregation (optional):
-- BetterStack (free tier)
-- Papertrail
-- Logtail
+## Testing
 
-**Files Created**: `docs/MONITORING.md` (documentation)
+### Unit Tests (10 tests)
+
+- Logger instance validation
+- logError function with context
+- logPerformance with success/failure
+- createChildLogger bindings
+
+### Integration Tests (5 tests)
+
+- Health endpoint healthy status
+- Health endpoint uptime metric
+- Health endpoint memory metrics
+- API info endpoint
+- 404 handling
 
 ---
 
 ## Dependencies
 
-- **Blocks**: None (final feature)
-- **Depends on**: F000-F058
+- **Blocks**: None (final feature in phase)
+- **Depends on**: F000-F059
 
 ---
 
 ## Notes
 
-- Structured logging (JSON) enables better log parsing
-- Pino is high-performance logger for Node.js
-- Health endpoint used by Fly.io for health checks
-- Error tracking with Sentry is optional (adds cost)
-- Logs retention: Fly.io keeps 7 days by default
-- Consider external log aggregation for longer retention
+- Pino logger provides high-performance JSON logging
+- Development mode uses pino-pretty for readable output
+- Health endpoint is used by Fly.io for automatic health checks
+- Memory metrics help detect memory leaks
+- Log aggregation via Fly.io logs with 7-day retention
+- Optional external services (BetterStack, Papertrail) for longer retention
+- Sentry integration ready but not implemented (adds cost)

@@ -16,3 +16,6 @@ export type { Env } from './config/env';
 
 export * from './schemas/common';
 export * from './utils/db.utils';
+
+export { logger, logError, logPerformance, createChildLogger } from './utils/logger';
+export type { Logger, ErrorContext, PerformanceMetrics } from './utils/logger';

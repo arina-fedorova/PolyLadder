@@ -46,10 +46,18 @@ export const HealthResponseSchema = Type.Object({
   timestamp: Type.String(),
   service: Type.String(),
   version: Type.String(),
+  uptime: Type.Optional(Type.Number({ description: 'Server uptime in seconds' })),
   database: Type.Optional(
     Type.Object({
       connected: Type.Boolean(),
       latencyMs: Type.Optional(Type.Number()),
+    })
+  ),
+  memory: Type.Optional(
+    Type.Object({
+      heapUsedMB: Type.Number(),
+      heapTotalMB: Type.Number(),
+      rssMB: Type.Number(),
     })
   ),
 });
