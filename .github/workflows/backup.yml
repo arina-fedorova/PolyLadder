@@ -1,0 +1,158 @@
+# =====================================================
+# PolyLadder Database Backup Workflow
+#
+# Runs daily at 2 AM UTC to backup the production database.
+# Backups are stored as GitHub Actions artifacts with 30-day retention.
+#
+# Manual trigger available via workflow_dispatch.
+# =====================================================
+
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Artifact retention days'
+        required: false
+        default: '30'
+        type: string
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  APP_NAME: polyladder
+  DB_NAME: polyladder-db
+
+jobs:
+  backup:
+    name: Backup Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Verify Fly.io authentication
+        run: |
+          if ! flyctl auth whoami; then
+            echo "::error::Fly.io authentication failed. Check FLY_API_TOKEN secret."
+            exit 1
+          fi
+
+      - name: Check database status
+        run: |
+          echo "Checking database status..."
+          flyctl status --app ${{ env.DB_NAME }} || {
+            echo "::error::Database app not found or not accessible"
+            exit 1
+          }
+
+      - name: Create backup
+        id: backup
+        run: |
+          # Generate backup filename
+          DATE=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="polyladder_${DATE}.sql.gz"
+          echo "backup_file=$BACKUP_FILE" >> $GITHUB_OUTPUT
+
+          echo "Creating backup: $BACKUP_FILE"
+
+          # Create backup directory
+          mkdir -p backups
+
+          # Get database connection string and create backup
+          # Using fly postgres connect to run pg_dump
+          flyctl ssh console --app ${{ env.APP_NAME }} -C "pg_dump \$DATABASE_URL --no-owner --no-acl" | gzip > "backups/$BACKUP_FILE"
+
+          # Verify backup
+          if [ ! -s "backups/$BACKUP_FILE" ]; then
+            echo "::error::Backup file is empty"
+            exit 1
+          fi
+
+          # Get file size
+          FILE_SIZE=$(du -h "backups/$BACKUP_FILE" | cut -f1)
+          echo "Backup created: $BACKUP_FILE ($FILE_SIZE)"
+
+          # Verify integrity
+          if gunzip -t "backups/$BACKUP_FILE"; then
+            echo "Backup integrity verified"
+          else
+            echo "::error::Backup file is corrupted"
+            exit 1
+          fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ steps.backup.outputs.backup_file }}
+          path: backups/${{ steps.backup.outputs.backup_file }}
+          retention-days: ${{ inputs.retention_days || '30' }}
+          compression-level: 0 # Already compressed
+
+      - name: Backup summary
+        run: |
+          echo "## Database Backup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backup file:** ${{ steps.backup.outputs.backup_file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Created:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Retention:** ${{ inputs.retention_days || '30' }} days" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Download" >> $GITHUB_STEP_SUMMARY
+          echo "The backup is available as a workflow artifact." >> $GITHUB_STEP_SUMMARY
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: backup
+    if: failure()
+
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Database Backup Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Database Backup Failure
+
+            The scheduled database backup has failed.
+
+            **Workflow Run:** [View Details](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+
+            **Time:** ${new Date().toISOString()}
+
+            ### Action Required
+            1. Check the workflow logs for error details
+            2. Verify Fly.io database is accessible
+            3. Manually trigger a backup once resolved
+
+            /cc @${context.actor}
+            `;
+
+            // Check if similar issue exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'backup-failure'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['backup-failure', 'urgent']
+              });
+            }
