@@ -293,7 +293,7 @@ export const StatisticsDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis domain={[0, 100]} />
-                  <Tooltip formatter={(value: number) => `${value}%`} />
+                  <Tooltip formatter={(value) => `${String(value ?? 0)}%`} />
                   <Legend />
                   <Line
                     type="monotone"
@@ -359,7 +359,7 @@ export const StatisticsDashboard: React.FC = () => {
                     cx="50%"
                     cy="50%"
                     outerRadius={70}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   >
                     {timeDistributionData.map((_, index) => (
                       <Cell

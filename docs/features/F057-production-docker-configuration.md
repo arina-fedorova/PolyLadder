@@ -2,8 +2,9 @@
 
 **Feature Code**: F057
 **Created**: 2025-12-17
+**Completed**: 2026-01-05
 **Phase**: 16 - Production Deployment
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,133 +14,139 @@ Create production-optimized Docker configuration with multi-stage builds, securi
 
 ## Success Criteria
 
-- [ ] Multi-stage Dockerfile for production
-- [ ] Minimal image size (<200MB)
-- [ ] Non-root user in container
-- [ ] Health checks configured
-- [ ] Environment variable validation
-- [ ] Production docker-compose.yml
+- [x] Multi-stage Dockerfile for production
+- [x] Minimal image size (<200MB) - Alpine base with 3-stage build
+- [x] Non-root user in container (nodejs:1001)
+- [x] Health checks configured
+- [x] Environment variable validation
+- [x] Production docker-compose.yml
 
 ---
 
-## Tasks
+## Implementation Summary
+
+### Files Created
+
+| File                             | Description                             |
+| -------------------------------- | --------------------------------------- |
+| `docker/Dockerfile.prod`         | Multi-stage production Dockerfile       |
+| `docker/docker-compose.prod.yml` | Production Docker Compose configuration |
+| `docker/.env.prod.example`       | Environment variables template          |
+| `docker/validate-env.sh`         | Environment validation script           |
+
+---
 
 ### Task 1: Create Production Dockerfile
 
-**Implementation Plan**:
+**File**: `docker/Dockerfile.prod`
 
-Create `docker/Dockerfile.prod`:
+Three-stage build for minimal production image:
+
+1. **Builder Stage**: Installs all dependencies and builds TypeScript
+2. **Deps Stage**: Installs production dependencies only
+3. **Production Stage**: Minimal runtime with security hardening
+
+Key features:
+
+- Node.js 20 Alpine base for minimal size
+- `dumb-init` for proper signal handling (PID 1)
+- Non-root user `nodejs:1001`
+- Health check on `/health` endpoint
+- Resource-optimized layer caching
+
 ```dockerfile
+# Stage 1: Builder
 FROM node:20-alpine AS builder
-
 WORKDIR /app
-
-# Install pnpm
 RUN corepack enable pnpm
+# ... build packages
 
-# Copy package files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages/*/package.json ./packages/
+# Stage 2: Production deps only
+FROM node:20-alpine AS deps
+# ... install --prod
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --prod=false
-
-# Copy source
-COPY packages/ ./packages/
-COPY tsconfig.json ./
-
-# Build all packages
-RUN pnpm -r build
-
-# Production stage
+# Stage 3: Production runtime
 FROM node:20-alpine AS production
-
-WORKDIR /app
-
-# Install pnpm
-RUN corepack enable pnpm
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-
-# Copy package files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages/*/package.json ./packages/
-
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy built artifacts from builder
-COPY --from=builder /app/packages/*/dist ./packages/
-
-# Change ownership
-RUN chown -R nodejs:nodejs /app
-
+RUN apk add --no-cache dumb-init
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
 USER nodejs
-
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
-
-CMD ["node", "packages/api/dist/index.js"]
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "packages/api/dist/main.js"]
 ```
-
-**Files Created**: `docker/Dockerfile.prod`
 
 ---
 
 ### Task 2: Create Production Docker Compose
 
-**Implementation Plan**:
+**File**: `docker/docker-compose.prod.yml`
 
-Create `docker-compose.prod.yml`:
-```yaml
-version: '3.8'
+Production-ready orchestration with:
 
-services:
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+- PostgreSQL 15 Alpine with health checks
+- API service with resource limits
+- Database migrations as separate profile
+- Environment variable validation (required vars with `:?` syntax)
+- Network isolation
 
-  api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.prod
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      JWT_SECRET: ${JWT_SECRET}
-      NODE_ENV: production
-      LOG_LEVEL: info
-    ports:
-      - "3000:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+**Usage**:
 
-volumes:
-  postgres_data:
+```bash
+# Validate environment variables first
+./docker/validate-env.sh .env.prod
+
+# Run migrations (one-time)
+docker compose -f docker/docker-compose.prod.yml --profile migrate up migrate
+
+# Start services
+docker compose -f docker/docker-compose.prod.yml up -d
 ```
 
-**Files Created**: `docker-compose.prod.yml`
+**Resource Limits**:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '1'
+      memory: 512M
+    reservations:
+      cpus: '0.25'
+      memory: 128M
+```
+
+---
+
+### Task 3: Environment Variable Validation
+
+**File**: `docker/validate-env.sh`
+
+Shell script for pre-flight validation:
+
+- Checks required variables: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`
+- Validates `JWT_SECRET` minimum length (32 chars)
+- Warns about placeholder values (`CHANGE_ME`, etc.)
+- Shows optional variables with defaults
+
+**Usage**:
+
+```bash
+./docker/validate-env.sh .env.prod
+```
+
+---
+
+## Required Environment Variables
+
+| Variable             | Required | Description                                   |
+| -------------------- | -------- | --------------------------------------------- |
+| `POSTGRES_DB`        | Yes      | Database name                                 |
+| `POSTGRES_USER`      | Yes      | Database user                                 |
+| `POSTGRES_PASSWORD`  | Yes      | Database password                             |
+| `JWT_SECRET`         | Yes      | JWT signing secret (min 32 chars)             |
+| `JWT_REFRESH_SECRET` | No       | Refresh token secret (defaults to JWT_SECRET) |
+| `API_PORT`           | No       | API port (default: 3000)                      |
+| `LOG_LEVEL`          | No       | Logging level (default: info)                 |
+| `TAG`                | No       | Docker image tag (default: latest)            |
 
 ---
 
@@ -152,6 +159,8 @@ volumes:
 
 ## Notes
 
-- Image size optimized with alpine and multi-stage build
-- Security: non-root user, minimal attack surface
+- Image size optimized with Alpine base and multi-stage build
+- Security: non-root user, dumb-init for signal handling, minimal attack surface
 - Health checks enable orchestration (Kubernetes, Docker Swarm, Fly.io)
+- Database port not exposed in production (use reverse proxy or SSH tunnel for external access)
+- API already has built-in environment validation via Zod (`packages/api/src/config/env.ts`)

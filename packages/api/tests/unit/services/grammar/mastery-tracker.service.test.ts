@@ -1,17 +1,29 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Pool } from 'pg';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { GrammarMasteryTrackerService } from '../../../../src/services/grammar/mastery-tracker.service';
+
+// Helper to create mock query result
+const mockQueryResult = <T extends QueryResultRow>(
+  rows: T[],
+  rowCount?: number
+): QueryResult<T> => ({
+  rows,
+  command: '',
+  rowCount: rowCount ?? rows.length,
+  oid: 0,
+  fields: [],
+});
 
 describe('GrammarMasteryTrackerService', () => {
   let service: GrammarMasteryTrackerService;
-  let mockPool: Pool;
+  let mockPool: { query: Mock };
 
   beforeEach(() => {
     mockPool = {
       query: vi.fn(),
-    } as unknown as Pool;
+    };
 
-    service = new GrammarMasteryTrackerService(mockPool);
+    service = new GrammarMasteryTrackerService(mockPool as unknown as Pool);
   });
 
   describe('checkMastery', () => {
@@ -19,18 +31,14 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const grammarRuleId = 'en-present-tense';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 10,
             avg_accuracy: 0.85,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.checkMastery(userId, grammarRuleId);
 
@@ -41,18 +49,14 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const grammarRuleId = 'en-present-tense';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 3,
             avg_accuracy: 0.9,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.checkMastery(userId, grammarRuleId);
 
@@ -63,18 +67,14 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const grammarRuleId = 'en-present-tense';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 10,
             avg_accuracy: 0.75,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.checkMastery(userId, grammarRuleId);
 
@@ -85,18 +85,14 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const grammarRuleId = 'en-present-tense';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 0,
             avg_accuracy: null,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.checkMastery(userId, grammarRuleId);
 
@@ -107,18 +103,14 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const grammarRuleId = 'en-present-tense';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 5,
             avg_accuracy: 0.8,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.checkMastery(userId, grammarRuleId);
 
@@ -132,46 +124,31 @@ describe('GrammarMasteryTrackerService', () => {
       const grammarRuleId = 'en-present-tense';
       const language = 'EN';
 
-      const querySpy = vi
-        .spyOn(mockPool, 'query')
+      mockPool.query
         // checkMastery query
-        .mockResolvedValueOnce({
-          rows: [
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               total_exercises: 10,
               avg_accuracy: 0.85,
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
+          ])
+        )
         // category query
-        .mockResolvedValueOnce({
-          rows: [
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               category: 'present_tense',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
+          ])
+        )
         // update query
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        });
+        .mockResolvedValueOnce(mockQueryResult([], 1));
 
       await service.updateCurriculumProgress(userId, grammarRuleId, language);
 
-      expect(querySpy).toHaveBeenCalledTimes(3);
-      expect(querySpy).toHaveBeenLastCalledWith(
+      expect(mockPool.query).toHaveBeenCalledTimes(3);
+      expect(mockPool.query).toHaveBeenLastCalledWith(
         expect.stringContaining('UPDATE user_concept_progress'),
         [userId, 'grammar_present_tense', language]
       );
@@ -182,22 +159,18 @@ describe('GrammarMasteryTrackerService', () => {
       const grammarRuleId = 'en-present-tense';
       const language = 'EN';
 
-      const querySpy = vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             total_exercises: 2,
             avg_accuracy: 0.6,
           },
-        ],
-        command: '',
-        rowCount: 1,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       await service.updateCurriculumProgress(userId, grammarRuleId, language);
 
-      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(mockPool.query).toHaveBeenCalledTimes(1);
     });
 
     it('should handle non-existent grammar rule', async () => {
@@ -205,28 +178,18 @@ describe('GrammarMasteryTrackerService', () => {
       const grammarRuleId = 'non-existent';
       const language = 'EN';
 
-      vi.spyOn(mockPool, 'query')
+      mockPool.query
         // checkMastery query
-        .mockResolvedValueOnce({
-          rows: [
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               total_exercises: 10,
               avg_accuracy: 0.85,
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
+          ])
+        )
         // category query returns empty
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       await expect(
         service.updateCurriculumProgress(userId, grammarRuleId, language)
@@ -239,8 +202,8 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const language = 'EN';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             grammar_rule_id: 'en-present-tense',
             title: 'Present Tense',
@@ -255,12 +218,8 @@ describe('GrammarMasteryTrackerService', () => {
             total_exercises: 3,
             avg_accuracy: 0.7,
           },
-        ],
-        command: '',
-        rowCount: 2,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.getMasteryStatus(userId, language);
 
@@ -279,13 +238,7 @@ describe('GrammarMasteryTrackerService', () => {
       const userId = 'user-123';
       const language = 'EN';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [],
-        command: '',
-        rowCount: 0,
-        oid: 0,
-        fields: [],
-      });
+      mockPool.query.mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.getMasteryStatus(userId, language);
 
