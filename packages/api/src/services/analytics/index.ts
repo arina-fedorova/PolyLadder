@@ -39,3 +39,17 @@ export type {
   ImprovementTracking,
   WeaknessHeatmapCell,
 } from './weakness-identification.interface';
+
+export { StudyStatisticsService } from './study-statistics.service';
+export type {
+  DailyStats,
+  StreakInfo,
+  TimeStats,
+  AccuracyTrend,
+  StudyPaceAnalysis,
+  Badge,
+  BadgeCriteria,
+  ActivityHeatmapCell,
+  StudyOverview,
+  PeriodSummary,
+} from './study-statistics.interface';
