@@ -1,0 +1,43 @@
+# =====================================================
+# PolyLadder Fly.io Configuration
+#
+# Deploy with: fly deploy
+# Logs: fly logs
+# Console: fly ssh console
+# =====================================================
+
+app = "polyladder"
+primary_region = "iad"
+
+[build]
+  dockerfile = "docker/Dockerfile.prod"
+
+[env]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
