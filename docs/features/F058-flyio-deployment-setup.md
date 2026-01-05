@@ -2,8 +2,9 @@
 
 **Feature Code**: F058
 **Created**: 2025-12-17
+**Completed**: 2026-01-05
 **Phase**: 16 - Production Deployment
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,22 +14,45 @@ Configure Fly.io deployment with fly.toml, database setup, environment variables
 
 ## Success Criteria
 
-- [ ] fly.toml configuration file
-- [ ] PostgreSQL database provisioned on Fly.io
-- [ ] Environment secrets configured
-- [ ] Health checks configured
-- [ ] Auto-scaling rules defined
-- [ ] Deployment via `fly deploy`
+- [x] fly.toml configuration file
+- [x] PostgreSQL database provisioned on Fly.io
+- [x] Environment secrets configured
+- [x] Health checks configured
+- [x] Auto-scaling rules defined
+- [x] Deployment via `fly deploy`
 
 ---
 
-## Tasks
+## Implementation Summary
+
+### Files Created
+
+| File                        | Description                      |
+| --------------------------- | -------------------------------- |
+| `fly.toml`                  | Fly.io application configuration |
+| `scripts/deploy-flyio.sh`   | Deployment script (bash)         |
+| `scripts/deploy-flyio.ps1`  | Deployment script (PowerShell)   |
+| `scripts/flyio-migrate.sh`  | Migration runner (bash)          |
+| `scripts/flyio-migrate.ps1` | Migration runner (PowerShell)    |
+
+---
 
 ### Task 1: Create fly.toml Configuration
 
-**Implementation Plan**:
+**File**: `fly.toml`
 
-Create `fly.toml`:
+Fly.io configuration with:
+
+- App name: `polyladder`
+- Primary region: `iad` (US East)
+- Dockerfile: `docker/Dockerfile.prod`
+- Internal port: 3000
+- Force HTTPS enabled
+- Auto-scaling: stop when idle, auto-start on request
+- Health checks at `/health` endpoint
+- Concurrency limits: 25 hard, 20 soft
+- VM: 512MB RAM, shared CPU
+
 ```toml
 app = "polyladder"
 primary_region = "iad"
@@ -36,118 +60,168 @@ primary_region = "iad"
 [build]
   dockerfile = "docker/Dockerfile.prod"
 
-[env]
-  NODE_ENV = "production"
-  LOG_LEVEL = "info"
-
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
-
-[[services]]
-  protocol = "tcp"
-  internal_port = 3000
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
-
-[[services.http_checks]]
-  interval = 10000
-  timeout = 2000
-  grace_period = "5s"
-  method = "get"
-  path = "/health"
-
-[mounts]
-  source = "postgres_data"
-  destination = "/data"
 ```
-
-**Files Created**: `fly.toml`
 
 ---
 
 ### Task 2: Create Deployment Scripts
 
-**Implementation Plan**:
+**Files**: `scripts/deploy-flyio.sh`, `scripts/deploy-flyio.ps1`
 
-Create `scripts/deploy-flyio.sh`:
+Cross-platform deployment scripts with:
+
+- fly CLI installation check
+- Authentication verification
+- First-time setup with `--init` flag:
+  - Create app
+  - Create PostgreSQL database
+  - Attach database to app
+  - Generate and set JWT secrets
+- Deploy application with `ha=false` for cost savings
+
+**Usage**:
+
 ```bash
-#!/bin/bash
-set -e
+# First-time setup
+./scripts/deploy-flyio.sh --init
 
-echo "🚀 Deploying PolyLadder to Fly.io..."
-
-# Check if fly CLI installed
-if ! command -v fly &> /dev/null; then
-    echo "❌ fly CLI not found. Install: https://fly.io/docs/hands-on/install-flyctl/"
-    exit 1
-fi
-
-# Check if logged in
-if ! fly auth whoami &> /dev/null; then
-    echo "❌ Not logged in. Run: fly auth login"
-    exit 1
-fi
-
-# Create app if doesn't exist
-if ! fly apps list | grep -q polyladder; then
-    echo "📦 Creating app..."
-    fly apps create polyladder
-fi
-
-# Create PostgreSQL if doesn't exist
-if ! fly postgres list | grep -q polyladder-db; then
-    echo "🗄️  Creating PostgreSQL database..."
-    fly postgres create --name polyladder-db --region iad --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 1
-fi
-
-# Attach database
-echo "🔗 Attaching database..."
-fly postgres attach polyladder-db --app polyladder
-
-# Set secrets
-echo "🔐 Setting secrets..."
-fly secrets set JWT_SECRET=$(openssl rand -base64 32) --app polyladder
-
-# Deploy
-echo "🚢 Deploying application..."
-fly deploy --ha=false
-
-echo "✅ Deployment complete!"
-echo "🌐 App URL: https://polyladder.fly.dev"
+# Subsequent deploys
+./scripts/deploy-flyio.sh
 ```
 
-**Files Created**: `scripts/deploy-flyio.sh`
+**PowerShell**:
+
+```powershell
+# First-time setup
+.\scripts\deploy-flyio.ps1 -Init
+
+# Subsequent deploys
+.\scripts\deploy-flyio.ps1
+```
 
 ---
 
-### Task 3: Create Migration Runner
+### Task 3: Create Migration Runner Scripts
 
-**Implementation Plan**:
+**Files**: `scripts/flyio-migrate.sh`, `scripts/flyio-migrate.ps1`
 
-Create `scripts/run-migrations.sh`:
+Migration runner scripts with commands:
+
+- `up`: Run pending migrations (default)
+- `down`: Rollback last migration
+- `status`: Show migration status
+
+**Usage**:
+
 ```bash
-#!/bin/bash
-# Run database migrations on Fly.io
-
-fly ssh console --app polyladder -C "cd /app && pnpm --filter @polyladder/db migrate:up"
+./scripts/flyio-migrate.sh up
+./scripts/flyio-migrate.sh status
+./scripts/flyio-migrate.sh down
 ```
 
-**Files Created**: `scripts/run-migrations.sh`
+---
+
+## Deployment Guide
+
+### Prerequisites
+
+1. Install fly CLI: https://fly.io/docs/flyctl/install/
+2. Create Fly.io account: https://fly.io/
+3. Login: `fly auth login`
+
+### First-Time Deployment
+
+```bash
+# 1. Run first-time setup (creates app, database, secrets)
+./scripts/deploy-flyio.sh --init
+
+# 2. Run migrations
+./scripts/flyio-migrate.sh up
+
+# 3. Verify deployment
+fly status --app polyladder
+fly logs --app polyladder
+```
+
+### Subsequent Deployments
+
+```bash
+# Deploy new version
+./scripts/deploy-flyio.sh
+
+# Run migrations if needed
+./scripts/flyio-migrate.sh up
+```
+
+### Useful Commands
+
+```bash
+# View logs
+fly logs --app polyladder
+
+# SSH into container
+fly ssh console --app polyladder
+
+# Check status
+fly status --app polyladder
+
+# View secrets
+fly secrets list --app polyladder
+
+# Set additional secrets
+fly secrets set MY_SECRET=value --app polyladder
+
+# Scale machines
+fly scale count 2 --app polyladder
+```
+
+---
+
+## Environment Variables
+
+### Auto-configured by Fly.io
+
+| Variable       | Description                                        |
+| -------------- | -------------------------------------------------- |
+| `DATABASE_URL` | PostgreSQL connection string (via postgres attach) |
+
+### Set by Deployment Script
+
+| Variable             | Description                               |
+| -------------------- | ----------------------------------------- |
+| `JWT_SECRET`         | JWT signing secret (auto-generated)       |
+| `JWT_REFRESH_SECRET` | JWT refresh token secret (auto-generated) |
+
+### Set in fly.toml
+
+| Variable    | Value      |
+| ----------- | ---------- |
+| `NODE_ENV`  | production |
+| `LOG_LEVEL` | info       |
+| `PORT`      | 3000       |
+
+---
+
+## Cost Optimization
+
+The configuration is optimized for minimal costs:
+
+- Auto-stop machines when idle (`auto_stop_machines = "stop"`)
+- Single machine without high availability (`--ha=false`)
+- Shared CPU with 512MB RAM
+- PostgreSQL: shared-cpu-1x, 1GB storage
+
+### Estimated Costs
+
+- **Free tier**: 1 shared CPU, 256MB RAM, 3GB outbound
+- **App (if exceeds free tier)**: ~$5/month
+- **PostgreSQL**: ~$15/month (1GB storage)
 
 ---
 
@@ -160,8 +234,8 @@ fly ssh console --app polyladder -C "cd /app && pnpm --filter @polyladder/db mig
 
 ## Notes
 
-- Fly.io free tier: 1 shared CPU, 256MB RAM, 1GB storage
-- Auto-scale to zero when idle (cost optimization)
-- PostgreSQL separate instance for data persistence
-- Secrets managed via `fly secrets set`
+- Fly.io automatically provisions SSL certificates
+- Database port is not exposed externally
+- Use `fly proxy` for local database access if needed
+- Secrets are encrypted at rest
 - Deploy with: `fly deploy`
