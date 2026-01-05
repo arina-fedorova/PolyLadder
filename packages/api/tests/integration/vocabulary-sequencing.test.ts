@@ -61,7 +61,7 @@ describe('Vocabulary Sequencing Service Integration Tests', () => {
         );
       }
 
-      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'A2', 100);
+      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'A2', 10000);
       const meaningIds = meanings.map((m) => m.id);
       const filteredBatch = batch.filter((item) => meaningIds.includes(item.meaningId));
 
@@ -94,7 +94,7 @@ describe('Vocabulary Sequencing Service Integration Tests', () => {
         );
       }
 
-      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'B1', 100);
+      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'B1', 10000);
       const meaningIds = meanings.map((m) => m.id);
       const filteredBatch = batch.filter((item) => meaningIds.includes(item.meaningId));
 
@@ -179,7 +179,7 @@ describe('Vocabulary Sequencing Service Integration Tests', () => {
         JSON.stringify([]),
       ]);
 
-      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'C2', 100);
+      const batch = await service.getNextVocabularyBatch(userId, 'EN', 'C2', 10000);
 
       expect(batch.some((item) => item.meaningId === meaningWithUtterance)).toBe(true);
       expect(batch.some((item) => item.meaningId === meaningWithoutUtterance)).toBe(false);

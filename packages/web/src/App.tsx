@@ -19,6 +19,7 @@ import { PipelinesPage } from '@/pages/operator/PipelinesPage';
 import { PipelineDetailPage } from '@/pages/operator/PipelineDetailPage';
 import { PipelineStatusPage } from '@/pages/operator/PipelineStatusPage';
 import { InterferencePage } from '@/pages/learner/InterferencePage';
+import { VocabularyProgressPage } from '@/pages/learner/VocabularyProgressPage';
 
 const LandingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -134,6 +135,19 @@ export function App() {
                 <OnboardingCheck>
                   <MainLayout>
                     <InterferencePage />
+                  </MainLayout>
+                </OnboardingCheck>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/progress/vocabulary"
+            element={
+              <ProtectedRoute>
+                <OnboardingCheck>
+                  <MainLayout>
+                    <VocabularyProgressPage />
                   </MainLayout>
                 </OnboardingCheck>
               </ProtectedRoute>

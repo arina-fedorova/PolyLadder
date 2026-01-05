@@ -50,6 +50,12 @@ export function Header() {
                   Review
                 </Link>
                 <Link
+                  to="/progress/vocabulary"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Progress
+                </Link>
+                <Link
                   to="/settings/languages"
                   className="text-gray-700 hover:text-primary-600 transition-colors"
                 >
@@ -157,6 +163,13 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Review
+                </Link>
+                <Link
+                  to="/progress/vocabulary"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Progress
                 </Link>
                 <Link
                   to="/settings/languages"

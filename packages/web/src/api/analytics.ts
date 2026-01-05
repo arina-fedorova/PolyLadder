@@ -1,0 +1,115 @@
+import api from './client';
+
+export interface VocabularyStatsResponse {
+  totalWords: number;
+  byState: {
+    unknown: number;
+    learning: number;
+    known: number;
+  };
+  byLanguage: Array<{
+    language: string;
+    totalWords: number;
+    unknown: number;
+    learning: number;
+    known: number;
+  }>;
+  byCEFR: Array<{
+    level: string;
+    count: number;
+  }>;
+  recentlyLearned: Array<{
+    meaningId: string;
+    text: string;
+    language: string;
+    learnedAt: string;
+  }>;
+}
+
+export interface VocabularyTrendsResponse {
+  trends: Array<{
+    date: string;
+    totalWords: number;
+    learning: number;
+    known: number;
+  }>;
+}
+
+export interface VelocityResponse {
+  wordsPerDay: number;
+  wordsPerWeek: number;
+  wordsThisWeek: number;
+  wordsLastWeek: number;
+  trend: 'increasing' | 'stable' | 'decreasing';
+}
+
+export interface PaginatedWordsResponse {
+  words: Array<{
+    meaningId: string;
+    text: string;
+    language: string;
+    state: 'unknown' | 'learning' | 'known';
+    cefrLevel: string;
+    totalReviews: number;
+    successfulReviews: number;
+    lastReviewedAt: string | null;
+    nextReviewAt: string | null;
+    easeFactor: number;
+    interval: number;
+  }>;
+  total: number;
+}
+
+export interface WordDetailsResponse {
+  meaningId: string;
+  text: string;
+  language: string;
+  state: 'unknown' | 'learning' | 'known';
+  cefrLevel: string;
+  totalReviews: number;
+  successfulReviews: number;
+  lastReviewedAt: string | null;
+  nextReviewAt: string | null;
+  easeFactor: number;
+  interval: number;
+}
+
+export const analyticsApi = {
+  async getVocabularyStats(language?: string): Promise<VocabularyStatsResponse> {
+    const params = language ? `?language=${language}` : '';
+    return api.get<VocabularyStatsResponse>(`/analytics/vocabulary/stats${params}`);
+  },
+
+  async getVocabularyTrends(language?: string, days?: number): Promise<VocabularyTrendsResponse> {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (days) params.append('days', days.toString());
+    const queryString = params.toString();
+    return api.get<VocabularyTrendsResponse>(
+      `/analytics/vocabulary/trends${queryString ? `?${queryString}` : ''}`
+    );
+  },
+
+  async getLearningVelocity(language?: string): Promise<VelocityResponse> {
+    const params = language ? `?language=${language}` : '';
+    return api.get<VelocityResponse>(`/analytics/vocabulary/velocity${params}`);
+  },
+
+  async getWordsByState(
+    state: 'unknown' | 'learning' | 'known',
+    language?: string,
+    offset?: number,
+    limit?: number
+  ): Promise<PaginatedWordsResponse> {
+    const params = new URLSearchParams();
+    params.append('state', state);
+    if (language) params.append('language', language);
+    if (offset !== undefined) params.append('offset', offset.toString());
+    if (limit !== undefined) params.append('limit', limit.toString());
+    return api.get<PaginatedWordsResponse>(`/analytics/vocabulary/words?${params.toString()}`);
+  },
+
+  async getWordDetails(meaningId: string): Promise<WordDetailsResponse> {
+    return api.get<WordDetailsResponse>(`/analytics/vocabulary/word/${meaningId}`);
+  },
+};

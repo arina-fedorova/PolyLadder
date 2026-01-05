@@ -248,6 +248,7 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
         learning: '/api/v1/learning',
         operational: '/api/v1/operational',
         comparative: '/api/v1/comparative',
+        analytics: '/api/v1/analytics',
       },
     });
   });
@@ -265,6 +266,9 @@ async function registerRoutes(server: FastifyInstance): Promise<void> {
 
       const comparativeRoutes = (await import('./routes/comparative/index')).default;
       await apiV1.register(comparativeRoutes, { prefix: '/comparative' });
+
+      const analyticsRoutes = (await import('./routes/analytics/index')).default;
+      await apiV1.register(analyticsRoutes, { prefix: '/analytics' });
     },
     { prefix: '/api/v1' }
   );
