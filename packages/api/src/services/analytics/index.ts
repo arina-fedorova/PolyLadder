@@ -21,3 +21,12 @@ export type {
   CategoryCoverage,
   LanguageCoverage,
 } from './grammar-analytics.interface';
+
+export { CEFRAssessmentService } from './cefr-assessment.service';
+export type {
+  CEFRLevelData,
+  CEFRAssessment,
+  LevelProgression,
+  LevelRequirements,
+  CEFROverview,
+} from './cefr-assessment.interface';
