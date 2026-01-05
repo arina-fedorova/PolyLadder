@@ -1,5 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, MockInstance } from 'vitest';
-import pino from 'pino';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   logger,
   logError,
@@ -26,30 +25,35 @@ describe('Logger Utilities', () => {
   });
 
   describe('logError', () => {
-    let errorSpy: MockInstance<pino.Logger['error']>;
+    const originalError = logger.error.bind(logger);
+    let errorCalls: Array<{ obj: unknown; msg: string }>;
 
     beforeEach(() => {
-      errorSpy = vi.spyOn(logger, 'error').mockReturnValue(logger);
+      errorCalls = [];
+      logger.error = vi.fn((obj: unknown, msg: string) => {
+        errorCalls.push({ obj, msg });
+        return logger;
+      }) as unknown as typeof logger.error;
     });
 
     afterEach(() => {
-      errorSpy.mockRestore();
+      logger.error = originalError;
     });
 
     it('should log error with message and stack', () => {
       const error = new Error('Test error');
       logError(error);
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: expect.objectContaining({
-            name: 'Error',
-            message: 'Test error',
-            stack: expect.stringContaining('Error') as unknown,
-          }) as unknown,
-        }),
-        'Error: Test error'
-      );
+      expect(errorCalls).toHaveLength(1);
+      const call = errorCalls[0];
+      expect(call.msg).toBe('Error: Test error');
+      expect(call.obj).toMatchObject({
+        error: {
+          name: 'Error',
+          message: 'Test error',
+        },
+      });
+      expect((call.obj as { error: { stack?: string } }).error.stack).toBeDefined();
     });
 
     it('should include context in log', () => {
@@ -63,45 +67,58 @@ describe('Logger Utilities', () => {
 
       logError(error, context);
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestId: 'req-123',
-          method: 'POST',
-          url: '/api/test',
-          userId: 'user-456',
-        }),
-        expect.stringContaining('Error') as unknown
-      );
+      expect(errorCalls).toHaveLength(1);
+      const call = errorCalls[0];
+      expect(call.obj).toMatchObject({
+        requestId: 'req-123',
+        method: 'POST',
+        url: '/api/test',
+        userId: 'user-456',
+      });
     });
 
     it('should use custom logger when provided', () => {
       const customLogger = createChildLogger({ component: 'test' });
-      const customErrorSpy: MockInstance<pino.Logger['error']> = vi
-        .spyOn(customLogger, 'error')
-        .mockReturnValue(customLogger);
+      const customErrorCalls: Array<{ obj: unknown; msg: string }> = [];
+      const originalCustomError = customLogger.error.bind(customLogger);
+
+      customLogger.error = vi.fn((obj: unknown, msg: string) => {
+        customErrorCalls.push({ obj, msg });
+        return customLogger;
+      }) as unknown as typeof customLogger.error;
 
       const error = new Error('Custom logger error');
       logError(error, undefined, customLogger);
 
-      expect(customErrorSpy).toHaveBeenCalled();
-      expect(errorSpy).not.toHaveBeenCalled();
+      expect(customErrorCalls).toHaveLength(1);
+      expect(errorCalls).toHaveLength(0);
 
-      customErrorSpy.mockRestore();
+      customLogger.error = originalCustomError;
     });
   });
 
   describe('logPerformance', () => {
-    let infoSpy: MockInstance<pino.Logger['info']>;
-    let warnSpy: MockInstance<pino.Logger['warn']>;
+    const originalInfo = logger.info.bind(logger);
+    const originalWarn = logger.warn.bind(logger);
+    let infoCalls: Array<{ obj: unknown; msg: string }>;
+    let warnCalls: Array<{ obj: unknown; msg: string }>;
 
     beforeEach(() => {
-      infoSpy = vi.spyOn(logger, 'info').mockReturnValue(logger);
-      warnSpy = vi.spyOn(logger, 'warn').mockReturnValue(logger);
+      infoCalls = [];
+      warnCalls = [];
+      logger.info = vi.fn((obj: unknown, msg: string) => {
+        infoCalls.push({ obj, msg });
+        return logger;
+      }) as unknown as typeof logger.info;
+      logger.warn = vi.fn((obj: unknown, msg: string) => {
+        warnCalls.push({ obj, msg });
+        return logger;
+      }) as unknown as typeof logger.warn;
     });
 
     afterEach(() => {
-      infoSpy.mockRestore();
-      warnSpy.mockRestore();
+      logger.info = originalInfo;
+      logger.warn = originalWarn;
     });
 
     it('should log successful operation at info level', () => {
@@ -113,16 +130,17 @@ describe('Logger Utilities', () => {
 
       logPerformance(metrics);
 
-      expect(infoSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          performance: expect.objectContaining({
-            operation: 'database.query',
-            durationMs: 45,
-            success: true,
-          }) as unknown,
-        }),
-        'database.query completed in 45ms'
-      );
+      expect(infoCalls).toHaveLength(1);
+      expect(warnCalls).toHaveLength(0);
+      const call = infoCalls[0];
+      expect(call.msg).toBe('database.query completed in 45ms');
+      expect(call.obj).toMatchObject({
+        performance: {
+          operation: 'database.query',
+          durationMs: 45,
+          success: true,
+        },
+      });
     });
 
     it('should log failed operation at warn level', () => {
@@ -134,16 +152,17 @@ describe('Logger Utilities', () => {
 
       logPerformance(metrics);
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          performance: expect.objectContaining({
-            operation: 'api.call',
-            durationMs: 5000,
-            success: false,
-          }) as unknown,
-        }),
-        'api.call completed in 5000ms'
-      );
+      expect(warnCalls).toHaveLength(1);
+      expect(infoCalls).toHaveLength(0);
+      const call = warnCalls[0];
+      expect(call.msg).toBe('api.call completed in 5000ms');
+      expect(call.obj).toMatchObject({
+        performance: {
+          operation: 'api.call',
+          durationMs: 5000,
+          success: false,
+        },
+      });
     });
 
     it('should include metadata in log', () => {
@@ -159,18 +178,17 @@ describe('Logger Utilities', () => {
 
       logPerformance(metrics);
 
-      expect(infoSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          performance: expect.objectContaining({
-            operation: 'file.upload',
-            durationMs: 1200,
-            success: true,
-            fileSize: 1024,
-            contentType: 'image/png',
-          }) as unknown,
-        }),
-        expect.stringContaining('completed') as unknown
-      );
+      expect(infoCalls).toHaveLength(1);
+      const call = infoCalls[0];
+      expect(call.obj).toMatchObject({
+        performance: {
+          operation: 'file.upload',
+          durationMs: 1200,
+          success: true,
+          fileSize: 1024,
+          contentType: 'image/png',
+        },
+      });
     });
   });
 
