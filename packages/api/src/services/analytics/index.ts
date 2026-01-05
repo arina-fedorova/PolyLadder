@@ -10,3 +10,14 @@ export type {
   CEFRDistribution,
   RecentWord,
 } from './vocabulary-analytics.interface';
+
+export { GrammarAnalyticsService } from './grammar-analytics.service';
+export type {
+  GrammarConcept,
+  GrammarCoverageStats,
+  GrammarRecommendation,
+  GrammarMasteryTrend,
+  CEFRCoverage,
+  CategoryCoverage,
+  LanguageCoverage,
+} from './grammar-analytics.interface';

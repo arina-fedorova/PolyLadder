@@ -2,8 +2,9 @@
 
 **Feature Code**: F053
 **Created**: 2025-12-17
+**Completed**: 2026-01-05
 **Phase**: 15 - Progress Tracking & Analytics
-**Status**: Not Started
+**Status**: Complete
 
 ---
 
@@ -13,11 +14,11 @@ Implement grammar coverage tracker showing which grammar concepts have been lear
 
 ## Success Criteria
 
-- [ ] Grammar concepts list with completion status
-- [ ] CEFR level grouping
-- [ ] Per-language breakdown
-- [ ] Coverage percentage (e.g., 75% of A1 grammar completed)
-- [ ] Gaps identified (concepts not yet learned)
+- [x] Grammar concepts list with completion status
+- [x] CEFR level grouping
+- [x] Per-language breakdown
+- [x] Coverage percentage (e.g., 75% of A1 grammar completed)
+- [x] Gaps identified (concepts not yet learned)
 
 ---
 
@@ -93,10 +94,7 @@ export class GrammarAnalyticsService {
   /**
    * Get comprehensive grammar coverage statistics
    */
-  async getGrammarCoverage(
-    userId: string,
-    language?: string
-  ): Promise<GrammarCoverageStats> {
+  async getGrammarCoverage(userId: string, language?: string): Promise<GrammarCoverageStats> {
     const params: any[] = [userId];
     let languageFilter = '';
 
@@ -137,7 +135,7 @@ export class GrammarAnalyticsService {
 
     const conceptsResult = await this.pool.query(conceptsQuery, params);
 
-    const allConcepts: GrammarConcept[] = conceptsResult.rows.map(row => ({
+    const allConcepts: GrammarConcept[] = conceptsResult.rows.map((row) => ({
       id: row.id,
       title: row.title,
       description: row.description,
@@ -147,18 +145,17 @@ export class GrammarAnalyticsService {
       completed: row.completed,
       masteryLevel: parseInt(row.mastery_level),
       lastPracticed: row.last_practiced ? new Date(row.last_practiced) : null,
-      practiceCount: parseInt(row.practice_count)
+      practiceCount: parseInt(row.practice_count),
     }));
 
     const totalConcepts = allConcepts.length;
-    const completedConcepts = allConcepts.filter(c => c.completed).length;
-    const coveragePercentage = totalConcepts > 0
-      ? Math.round((completedConcepts / totalConcepts) * 100)
-      : 0;
+    const completedConcepts = allConcepts.filter((c) => c.completed).length;
+    const coveragePercentage =
+      totalConcepts > 0 ? Math.round((completedConcepts / totalConcepts) * 100) : 0;
 
     // Group by CEFR level
     const byCEFRMap = new Map<string, { total: number; completed: number }>();
-    allConcepts.forEach(concept => {
+    allConcepts.forEach((concept) => {
       const existing = byCEFRMap.get(concept.cefrLevel) || { total: 0, completed: 0 };
       existing.total++;
       if (concept.completed) existing.completed++;
@@ -170,16 +167,19 @@ export class GrammarAnalyticsService {
         level,
         total: stats.total,
         completed: stats.completed,
-        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
       }))
       .sort((a, b) => {
-        const order = { 'A0': 1, 'A1': 2, 'A2': 3, 'B1': 4, 'B2': 5, 'C1': 6, 'C2': 7 };
-        return (order[a.level as keyof typeof order] || 99) - (order[b.level as keyof typeof order] || 99);
+        const order = { A0: 1, A1: 2, A2: 3, B1: 4, B2: 5, C1: 6, C2: 7 };
+        return (
+          (order[a.level as keyof typeof order] || 99) -
+          (order[b.level as keyof typeof order] || 99)
+        );
       });
 
     // Group by category
     const byCategoryMap = new Map<string, { total: number; completed: number }>();
-    allConcepts.forEach(concept => {
+    allConcepts.forEach((concept) => {
       const existing = byCategoryMap.get(concept.category) || { total: 0, completed: 0 };
       existing.total++;
       if (concept.completed) existing.completed++;
@@ -191,7 +191,7 @@ export class GrammarAnalyticsService {
         category,
         total: stats.total,
         completed: stats.completed,
-        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
       }))
       .sort((a, b) => b.percentage - a.percentage);
 
@@ -205,7 +205,7 @@ export class GrammarAnalyticsService {
 
     if (!language) {
       const byLanguageMap = new Map<string, { total: number; completed: number }>();
-      allConcepts.forEach(concept => {
+      allConcepts.forEach((concept) => {
         const existing = byLanguageMap.get(concept.language) || { total: 0, completed: 0 };
         existing.total++;
         if (concept.completed) existing.completed++;
@@ -217,20 +217,18 @@ export class GrammarAnalyticsService {
           language: lang,
           totalConcepts: stats.total,
           completedConcepts: stats.completed,
-          percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+          percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
         }))
         .sort((a, b) => b.percentage - a.percentage);
     }
 
     // Identify gaps (not completed, prioritize by CEFR level)
-    const gaps = allConcepts
-      .filter(c => !c.completed)
-      .slice(0, 20); // Top 20 gaps
+    const gaps = allConcepts.filter((c) => !c.completed).slice(0, 20); // Top 20 gaps
 
     // Recently completed (last 30 days)
     const recentlyCompleted = allConcepts
-      .filter(c => c.completed && c.lastPracticed)
-      .filter(c => {
+      .filter((c) => c.completed && c.lastPracticed)
+      .filter((c) => {
         const daysSince = (Date.now() - c.lastPracticed!.getTime()) / (1000 * 60 * 60 * 24);
         return daysSince <= 30;
       })
@@ -245,7 +243,7 @@ export class GrammarAnalyticsService {
       byCategory,
       byLanguage,
       gaps,
-      recentlyCompleted
+      recentlyCompleted,
     };
   }
 
@@ -296,10 +294,10 @@ export class GrammarAnalyticsService {
       language,
       userCEFRLevel,
       nextLevel,
-      limit
+      limit,
     ]);
 
-    return result.rows.map(row => {
+    return result.rows.map((row) => {
       let reason = '';
       let priority: 'high' | 'medium' | 'low' = 'medium';
 
@@ -324,7 +322,7 @@ export class GrammarAnalyticsService {
         title: row.title,
         cefrLevel: row.cefr_level,
         reason,
-        priority
+        priority,
       };
     });
   }
@@ -376,20 +374,17 @@ export class GrammarAnalyticsService {
 
     const result = await this.pool.query(query, params);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: row.date,
       conceptsCompleted: parseInt(row.concepts_completed),
-      averageMastery: parseFloat(row.average_mastery)
+      averageMastery: parseFloat(row.average_mastery),
     }));
   }
 
   /**
    * Get detailed concept information
    */
-  async getConceptDetails(
-    userId: string,
-    conceptId: string
-  ): Promise<GrammarConcept | null> {
+  async getConceptDetails(userId: string, conceptId: string): Promise<GrammarConcept | null> {
     const query = `
       SELECT
         gr.id,
@@ -425,7 +420,7 @@ export class GrammarAnalyticsService {
       completed: row.completed,
       masteryLevel: parseInt(row.mastery_level),
       lastPracticed: row.last_practiced ? new Date(row.last_practiced) : null,
-      practiceCount: parseInt(row.practice_count)
+      practiceCount: parseInt(row.practice_count),
     };
   }
 
@@ -472,6 +467,7 @@ CREATE INDEX idx_grammar_progress_mastery ON grammar_progress(user_id, mastery_l
 ```
 
 **Key Features**:
+
 1. **Comprehensive Coverage**: Total, by CEFR level, by category, by language
 2. **Gap Identification**: Shows uncompleted concepts prioritized by level
 3. **Personalized Recommendations**: Based on user's current CEFR level
@@ -495,21 +491,27 @@ import { GrammarAnalyticsService } from '../../services/analytics/grammar-analyt
 
 // Request/Response Schemas
 const GetCoverageQuerySchema = z.object({
-  language: z.string().optional()
+  language: z.string().optional(),
 });
 
 const GetRecommendationsQuerySchema = z.object({
   language: z.string(),
-  limit: z.string().transform(val => parseInt(val, 10)).optional()
+  limit: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
 });
 
 const GetTrendsQuerySchema = z.object({
   language: z.string().optional(),
-  days: z.string().transform(val => parseInt(val, 10)).optional()
+  days: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .optional(),
 });
 
 const GetConceptParamsSchema = z.object({
-  conceptId: z.string().uuid()
+  conceptId: z.string().uuid(),
 });
 
 export async function grammarAnalyticsRoutes(fastify: FastifyInstance) {
@@ -519,223 +521,250 @@ export async function grammarAnalyticsRoutes(fastify: FastifyInstance) {
    * GET /analytics/grammar/coverage
    * Get grammar coverage statistics
    */
-  fastify.get('/analytics/grammar/coverage', {
-    schema: {
-      querystring: GetCoverageQuerySchema,
-      response: {
-        200: z.object({
-          totalConcepts: z.number(),
-          completedConcepts: z.number(),
-          coveragePercentage: z.number(),
-          byCEFR: z.array(z.object({
-            level: z.string(),
-            total: z.number(),
-            completed: z.number(),
-            percentage: z.number()
-          })),
-          byCategory: z.array(z.object({
-            category: z.string(),
-            total: z.number(),
-            completed: z.number(),
-            percentage: z.number()
-          })),
-          byLanguage: z.array(z.object({
-            language: z.string(),
+  fastify.get(
+    '/analytics/grammar/coverage',
+    {
+      schema: {
+        querystring: GetCoverageQuerySchema,
+        response: {
+          200: z.object({
             totalConcepts: z.number(),
             completedConcepts: z.number(),
-            percentage: z.number()
-          })),
-          gaps: z.array(z.object({
-            id: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            category: z.string()
-          })),
-          recentlyCompleted: z.array(z.object({
-            id: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            lastPracticed: z.string()
-          }))
-        })
-      }
+            coveragePercentage: z.number(),
+            byCEFR: z.array(
+              z.object({
+                level: z.string(),
+                total: z.number(),
+                completed: z.number(),
+                percentage: z.number(),
+              })
+            ),
+            byCategory: z.array(
+              z.object({
+                category: z.string(),
+                total: z.number(),
+                completed: z.number(),
+                percentage: z.number(),
+              })
+            ),
+            byLanguage: z.array(
+              z.object({
+                language: z.string(),
+                totalConcepts: z.number(),
+                completedConcepts: z.number(),
+                percentage: z.number(),
+              })
+            ),
+            gaps: z.array(
+              z.object({
+                id: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                category: z.string(),
+              })
+            ),
+            recentlyCompleted: z.array(
+              z.object({
+                id: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                lastPracticed: z.string(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language } = request.query;
 
-    try {
-      const coverage = await grammarService.getGrammarCoverage(userId, language);
+      try {
+        const coverage = await grammarService.getGrammarCoverage(userId, language);
 
-      return reply.status(200).send({
-        totalConcepts: coverage.totalConcepts,
-        completedConcepts: coverage.completedConcepts,
-        coveragePercentage: coverage.coveragePercentage,
-        byCEFR: coverage.byCEFR,
-        byCategory: coverage.byCategory,
-        byLanguage: coverage.byLanguage,
-        gaps: coverage.gaps.map(g => ({
-          id: g.id,
-          title: g.title,
-          cefrLevel: g.cefrLevel,
-          category: g.category
-        })),
-        recentlyCompleted: coverage.recentlyCompleted.map(c => ({
-          id: c.id,
-          title: c.title,
-          cefrLevel: c.cefrLevel,
-          lastPracticed: c.lastPracticed!.toISOString()
-        }))
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch grammar coverage',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({
+          totalConcepts: coverage.totalConcepts,
+          completedConcepts: coverage.completedConcepts,
+          coveragePercentage: coverage.coveragePercentage,
+          byCEFR: coverage.byCEFR,
+          byCategory: coverage.byCategory,
+          byLanguage: coverage.byLanguage,
+          gaps: coverage.gaps.map((g) => ({
+            id: g.id,
+            title: g.title,
+            cefrLevel: g.cefrLevel,
+            category: g.category,
+          })),
+          recentlyCompleted: coverage.recentlyCompleted.map((c) => ({
+            id: c.id,
+            title: c.title,
+            cefrLevel: c.cefrLevel,
+            lastPracticed: c.lastPracticed!.toISOString(),
+          })),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch grammar coverage',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/grammar/recommendations
    * Get personalized grammar recommendations
    */
-  fastify.get('/analytics/grammar/recommendations', {
-    schema: {
-      querystring: GetRecommendationsQuerySchema,
-      response: {
-        200: z.object({
-          recommendations: z.array(z.object({
-            conceptId: z.string(),
-            title: z.string(),
-            cefrLevel: z.string(),
-            reason: z.string(),
-            priority: z.enum(['high', 'medium', 'low'])
-          }))
-        })
-      }
+  fastify.get(
+    '/analytics/grammar/recommendations',
+    {
+      schema: {
+        querystring: GetRecommendationsQuerySchema,
+        response: {
+          200: z.object({
+            recommendations: z.array(
+              z.object({
+                conceptId: z.string(),
+                title: z.string(),
+                cefrLevel: z.string(),
+                reason: z.string(),
+                priority: z.enum(['high', 'medium', 'low']),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language, limit } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language, limit } = request.query;
 
-    try {
-      const recommendations = await grammarService.getGrammarRecommendations(
-        userId,
-        language,
-        limit || 5
-      );
+      try {
+        const recommendations = await grammarService.getGrammarRecommendations(
+          userId,
+          language,
+          limit || 5
+        );
 
-      return reply.status(200).send({ recommendations });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to generate recommendations',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({ recommendations });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to generate recommendations',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/grammar/trends
    * Get grammar mastery trends over time
    */
-  fastify.get('/analytics/grammar/trends', {
-    schema: {
-      querystring: GetTrendsQuerySchema,
-      response: {
-        200: z.object({
-          trends: z.array(z.object({
-            date: z.string(),
-            conceptsCompleted: z.number(),
-            averageMastery: z.number()
-          }))
-        })
-      }
+  fastify.get(
+    '/analytics/grammar/trends',
+    {
+      schema: {
+        querystring: GetTrendsQuerySchema,
+        response: {
+          200: z.object({
+            trends: z.array(
+              z.object({
+                date: z.string(),
+                conceptsCompleted: z.number(),
+                averageMastery: z.number(),
+              })
+            ),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { language, days } = request.query;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { language, days } = request.query;
 
-    try {
-      const trends = await grammarService.getGrammarMasteryTrends(
-        userId,
-        language,
-        days || 30
-      );
+      try {
+        const trends = await grammarService.getGrammarMasteryTrends(userId, language, days || 30);
 
-      return reply.status(200).send({ trends });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch trends',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+        return reply.status(200).send({ trends });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch trends',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
-  });
+  );
 
   /**
    * GET /analytics/grammar/concept/:conceptId
    * Get detailed information about a specific concept
    */
-  fastify.get('/analytics/grammar/concept/:conceptId', {
-    schema: {
-      params: GetConceptParamsSchema,
-      response: {
-        200: z.object({
-          id: z.string(),
-          title: z.string(),
-          description: z.string(),
-          cefrLevel: z.string(),
-          language: z.string(),
-          category: z.string(),
-          completed: z.boolean(),
-          masteryLevel: z.number(),
-          lastPracticed: z.string().nullable(),
-          practiceCount: z.number()
-        })
-      }
+  fastify.get(
+    '/analytics/grammar/concept/:conceptId',
+    {
+      schema: {
+        params: GetConceptParamsSchema,
+        response: {
+          200: z.object({
+            id: z.string(),
+            title: z.string(),
+            description: z.string(),
+            cefrLevel: z.string(),
+            language: z.string(),
+            category: z.string(),
+            completed: z.boolean(),
+            masteryLevel: z.number(),
+            lastPracticed: z.string().nullable(),
+            practiceCount: z.number(),
+          }),
+        },
+      },
+      preHandler: [fastify.authenticate],
     },
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    const userId = request.user.id;
-    const { conceptId } = request.params;
+    async (request, reply) => {
+      const userId = request.user.id;
+      const { conceptId } = request.params;
 
-    try {
-      const concept = await grammarService.getConceptDetails(userId, conceptId);
+      try {
+        const concept = await grammarService.getConceptDetails(userId, conceptId);
 
-      if (!concept) {
-        return reply.status(404).send({ error: 'Concept not found' });
+        if (!concept) {
+          return reply.status(404).send({ error: 'Concept not found' });
+        }
+
+        return reply.status(200).send({
+          ...concept,
+          lastPracticed: concept.lastPracticed?.toISOString() || null,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: 'Failed to fetch concept details',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
-
-      return reply.status(200).send({
-        ...concept,
-        lastPracticed: concept.lastPracticed?.toISOString() || null
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({
-        error: 'Failed to fetch concept details',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
-  });
+  );
 }
 ```
 
 **API Endpoints Summary**:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/analytics/grammar/coverage` | Get grammar coverage statistics |
-| GET | `/analytics/grammar/recommendations` | Get personalized recommendations |
-| GET | `/analytics/grammar/trends` | Get mastery trends over time |
-| GET | `/analytics/grammar/concept/:conceptId` | Get detailed concept information |
+| Method | Endpoint                                | Description                      |
+| ------ | --------------------------------------- | -------------------------------- |
+| GET    | `/analytics/grammar/coverage`           | Get grammar coverage statistics  |
+| GET    | `/analytics/grammar/recommendations`    | Get personalized recommendations |
+| GET    | `/analytics/grammar/trends`             | Get mastery trends over time     |
+| GET    | `/analytics/grammar/concept/:conceptId` | Get detailed concept information |
 
 **Key Features**:
+
 1. **Comprehensive Coverage**: Total, by CEFR, by category, by language
 2. **Gap Identification**: Top 20 uncompleted concepts
 3. **Smart Recommendations**: Based on user level and practice history
@@ -1103,6 +1132,7 @@ export function GrammarCoverageDashboard() {
 ```
 
 **Component Features**:
+
 1. **Summary Cards**: Total concepts, completed, gaps remaining
 2. **CEFR Bar Chart**: Completed vs total per level with percentages
 3. **Category Progress Bars**: Horizontal bars showing completion per category
@@ -1117,6 +1147,7 @@ export function GrammarCoverageDashboard() {
 ## Open Questions
 
 ### 1. **Mastery Level Calculation**
+
 - **Question**: How should mastery level (0-100) be calculated? Based on practice accuracy, review count, or combination?
 - **Options**:
   - Simple accuracy average (% correct answers)
@@ -1125,6 +1156,7 @@ export function GrammarCoverageDashboard() {
 - **Recommendation**: Use weighted accuracy with recency decay: `mastery = (recent_accuracy * 0.7) + (historical_accuracy * 0.3)`
 
 ### 2. **Completion Criteria**
+
 - **Question**: When is a grammar concept marked as "completed"? After how many successful practices?
 - **Options**:
   - Single successful completion of lesson
@@ -1133,6 +1165,7 @@ export function GrammarCoverageDashboard() {
 - **Recommendation**: Mark completed after mastery level reaches 70%, encourage continued practice to 100%
 
 ### 3. **Gap Prioritization**
+
 - **Question**: How should gaps be prioritized in the dashboard?
 - **Options**:
   - CEFR level only (lower levels first)
@@ -1158,3 +1191,56 @@ export function GrammarCoverageDashboard() {
 - Grammar progress table tracks practice history per concept
 - Recently completed shows concepts mastered in last 30 days
 - Charts use Recharts library for consistency with F052
+
+---
+
+## Implementation Notes
+
+### Files Created/Modified
+
+**Database:**
+
+- `packages/db/src/migrations/045_create_grammar_progress.ts` - Migration for grammar_progress table
+
+**API:**
+
+- `packages/api/src/services/analytics/grammar-analytics.interface.ts` - Type definitions
+- `packages/api/src/services/analytics/grammar-analytics.service.ts` - Analytics service
+- `packages/api/src/services/analytics/index.ts` - Export updates
+- `packages/api/src/routes/analytics/grammar.ts` - API routes with TypeBox schemas
+- `packages/api/src/routes/analytics/index.ts` - Route registration
+
+**Frontend:**
+
+- `packages/web/src/api/analytics.ts` - Grammar analytics API client
+- `packages/web/src/components/analytics/GrammarCoverageDashboard.tsx` - Dashboard component
+- `packages/web/src/components/analytics/index.ts` - Export updates
+- `packages/web/src/pages/learner/GrammarProgressPage.tsx` - Page component
+- `packages/web/src/App.tsx` - Route registration at /progress/grammar
+
+**Tests:**
+
+- `packages/api/tests/unit/services/analytics/grammar-analytics.service.test.ts` - 15 unit tests
+- `packages/api/tests/integration/grammar-analytics.test.ts` - 19 integration tests
+
+### Key Implementation Differences from Spec
+
+1. **Table Name**: Uses `approved_rules` instead of `approved_grammar_rules` (actual table name in database)
+2. **Column Name**: Uses `level` instead of `cefr_level` in approved_rules table
+3. **User Level Detection**: Determines user level from completed grammar concepts instead of `user_language_progress` table
+4. **Schema Validation**: Uses TypeBox (project standard) instead of Zod
+5. **Error Response**: Uses ErrorResponseSchema format `{ error: { statusCode, message, requestId } }`
+
+### API Endpoints
+
+| Method | Endpoint                                                | Description                  |
+| ------ | ------------------------------------------------------- | ---------------------------- |
+| GET    | `/api/v1/analytics/grammar/coverage`                    | Grammar coverage statistics  |
+| GET    | `/api/v1/analytics/grammar/recommendations?language=XX` | Personalized recommendations |
+| GET    | `/api/v1/analytics/grammar/trends`                      | Mastery trends over time     |
+| GET    | `/api/v1/analytics/grammar/concept/:conceptId`          | Detailed concept information |
+
+### Test Coverage
+
+- **Unit Tests**: 15 tests covering all service methods
+- **Integration Tests**: 19 tests covering all API endpoints with authentication, validation, and data scenarios

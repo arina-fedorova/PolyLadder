@@ -113,3 +113,104 @@ export const analyticsApi = {
     return api.get<WordDetailsResponse>(`/analytics/vocabulary/word/${meaningId}`);
   },
 };
+
+// Grammar Analytics Types
+export interface GrammarCoverageResponse {
+  totalConcepts: number;
+  completedConcepts: number;
+  coveragePercentage: number;
+  byCEFR: Array<{
+    level: string;
+    total: number;
+    completed: number;
+    percentage: number;
+  }>;
+  byCategory: Array<{
+    category: string;
+    total: number;
+    completed: number;
+    percentage: number;
+  }>;
+  byLanguage: Array<{
+    language: string;
+    totalConcepts: number;
+    completedConcepts: number;
+    percentage: number;
+  }>;
+  gaps: Array<{
+    id: string;
+    title: string;
+    cefrLevel: string;
+    category: string;
+  }>;
+  recentlyCompleted: Array<{
+    id: string;
+    title: string;
+    cefrLevel: string;
+    lastPracticed: string;
+  }>;
+}
+
+export interface GrammarRecommendationsResponse {
+  recommendations: Array<{
+    conceptId: string;
+    title: string;
+    cefrLevel: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+}
+
+export interface GrammarTrendsResponse {
+  trends: Array<{
+    date: string;
+    conceptsCompleted: number;
+    averageMastery: number;
+  }>;
+}
+
+export interface GrammarConceptResponse {
+  id: string;
+  title: string;
+  description: string;
+  cefrLevel: string;
+  language: string;
+  category: string;
+  completed: boolean;
+  masteryLevel: number;
+  lastPracticed: string | null;
+  practiceCount: number;
+}
+
+export const grammarAnalyticsApi = {
+  async getCoverage(language?: string): Promise<GrammarCoverageResponse> {
+    const params = language ? `?language=${language}` : '';
+    return api.get<GrammarCoverageResponse>(`/analytics/grammar/coverage${params}`);
+  },
+
+  async getRecommendations(
+    language: string,
+    limit?: number
+  ): Promise<GrammarRecommendationsResponse> {
+    const params = new URLSearchParams();
+    params.append('language', language);
+    if (limit) params.append('limit', limit.toString());
+    return api.get<GrammarRecommendationsResponse>(
+      `/analytics/grammar/recommendations?${params.toString()}`
+    );
+  },
+
+  async getTrends(language?: string, days?: number): Promise<GrammarTrendsResponse> {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (days) params.append('days', days.toString());
+    const queryString = params.toString();
+    return api.get<GrammarTrendsResponse>(
+      `/analytics/grammar/trends${queryString ? `?${queryString}` : ''}`
+    );
+  },
+
+  async getConceptDetails(conceptId: string): Promise<GrammarConceptResponse> {
+    return api.get<GrammarConceptResponse>(`/analytics/grammar/concept/${conceptId}`);
+  },
+};
