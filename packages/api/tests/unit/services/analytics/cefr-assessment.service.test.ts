@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Pool, QueryResult } from 'pg';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { CEFRAssessmentService } from '../../../../src/services/analytics';
 
 // Helper to create mock result
-const mockResult = <T>(rows: T[], rowCount?: number): QueryResult<T> =>
+const mockResult = <T extends QueryResultRow>(rows: T[], rowCount?: number): QueryResult<T> =>
   ({
     rows,
     rowCount: rowCount ?? rows.length,
