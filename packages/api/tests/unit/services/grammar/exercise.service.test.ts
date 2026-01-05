@@ -1,20 +1,32 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Pool } from 'pg';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 import {
   GrammarExerciseService,
   ExerciseType,
 } from '../../../../src/services/grammar/exercise.service';
 
+// Helper to create mock query result
+const mockQueryResult = <T extends QueryResultRow>(
+  rows: T[],
+  rowCount?: number
+): QueryResult<T> => ({
+  rows,
+  command: '',
+  rowCount: rowCount ?? rows.length,
+  oid: 0,
+  fields: [],
+});
+
 describe('GrammarExerciseService', () => {
   let service: GrammarExerciseService;
-  let mockPool: Pool;
+  let mockPool: { query: Mock };
 
   beforeEach(() => {
     mockPool = {
       query: vi.fn(),
-    } as unknown as Pool;
+    };
 
-    service = new GrammarExerciseService(mockPool);
+    service = new GrammarExerciseService(mockPool as unknown as Pool);
   });
 
   describe('getExercisesForRule', () => {
@@ -23,17 +35,11 @@ describe('GrammarExerciseService', () => {
       const userId = 'user-123';
 
       // Mock getUserAccuracyForRule
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [{ avg_accuracy: 0.75 }],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
+      mockPool.query
+        .mockResolvedValueOnce(mockQueryResult([{ avg_accuracy: 0.75 }]))
         // Mock getExercisesForRule query
-        .mockResolvedValueOnce({
-          rows: [
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               exercise_id: 'ex-1',
               grammar_rule_id: grammarRuleId,
@@ -47,12 +53,8 @@ describe('GrammarExerciseService', () => {
               hint: 'Think about daily routines',
               audio_url: null,
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        );
 
       const result = await service.getExercisesForRule(grammarRuleId, userId, 10);
 
@@ -68,26 +70,13 @@ describe('GrammarExerciseService', () => {
       const grammarRuleId = 'en-present-tense';
       const userId = 'user-low';
 
-      const querySpy = vi
-        .spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [{ avg_accuracy: 0.3 }],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+      mockPool.query
+        .mockResolvedValueOnce(mockQueryResult([{ avg_accuracy: 0.3 }]))
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       await service.getExercisesForRule(grammarRuleId, userId, 10);
 
-      expect(querySpy).toHaveBeenCalledWith(
+      expect(mockPool.query).toHaveBeenCalledWith(
         expect.any(String),
         expect.arrayContaining([grammarRuleId, 1, 2, userId, 10])
       );
@@ -97,26 +86,13 @@ describe('GrammarExerciseService', () => {
       const grammarRuleId = 'en-present-tense';
       const userId = 'user-high';
 
-      const querySpy = vi
-        .spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [{ avg_accuracy: 0.95 }],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+      mockPool.query
+        .mockResolvedValueOnce(mockQueryResult([{ avg_accuracy: 0.95 }]))
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       await service.getExercisesForRule(grammarRuleId, userId, 10);
 
-      expect(querySpy).toHaveBeenCalledWith(
+      expect(mockPool.query).toHaveBeenCalledWith(
         expect.any(String),
         expect.arrayContaining([grammarRuleId, 4, 5, userId, 10])
       );
@@ -128,8 +104,8 @@ describe('GrammarExerciseService', () => {
       const userId = 'user-123';
       const language = 'EN';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [
+      mockPool.query.mockResolvedValueOnce(
+        mockQueryResult([
           {
             exercise_id: 'ex-1',
             grammar_rule_id: 'en-present-tense',
@@ -156,12 +132,8 @@ describe('GrammarExerciseService', () => {
             hint: 'Irregular verb',
             audio_url: null,
           },
-        ],
-        command: '',
-        rowCount: 2,
-        oid: 0,
-        fields: [],
-      });
+        ])
+      );
 
       const result = await service.getMixedExercises(userId, language, 20);
 
@@ -177,28 +149,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'go';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: 'go',
               exercise_type: 'fill_blank' as ExerciseType,
               explanation: 'Present simple tense uses base form',
               grammar_rule_id: 'en-present-tense',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -212,28 +174,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'restauran';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: 'restaurant',
               exercise_type: 'fill_blank' as ExerciseType,
               explanation: 'French loanword',
               grammar_rule_id: 'en-vocabulary',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -247,28 +199,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'runs';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: 'runs',
               exercise_type: 'multiple_choice' as ExerciseType,
               explanation: 'Third person singular',
               grammar_rule_id: 'en-present-tense',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -281,28 +223,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'run';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: 'runs',
               exercise_type: 'multiple_choice' as ExerciseType,
               explanation: 'Third person singular',
               grammar_rule_id: 'en-present-tense',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -315,28 +247,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = ['I', 'go', 'to', 'school'];
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: ['I', 'go', 'to', 'school'],
               exercise_type: 'reorder' as ExerciseType,
               explanation: 'Correct word order',
               grammar_rule_id: 'en-word-order',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -349,28 +271,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = ['I', 'go', 'to', 'the', 'wrong'];
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: ['I', 'go', 'to', 'the', 'school'],
               exercise_type: 'reorder' as ExerciseType,
               explanation: 'Correct word order',
               grammar_rule_id: 'en-word-order',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
@@ -384,13 +296,7 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'test';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query').mockResolvedValueOnce({
-        rows: [],
-        command: '',
-        rowCount: 0,
-        oid: 0,
-        fields: [],
-      });
+      mockPool.query.mockResolvedValueOnce(mockQueryResult([], 0));
 
       await expect(service.validateAnswer(exerciseId, userAnswer, userId)).rejects.toThrow(
         'Exercise not found'
@@ -402,28 +308,18 @@ describe('GrammarExerciseService', () => {
       const userAnswer = 'café';
       const userId = 'user-123';
 
-      vi.spyOn(mockPool, 'query')
-        .mockResolvedValueOnce({
-          rows: [
+      mockPool.query
+        .mockResolvedValueOnce(
+          mockQueryResult([
             {
               correct_answer: 'cafe',
               exercise_type: 'fill_blank' as ExerciseType,
               explanation: 'French word',
               grammar_rule_id: 'fr-vocabulary',
             },
-          ],
-          command: '',
-          rowCount: 1,
-          oid: 0,
-          fields: [],
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          command: '',
-          rowCount: 0,
-          oid: 0,
-          fields: [],
-        });
+          ])
+        )
+        .mockResolvedValueOnce(mockQueryResult([], 0));
 
       const result = await service.validateAnswer(exerciseId, userAnswer, userId);
 
