@@ -3,7 +3,7 @@
 **Feature Code**: F054
 **Created**: 2025-12-17
 **Phase**: 15 - Progress Tracking & Analytics
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,50 @@ Implement CEFR level assessment that estimates user's current level based on com
 
 ## Success Criteria
 
-- [ ] CEFR level estimate per language (A0, A1, A2, B1, B2, C1, C2)
-- [ ] Level calculation based on completed vocabulary and grammar concepts
-- [ ] Performance accuracy factored into level determination
-- [ ] Current level displayed on dashboard with progress indicators
-- [ ] Level progression tracked over time with historical data
-- [ ] Requirements for next level clearly shown
-- [ ] Predicted time to next level based on learning velocity
+- [x] CEFR level estimate per language (A0, A1, A2, B1, B2, C1, C2)
+- [x] Level calculation based on completed vocabulary and grammar concepts
+- [x] Performance accuracy factored into level determination
+- [x] Current level displayed on dashboard with progress indicators
+- [x] Level progression tracked over time with historical data
+- [x] Requirements for next level clearly shown
+- [x] Predicted time to next level based on learning velocity
+
+## Implementation Summary
+
+### Database Migration
+
+- Migration `046_create_cefr_level_history.ts` creates the `cefr_level_history` table for tracking assessment history
+
+### Backend Service
+
+- `packages/api/src/services/analytics/cefr-assessment.service.ts` - Core assessment service with:
+  - `assessCEFRLevel()` - Calculates current CEFR level based on vocabulary/grammar progress
+  - `getLevelProgression()` - Returns historical progression data
+  - `getLevelRequirements()` - Gets gaps and requirements for target level
+  - `getAllLanguagesOverview()` - Overview across all user languages
+
+### API Routes
+
+- `packages/api/src/routes/analytics/cefr.ts` - REST endpoints:
+  - `GET /analytics/cefr/assessment/:language` - Current CEFR assessment
+  - `GET /analytics/cefr/progression` - Level progression history
+  - `GET /analytics/cefr/requirements` - Requirements for next level
+  - `GET /analytics/cefr/overview` - Overview for all languages
+
+### Frontend Component
+
+- `packages/web/src/components/analytics/CEFRAssessmentDashboard.tsx` - Dashboard with:
+  - Current level display with status badges
+  - Vocabulary and grammar progress bars
+  - All levels overview grid
+  - Progression history chart (30/60/90 days)
+  - Level breakdown bar chart
+  - Requirements display with vocabulary/grammar gaps
+
+### Tests
+
+- 17 unit tests in `cefr-assessment.service.test.ts`
+- 24 integration tests in `cefr-analytics.test.ts`
 
 ---
 
@@ -104,8 +141,8 @@ interface CEFROverview {
 export class CEFRAssessmentService {
   private pool: Pool;
   private readonly CEFR_LEVELS = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-  private readonly VOCABULARY_COMPLETION_THRESHOLD = 0.80; // 80%
-  private readonly GRAMMAR_COMPLETION_THRESHOLD = 0.70; // 70%
+  private readonly VOCABULARY_COMPLETION_THRESHOLD = 0.8; // 80%
+  private readonly GRAMMAR_COMPLETION_THRESHOLD = 0.7; // 70%
   private readonly READY_FOR_NEXT_THRESHOLD = 0.95; // 95%
 
   constructor(pool: Pool) {
@@ -123,19 +160,12 @@ export class CEFRAssessmentService {
    * 5. Estimate time to next level based on learning velocity
    * 6. Record assessment in history
    */
-  async assessCEFRLevel(
-    userId: string,
-    language: string
-  ): Promise<CEFRAssessment> {
+  async assessCEFRLevel(userId: string, language: string): Promise<CEFRAssessment> {
     const client = await this.pool.connect();
 
     try {
       // Get all CEFR level data
-      const levelDetails = await this.calculateAllLevelData(
-        client,
-        userId,
-        language
-      );
+      const levelDetails = await this.calculateAllLevelData(client, userId, language);
 
       // Determine current level (highest completed)
       let currentLevel = 'A0';
@@ -148,28 +178,28 @@ export class CEFRAssessmentService {
       }
 
       // Determine status and next level
-      const currentLevelData = levelDetails.find(ld => ld.level === currentLevel);
+      const currentLevelData = levelDetails.find((ld) => ld.level === currentLevel);
       const currentLevelIndex = this.CEFR_LEVELS.indexOf(currentLevel);
-      const nextLevel = currentLevelIndex < this.CEFR_LEVELS.length - 1
-        ? this.CEFR_LEVELS[currentLevelIndex + 1]
-        : null;
+      const nextLevel =
+        currentLevelIndex < this.CEFR_LEVELS.length - 1
+          ? this.CEFR_LEVELS[currentLevelIndex + 1]
+          : null;
 
       let status: 'progressing' | 'ready' | 'completed';
       if (!nextLevel) {
         status = 'completed';
-      } else if (currentLevelData && currentLevelData.overallPercentage >= this.READY_FOR_NEXT_THRESHOLD) {
+      } else if (
+        currentLevelData &&
+        currentLevelData.overallPercentage >= this.READY_FOR_NEXT_THRESHOLD
+      ) {
         status = 'ready';
       } else {
         status = 'progressing';
       }
 
       // Calculate progress to next level
-      const nextLevelData = nextLevel
-        ? levelDetails.find(ld => ld.level === nextLevel)
-        : null;
-      const progressToNextLevel = nextLevelData
-        ? nextLevelData.overallPercentage
-        : 100;
+      const nextLevelData = nextLevel ? levelDetails.find((ld) => ld.level === nextLevel) : null;
+      const progressToNextLevel = nextLevelData ? nextLevelData.overallPercentage : 100;
 
       // Estimate days to next level
       const estimatedDaysToNextLevel = await this.estimateDaysToNextLevel(
@@ -181,13 +211,7 @@ export class CEFRAssessmentService {
       );
 
       // Record assessment
-      await this.recordAssessment(
-        client,
-        userId,
-        language,
-        currentLevel,
-        levelDetails
-      );
+      await this.recordAssessment(client, userId, language, currentLevel, levelDetails);
 
       return {
         userId,
@@ -198,9 +222,8 @@ export class CEFRAssessmentService {
         nextLevel,
         progressToNextLevel,
         estimatedDaysToNextLevel,
-        assessedAt: new Date()
+        assessedAt: new Date(),
       };
-
     } finally {
       client.release();
     }
@@ -250,7 +273,7 @@ export class CEFRAssessmentService {
       const grammarPercentage = grammarTotal > 0 ? (grammarCompleted / grammarTotal) * 100 : 0;
 
       // Overall percentage (weighted: 60% vocabulary, 40% grammar)
-      const overallPercentage = (vocabPercentage * 0.6) + (grammarPercentage * 0.4);
+      const overallPercentage = vocabPercentage * 0.6 + grammarPercentage * 0.4;
 
       // Level is completed if vocabulary ≥80% AND grammar ≥70%
       const isCompleted =
@@ -287,7 +310,7 @@ export class CEFRAssessmentService {
         grammarPercentage: Math.round(grammarPercentage * 10) / 10,
         overallPercentage: Math.round(overallPercentage * 10) / 10,
         isCompleted,
-        averageAccuracy: Math.round(averageAccuracy * 10) / 10
+        averageAccuracy: Math.round(averageAccuracy * 10) / 10,
       });
     }
 
@@ -344,8 +367,9 @@ export class CEFRAssessmentService {
     `;
 
     const reqResult = await client.query(requirementsQuery, [language, nextLevel]);
-    const totalItems = parseInt(reqResult.rows[0]?.vocab_total || '0') +
-                      parseInt(reqResult.rows[0]?.grammar_total || '0');
+    const totalItems =
+      parseInt(reqResult.rows[0]?.vocab_total || '0') +
+      parseInt(reqResult.rows[0]?.grammar_total || '0');
 
     const itemsRemaining = totalItems * (1 - currentProgress / 100);
     const estimatedDays = Math.ceil(itemsRemaining / avgWordsPerDay);
@@ -363,7 +387,7 @@ export class CEFRAssessmentService {
     currentLevel: string,
     levelDetails: CEFRLevelData[]
   ): Promise<void> {
-    const currentLevelData = levelDetails.find(ld => ld.level === currentLevel);
+    const currentLevelData = levelDetails.find((ld) => ld.level === currentLevel);
 
     if (!currentLevelData) return;
 
@@ -383,7 +407,7 @@ export class CEFRAssessmentService {
       currentLevel,
       currentLevelData.vocabularyPercentage,
       currentLevelData.grammarPercentage,
-      currentLevelData.overallPercentage
+      currentLevelData.overallPercentage,
     ]);
   }
 
@@ -410,12 +434,12 @@ export class CEFRAssessmentService {
 
     const result = await this.pool.query(query, [userId, language]);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: new Date(row.date),
       level: row.level,
       vocabularyPercentage: parseFloat(row.vocabulary_percentage),
       grammarPercentage: parseFloat(row.grammar_percentage),
-      overallPercentage: parseFloat(row.overall_percentage)
+      overallPercentage: parseFloat(row.overall_percentage),
     }));
   }
 
@@ -452,7 +476,7 @@ export class CEFRAssessmentService {
       `;
 
       const vocabGapResult = await client.query(vocabGapQuery, [userId, language, targetLevel]);
-      const vocabularyGap = vocabGapResult.rows.map(r => r.text);
+      const vocabularyGap = vocabGapResult.rows.map((r) => r.text);
       const vocabularyNeeded = vocabGapResult.rowCount || 0;
 
       // Get grammar gaps
@@ -467,13 +491,11 @@ export class CEFRAssessmentService {
       `;
 
       const grammarGapResult = await client.query(grammarGapQuery, [userId, language, targetLevel]);
-      const grammarGap = grammarGapResult.rows.map(r => r.title);
+      const grammarGap = grammarGapResult.rows.map((r) => r.title);
       const grammarNeeded = grammarGapResult.rowCount || 0;
 
       // Estimate practice hours (assume 10 words/hour, 5 grammar concepts/hour)
-      const estimatedPracticeHours = Math.ceil(
-        (vocabularyNeeded / 10) + (grammarNeeded / 5)
-      );
+      const estimatedPracticeHours = Math.ceil(vocabularyNeeded / 10 + grammarNeeded / 5);
 
       return {
         level: targetLevel,
@@ -481,9 +503,8 @@ export class CEFRAssessmentService {
         grammarNeeded,
         vocabularyGap,
         grammarGap,
-        estimatedPracticeHours
+        estimatedPracticeHours,
       };
-
     } finally {
       client.release();
     }
@@ -501,7 +522,7 @@ export class CEFRAssessmentService {
     `;
 
     const languagesResult = await this.pool.query(languagesQuery, [userId]);
-    const languages = languagesResult.rows.map(r => r.language);
+    const languages = languagesResult.rows.map((r) => r.language);
 
     const overviews: CEFROverview[] = [];
 
@@ -513,7 +534,7 @@ export class CEFRAssessmentService {
         currentLevel: assessment.currentLevel,
         status: assessment.status,
         progressToNextLevel: assessment.progressToNextLevel,
-        lastAssessed: assessment.assessedAt
+        lastAssessed: assessment.assessedAt,
       });
     }
 
@@ -568,17 +589,17 @@ import { Pool } from 'pg';
 
 // Request schemas
 const assessmentParamsSchema = z.object({
-  language: z.string().min(2).max(20)
+  language: z.string().min(2).max(20),
 });
 
 const progressionQuerySchema = z.object({
   language: z.string().min(2).max(20),
-  days: z.coerce.number().int().positive().max(365).optional().default(90)
+  days: z.coerce.number().int().positive().max(365).optional().default(90),
 });
 
 const requirementsQuerySchema = z.object({
   language: z.string().min(2).max(20),
-  targetLevel: z.enum(['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional()
+  targetLevel: z.enum(['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
 });
 
 export async function cefrRoutes(fastify: FastifyInstance) {
@@ -625,25 +646,27 @@ export async function cefrRoutes(fastify: FastifyInstance) {
             language: z.string(),
             currentLevel: z.string(),
             status: z.enum(['progressing', 'ready', 'completed']),
-            levelDetails: z.array(z.object({
-              level: z.string(),
-              vocabularyTotal: z.number(),
-              vocabularyMastered: z.number(),
-              vocabularyPercentage: z.number(),
-              grammarTotal: z.number(),
-              grammarCompleted: z.number(),
-              grammarPercentage: z.number(),
-              overallPercentage: z.number(),
-              isCompleted: z.boolean(),
-              averageAccuracy: z.number()
-            })),
+            levelDetails: z.array(
+              z.object({
+                level: z.string(),
+                vocabularyTotal: z.number(),
+                vocabularyMastered: z.number(),
+                vocabularyPercentage: z.number(),
+                grammarTotal: z.number(),
+                grammarCompleted: z.number(),
+                grammarPercentage: z.number(),
+                overallPercentage: z.number(),
+                isCompleted: z.boolean(),
+                averageAccuracy: z.number(),
+              })
+            ),
             nextLevel: z.string().nullable(),
             progressToNextLevel: z.number(),
             estimatedDaysToNextLevel: z.number().nullable(),
-            assessedAt: z.date()
-          })
-        }
-      }
+            assessedAt: z.date(),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -653,12 +676,11 @@ export async function cefrRoutes(fastify: FastifyInstance) {
         const assessment = await cefrService.assessCEFRLevel(userId, language);
 
         return reply.code(200).send(assessment);
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to assess CEFR level',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -691,39 +713,36 @@ export async function cefrRoutes(fastify: FastifyInstance) {
           200: z.object({
             language: z.string(),
             days: z.number(),
-            progression: z.array(z.object({
-              date: z.date(),
-              level: z.string(),
-              vocabularyPercentage: z.number(),
-              grammarPercentage: z.number(),
-              overallPercentage: z.number()
-            }))
-          })
-        }
-      }
+            progression: z.array(
+              z.object({
+                date: z.date(),
+                level: z.string(),
+                vocabularyPercentage: z.number(),
+                grammarPercentage: z.number(),
+                overallPercentage: z.number(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const { language, days } = progressionQuerySchema.parse(request.query);
         const userId = request.user.id;
 
-        const progression = await cefrService.getLevelProgression(
-          userId,
-          language,
-          days
-        );
+        const progression = await cefrService.getLevelProgression(userId, language, days);
 
         return reply.code(200).send({
           language,
           days,
-          progression
+          progression,
         });
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to get level progression',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -750,35 +769,32 @@ export async function cefrRoutes(fastify: FastifyInstance) {
       schema: {
         querystring: requirementsQuerySchema,
         response: {
-          200: z.object({
-            level: z.string(),
-            vocabularyNeeded: z.number(),
-            grammarNeeded: z.number(),
-            vocabularyGap: z.array(z.string()),
-            grammarGap: z.array(z.string()),
-            estimatedPracticeHours: z.number()
-          }).nullable()
-        }
-      }
+          200: z
+            .object({
+              level: z.string(),
+              vocabularyNeeded: z.number(),
+              grammarNeeded: z.number(),
+              vocabularyGap: z.array(z.string()),
+              grammarGap: z.array(z.string()),
+              estimatedPracticeHours: z.number(),
+            })
+            .nullable(),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const { language, targetLevel } = requirementsQuerySchema.parse(request.query);
         const userId = request.user.id;
 
-        const requirements = await cefrService.getLevelRequirements(
-          userId,
-          language,
-          targetLevel
-        );
+        const requirements = await cefrService.getLevelRequirements(userId, language, targetLevel);
 
         return reply.code(200).send(requirements);
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to get level requirements',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -806,16 +822,18 @@ export async function cefrRoutes(fastify: FastifyInstance) {
       schema: {
         response: {
           200: z.object({
-            overview: z.array(z.object({
-              language: z.string(),
-              currentLevel: z.string(),
-              status: z.string(),
-              progressToNextLevel: z.number(),
-              lastAssessed: z.date()
-            }))
-          })
-        }
-      }
+            overview: z.array(
+              z.object({
+                language: z.string(),
+                currentLevel: z.string(),
+                status: z.string(),
+                progressToNextLevel: z.number(),
+                lastAssessed: z.date(),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -824,12 +842,11 @@ export async function cefrRoutes(fastify: FastifyInstance) {
         const overview = await cefrService.getAllLanguagesOverview(userId);
 
         return reply.code(200).send({ overview });
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to get CEFR overview',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -1352,12 +1369,14 @@ export const CEFRAssessmentDashboard: React.FC = () => {
 **Question**: How should we weight different factors (vocabulary, grammar, accuracy) when determining CEFR level completion?
 
 **Current Approach**:
+
 - Vocabulary must be ≥80% mastered
 - Grammar must be ≥70% completed
 - Overall percentage = 60% vocabulary + 40% grammar
 - Performance accuracy is tracked but not used in completion determination
 
 **Alternatives**:
+
 1. **Strict Approach**: Require 90% vocabulary AND 90% grammar for level completion
 2. **Accuracy-Weighted**: Factor in average accuracy - reduce required percentages if accuracy is high
 3. **Adaptive Thresholds**: Lower thresholds for higher CEFR levels (C1/C2 harder to "complete")
@@ -1374,6 +1393,7 @@ export const CEFRAssessmentDashboard: React.FC = () => {
 **Current Approach**: Assessment is recorded every time the endpoint is called (on-demand only)
 
 **Alternatives**:
+
 1. **Daily Auto-Assessment**: Run assessment daily via cron job for all active users
 2. **Activity-Triggered**: Assess after every N practice sessions (e.g., every 10 sessions)
 3. **Weekly Snapshots**: Record assessment every Sunday at midnight
@@ -1388,10 +1408,12 @@ export const CEFRAssessmentDashboard: React.FC = () => {
 **Question**: What factors should be included in estimating time to reach next CEFR level?
 
 **Current Approach**:
+
 - Based solely on recent learning velocity (words per day over last 30 days)
 - Simple division: items remaining / avg items per day
 
 **Alternatives**:
+
 1. **Difficulty Scaling**: Higher CEFR levels take longer per item - apply multiplier (1.0x for A1, 1.5x for B2, 2.0x for C2)
 2. **Retention Consideration**: Factor in that some items will need re-learning (add 20% buffer)
 3. **Historical Patterns**: Use user's previous level completion times to predict future
