@@ -190,21 +190,23 @@ export class GrammarAnalyticsService {
     language: string,
     limit: number = 5
   ): Promise<GrammarRecommendation[]> {
-    // Get user's current CEFR level from user_languages
+    // Determine user's current level based on completed grammar concepts
+    // Default to A1 if no progress exists
     interface UserLevelRow {
-      cefr_level: string;
+      highest_level: string | null;
     }
 
     const userLevelResult = await this.pool.query<UserLevelRow>(
-      `SELECT
-         COALESCE(
-           (SELECT cefr_level FROM user_language_progress WHERE user_id = $1 AND language = $2),
-           'A1'
-         ) as cefr_level`,
+      `SELECT MAX(gr.level) as highest_level
+       FROM grammar_progress gp
+       JOIN approved_rules gr ON gr.id = gp.grammar_id
+       WHERE gp.user_id = $1
+         AND gp.is_completed = true
+         AND gr.language = $2`,
       [userId, language]
     );
 
-    const userCEFRLevel = userLevelResult.rows[0]?.cefr_level || 'A1';
+    const userCEFRLevel = userLevelResult.rows[0]?.highest_level || 'A1';
     const nextLevel = this.getNextCEFRLevel(userCEFRLevel);
 
     interface RecommendationRow {

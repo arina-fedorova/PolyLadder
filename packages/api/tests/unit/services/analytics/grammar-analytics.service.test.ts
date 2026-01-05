@@ -197,9 +197,9 @@ describe('GrammarAnalyticsService', () => {
 
   describe('getGrammarRecommendations', () => {
     it('should return personalized recommendations', async () => {
-      // Mock user level query
+      // Mock user level query (based on highest completed level)
       mockQuery.mockResolvedValueOnce({
-        rows: [{ cefr_level: 'A1' }],
+        rows: [{ highest_level: 'A1' }],
         rowCount: 1,
       } as unknown as QueryResult);
 
@@ -250,10 +250,10 @@ describe('GrammarAnalyticsService', () => {
       expect(result[2].reason).toContain('next level');
     });
 
-    it('should use default A1 when user has no level set', async () => {
-      // Mock user level query returning no rows
+    it('should use default A1 when user has no progress', async () => {
+      // Mock user level query returning null (no completed grammar)
       mockQuery.mockResolvedValueOnce({
-        rows: [{ cefr_level: 'A1' }],
+        rows: [{ highest_level: null }],
         rowCount: 1,
       } as unknown as QueryResult);
 
@@ -270,7 +270,7 @@ describe('GrammarAnalyticsService', () => {
 
     it('should handle ready to complete concepts', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{ cefr_level: 'A1' }],
+        rows: [{ highest_level: 'A1' }],
         rowCount: 1,
       } as unknown as QueryResult);
 
