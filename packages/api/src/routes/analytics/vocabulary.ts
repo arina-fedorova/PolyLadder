@@ -258,7 +258,13 @@ export const vocabularyAnalyticsRoutes: FastifyPluginAsync = async (fastify) => 
       const word = await analyticsService.getWordDetails(userId, meaningId);
 
       if (!word) {
-        return reply.code(404).send({ error: 'Word not found' });
+        return reply.code(404).send({
+          error: {
+            statusCode: 404,
+            message: 'Word not found',
+            requestId: request.id,
+          },
+        });
       }
 
       return reply.code(200).send({

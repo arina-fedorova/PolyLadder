@@ -296,9 +296,9 @@ describe('Vocabulary Analytics Integration Tests', () => {
 
       // Create approved utterance
       await pool.query(
-        `INSERT INTO approved_utterances (id, meaning_id, language, text, pronunciation, audio_url, created_at)
-         VALUES ($1, $2, $3, $4, NULL, NULL, CURRENT_TIMESTAMP)`,
-        [`${uniqueMeaningId}-ES`, uniqueMeaningId, 'ES', 'palabra']
+        `INSERT INTO approved_utterances (meaning_id, language, text)
+         VALUES ($1, $2, $3)`,
+        [uniqueMeaningId, 'ES', 'palabra']
       );
 
       meaningId = uniqueMeaningId;
@@ -392,9 +392,9 @@ describe('Vocabulary Analytics Integration Tests', () => {
 
       // Create approved utterance
       await pool.query(
-        `INSERT INTO approved_utterances (id, meaning_id, language, text, pronunciation, audio_url, created_at)
-         VALUES ($1, $2, $3, $4, NULL, NULL, CURRENT_TIMESTAMP)`,
-        [`${uniqueMeaningId}-ES`, uniqueMeaningId, 'ES', 'detalle']
+        `INSERT INTO approved_utterances (meaning_id, language, text)
+         VALUES ($1, $2, $3)`,
+        [uniqueMeaningId, 'ES', 'detalle']
       );
 
       meaningId = uniqueMeaningId;
@@ -471,9 +471,9 @@ describe('Vocabulary Analytics Integration Tests', () => {
         );
 
         await pool.query(
-          `INSERT INTO approved_utterances (id, meaning_id, language, text, pronunciation, audio_url, created_at)
-           VALUES ($1, $2, $3, $4, NULL, NULL, CURRENT_TIMESTAMP)`,
-          [`${id}-ES`, id, 'ES', `word-${id}`]
+          `INSERT INTO approved_utterances (meaning_id, language, text)
+           VALUES ($1, $2, $3)`,
+          [id, 'ES', `word-${id}`]
         );
       }
 
