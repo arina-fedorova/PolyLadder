@@ -3,7 +3,7 @@
 **Feature Code**: F056
 **Created**: 2025-12-17
 **Phase**: 15 - Progress Tracking & Analytics
-**Status**: Not Started
+**Status**: Completed
 
 ---
 
@@ -13,14 +13,48 @@ Implement comprehensive study statistics dashboard with charts showing daily/wee
 
 ## Success Criteria
 
-- [ ] Daily study streak tracker with longest streak record
-- [ ] Time spent learning tracked per day/week/month
-- [ ] Items reviewed per session with daily/weekly trends
-- [ ] Accuracy trends over time with moving averages
-- [ ] Weekly/monthly summary reports
-- [ ] Gamification elements (badges, milestones, achievements)
-- [ ] Activity heatmap calendar view
-- [ ] Study pace analytics (consistent vs bursty learning patterns)
+- [x] Daily study streak tracker with longest streak record
+- [x] Time spent learning tracked per day/week/month
+- [x] Items reviewed per session with daily/weekly trends
+- [x] Accuracy trends over time with moving averages
+- [x] Weekly/monthly summary reports
+- [x] Gamification elements (badges, milestones, achievements)
+- [x] Activity heatmap calendar view
+- [x] Study pace analytics (consistent vs bursty learning patterns)
+
+## Implementation Summary
+
+### Commits
+
+1. `e84d366` - Migration for badges and user_badges tables
+2. `bddbb4c` - StudyStatisticsService with 22 unit tests
+3. `5099eb5` - Statistics API routes with TypeBox schemas (10 endpoints)
+4. `52a85a2` - StatisticsDashboard frontend component
+5. `2b4cb66` - Integration tests (35 tests)
+
+### Files Created/Modified
+
+- `packages/db/src/migrations/047_create_badges.ts` - Badge tables
+- `packages/api/src/services/analytics/study-statistics.interface.ts` - Type definitions
+- `packages/api/src/services/analytics/study-statistics.service.ts` - Core service
+- `packages/api/src/routes/analytics/statistics.ts` - REST API endpoints
+- `packages/web/src/components/analytics/StatisticsDashboard.tsx` - Frontend dashboard
+- `packages/web/src/api/analytics.ts` - API client functions
+- `packages/api/tests/unit/services/analytics/study-statistics.service.test.ts` - Unit tests
+- `packages/api/tests/integration/statistics-analytics.test.ts` - Integration tests
+
+### API Endpoints
+
+- `GET /analytics/statistics/overview` - Comprehensive study overview
+- `GET /analytics/statistics/streak` - Current/longest streak info
+- `GET /analytics/statistics/time` - Time statistics
+- `GET /analytics/statistics/activity` - Daily activity breakdown
+- `GET /analytics/statistics/accuracy` - Accuracy trends with moving averages
+- `GET /analytics/statistics/pace` - Study pace analysis
+- `GET /analytics/statistics/badges` - User badges (unlocked + in-progress)
+- `GET /analytics/statistics/heatmap` - Activity heatmap data
+- `GET /analytics/statistics/summary` - Weekly/monthly summary
+- `POST /analytics/statistics/badges/check` - Check and unlock badges
 
 ---
 
@@ -100,10 +134,10 @@ interface StudyPaceAnalysis {
   averageSessionsPerActiveDay: number;
   longestGapDays: number;
   studyTimeDistribution: {
-    morning: number;    // 6-12
-    afternoon: number;  // 12-18
-    evening: number;    // 18-24
-    night: number;      // 0-6
+    morning: number; // 6-12
+    afternoon: number; // 12-18
+    evening: number; // 18-24
+    night: number; // 0-6
   };
 }
 
@@ -143,14 +177,15 @@ export class StudyStatisticsService {
     const client = await this.pool.connect();
 
     try {
-      const [streak, timeStats, recentActivity, accuracyTrends, paceAnalysis, badges] = await Promise.all([
-        this.calculateStreak(client, userId),
-        this.getTimeStatistics(client, userId, days),
-        this.getDailyActivity(client, userId, days),
-        this.getAccuracyTrends(client, userId, days),
-        this.analyzeStudyPace(client, userId, days),
-        this.getBadges(client, userId)
-      ]);
+      const [streak, timeStats, recentActivity, accuracyTrends, paceAnalysis, badges] =
+        await Promise.all([
+          this.calculateStreak(client, userId),
+          this.getTimeStatistics(client, userId, days),
+          this.getDailyActivity(client, userId, days),
+          this.getAccuracyTrends(client, userId, days),
+          this.analyzeStudyPace(client, userId, days),
+          this.getBadges(client, userId),
+        ]);
 
       return {
         userId,
@@ -160,9 +195,8 @@ export class StudyStatisticsService {
         accuracyTrends,
         paceAnalysis,
         badges,
-        analyzedAt: new Date()
+        analyzedAt: new Date(),
       };
-
     } finally {
       client.release();
     }
@@ -225,7 +259,7 @@ export class StudyStatisticsService {
         longestStreak: 0,
         lastStudyDate: new Date(),
         streakStartDate: new Date(),
-        isActiveToday: false
+        isActiveToday: false,
       };
     }
 
@@ -234,15 +268,14 @@ export class StudyStatisticsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const isActiveToday =
-      lastStudyDate.toDateString() === today.toDateString();
+    const isActiveToday = lastStudyDate.toDateString() === today.toDateString();
 
     return {
       currentStreak: parseInt(row.current_streak),
       longestStreak: parseInt(row.longest_streak),
       lastStudyDate,
       streakStartDate: new Date(row.streak_start_date),
-      isActiveToday
+      isActiveToday,
     };
   }
 
@@ -286,7 +319,7 @@ export class StudyStatisticsService {
       totalSessions: parseInt(row.total_sessions),
       dailyAverage: Math.round(parseFloat(row.daily_avg) * 10) / 10,
       weeklyTotal: parseFloat(row.week_minutes),
-      monthlyTotal: parseFloat(row.month_minutes)
+      monthlyTotal: parseFloat(row.month_minutes),
     };
   }
 
@@ -335,13 +368,13 @@ export class StudyStatisticsService {
 
     const result = await client.query(query, [userId]);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: new Date(row.date),
       sessionsCompleted: parseInt(row.sessions_completed),
       totalMinutes: parseFloat(row.total_minutes),
       itemsReviewed: parseInt(row.items_reviewed),
       accuracy: Math.round(parseFloat(row.accuracy) * 1000) / 10,
-      languagesStudied: row.languages_studied
+      languagesStudied: row.languages_studied,
     }));
   }
 
@@ -383,12 +416,12 @@ export class StudyStatisticsService {
 
     const result = await client.query(query, [userId]);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       date: new Date(row.date),
       accuracy: Math.round(parseFloat(row.accuracy) * 1000) / 10,
       movingAverage7Day: Math.round(parseFloat(row.moving_avg_7) * 1000) / 10,
       movingAverage30Day: Math.round(parseFloat(row.moving_avg_30) * 1000) / 10,
-      itemsReviewed: parseInt(row.items_reviewed)
+      itemsReviewed: parseInt(row.items_reviewed),
     }));
   }
 
@@ -440,7 +473,7 @@ export class StudyStatisticsService {
 
     const [activityResult, timeDistResult] = await Promise.all([
       client.query(activityQuery, [userId]),
-      client.query(timeDistQuery, [userId])
+      client.query(timeDistQuery, [userId]),
     ]);
 
     const activeDays = parseInt(activityResult.rows[0]?.active_days || '0');
@@ -468,8 +501,8 @@ export class StudyStatisticsService {
         morning: parseFloat(timeDistResult.rows[0]?.morning || '0'),
         afternoon: parseFloat(timeDistResult.rows[0]?.afternoon || '0'),
         evening: parseFloat(timeDistResult.rows[0]?.evening || '0'),
-        night: parseFloat(timeDistResult.rows[0]?.night || '0')
-      }
+        night: parseFloat(timeDistResult.rows[0]?.night || '0'),
+      },
     };
   }
 
@@ -493,13 +526,13 @@ export class StudyStatisticsService {
     `;
 
     const unlockedResult = await client.query(unlockedQuery, [userId]);
-    const unlocked = unlockedResult.rows.map(row => ({
+    const unlocked = unlockedResult.rows.map((row) => ({
       id: row.id,
       name: row.name,
       description: row.description,
       iconUrl: row.icon_url,
       category: row.category,
-      unlockedAt: new Date(row.unlocked_at)
+      unlockedAt: new Date(row.unlocked_at),
     }));
 
     // Get available badges with progress
@@ -516,11 +549,7 @@ export class StudyStatisticsService {
     // Calculate progress for each available badge
     const available = await Promise.all(
       availableResult.rows.map(async (row) => {
-        const progress = await this.calculateBadgeProgress(
-          client,
-          userId,
-          row.criteria
-        );
+        const progress = await this.calculateBadgeProgress(client, userId, row.criteria);
 
         return {
           id: row.id,
@@ -529,7 +558,7 @@ export class StudyStatisticsService {
           iconUrl: row.icon_url,
           category: row.category,
           progress: progress.current,
-          target: progress.target
+          target: progress.target,
         };
       })
     );
@@ -610,7 +639,7 @@ export class StudyStatisticsService {
       session.durationMinutes,
       session.itemsReviewed,
       session.correctAnswers,
-      session.accuracy
+      session.accuracy,
     ]);
 
     // Check for badge unlocks
@@ -639,7 +668,6 @@ export class StudyStatisticsService {
           );
         }
       }
-
     } finally {
       client.release();
     }
@@ -728,7 +756,7 @@ import { Pool } from 'pg';
 
 // Request schemas
 const overviewQuerySchema = z.object({
-  days: z.coerce.number().int().positive().max(365).optional().default(30)
+  days: z.coerce.number().int().positive().max(365).optional().default(30),
 });
 
 const recordSessionSchema = z.object({
@@ -736,7 +764,7 @@ const recordSessionSchema = z.object({
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   itemsReviewed: z.number().int().min(0),
-  correctAnswers: z.number().int().min(0)
+  correctAnswers: z.number().int().min(0),
 });
 
 export async function statisticsRoutes(fastify: FastifyInstance) {
@@ -764,8 +792,8 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
     '/overview',
     {
       schema: {
-        querystring: overviewQuerySchema
-      }
+        querystring: overviewQuerySchema,
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -775,12 +803,11 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
         const overview = await statsService.getStudyOverview(userId, days);
 
         return reply.code(200).send(overview);
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to get study overview',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -809,8 +836,8 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
     '/session',
     {
       schema: {
-        body: recordSessionSchema
-      }
+        body: recordSessionSchema,
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -820,9 +847,7 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
         const startTime = new Date(body.startTime);
         const endTime = new Date(body.endTime);
         const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-        const accuracy = body.itemsReviewed > 0
-          ? body.correctAnswers / body.itemsReviewed
-          : 0;
+        const accuracy = body.itemsReviewed > 0 ? body.correctAnswers / body.itemsReviewed : 0;
 
         const sessionId = await statsService.recordStudySession({
           userId,
@@ -832,16 +857,15 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
           durationMinutes,
           itemsReviewed: body.itemsReviewed,
           correctAnswers: body.correctAnswers,
-          accuracy
+          accuracy,
         });
 
         return reply.code(201).send({ sessionId });
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to record session',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -858,27 +882,23 @@ export async function statisticsRoutes(fastify: FastifyInstance) {
    *   inProgress: Badge[]
    * }
    */
-  fastify.get(
-    '/badges',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        const userId = request.user.id;
-        const overview = await statsService.getStudyOverview(userId, 30);
+  fastify.get('/badges', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = request.user.id;
+      const overview = await statsService.getStudyOverview(userId, 30);
 
-        const unlocked = overview.badges.filter(b => b.unlockedAt);
-        const inProgress = overview.badges.filter(b => !b.unlockedAt);
+      const unlocked = overview.badges.filter((b) => b.unlockedAt);
+      const inProgress = overview.badges.filter((b) => !b.unlockedAt);
 
-        return reply.code(200).send({ unlocked, inProgress });
-
-      } catch (error) {
-        fastify.log.error(error);
-        return reply.code(500).send({
-          error: 'Failed to get badges',
-          message: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
+      return reply.code(200).send({ unlocked, inProgress });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({
+        error: 'Failed to get badges',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-  );
+  });
 }
 ```
 
@@ -1322,6 +1342,7 @@ export const StatisticsDashboard: React.FC = () => {
 **Current Approach**: Streak continues if user studies at least once per calendar day (based on UTC)
 
 **Alternatives**:
+
 1. **Grace Period**: Allow 1 "freeze day" per week where missing a day doesn't break the streak
 2. **User Timezone**: Calculate streaks based on user's local timezone, not UTC
 3. **Flexible Definition**: Require only 5 out of 7 days instead of consecutive days
@@ -1338,6 +1359,7 @@ export const StatisticsDashboard: React.FC = () => {
 **Current Approach**: Badges unlock when criteria met, checked after each session. Initial badges include streaks (7/30/100 days), volume (100/1000 words), perfect sessions.
 
 **Alternatives**:
+
 1. **Retroactive Unlocks**: Scan all user data on first login to unlock earned badges
 2. **Hidden Badges**: Some badges are hidden until unlocked (surprise factor)
 3. **Tiered Badges**: Bronze/Silver/Gold variants of same achievement
@@ -1354,6 +1376,7 @@ export const StatisticsDashboard: React.FC = () => {
 **Current Approach**: API endpoint exists but requires manual call from client after session ends
 
 **Alternatives**:
+
 1. **Automatic Tracking**: Client sends session start, backend auto-creates session on first review
 2. **Heartbeat System**: Client sends periodic heartbeats during session, backend calculates duration
 3. **Review-Based**: Each SRS review auto-updates current session, session closes after 5min inactivity
