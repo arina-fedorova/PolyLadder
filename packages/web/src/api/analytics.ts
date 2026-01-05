@@ -214,3 +214,90 @@ export const grammarAnalyticsApi = {
     return api.get<GrammarConceptResponse>(`/analytics/grammar/concept/${conceptId}`);
   },
 };
+
+// CEFR Assessment Types
+export interface CEFRLevelData {
+  level: string;
+  vocabularyTotal: number;
+  vocabularyMastered: number;
+  vocabularyPercentage: number;
+  grammarTotal: number;
+  grammarCompleted: number;
+  grammarPercentage: number;
+  overallPercentage: number;
+  isCompleted: boolean;
+}
+
+export interface CEFRAssessmentResponse {
+  userId: string;
+  language: string;
+  currentLevel: string;
+  status: 'progressing' | 'ready' | 'completed';
+  levelDetails: CEFRLevelData[];
+  nextLevel: string | null;
+  progressToNextLevel: number;
+  estimatedDaysToNextLevel: number | null;
+  assessedAt: string;
+}
+
+export interface CEFRProgressionResponse {
+  language: string;
+  days: number;
+  progression: Array<{
+    date: string;
+    level: string;
+    vocabularyPercentage: number;
+    grammarPercentage: number;
+    overallPercentage: number;
+  }>;
+}
+
+export interface CEFRRequirementsResponse {
+  level: string;
+  vocabularyNeeded: number;
+  grammarNeeded: number;
+  vocabularyGap: string[];
+  grammarGap: string[];
+  estimatedPracticeHours: number;
+}
+
+export interface CEFROverviewItem {
+  language: string;
+  currentLevel: string;
+  status: string;
+  progressToNextLevel: number;
+  lastAssessed: string | null;
+}
+
+export interface CEFROverviewResponse {
+  overview: CEFROverviewItem[];
+}
+
+export const cefrAnalyticsApi = {
+  async getAssessment(language: string): Promise<CEFRAssessmentResponse> {
+    return api.get<CEFRAssessmentResponse>(`/analytics/cefr/assessment/${language}`);
+  },
+
+  async getProgression(language: string, days?: number): Promise<CEFRProgressionResponse> {
+    const params = new URLSearchParams();
+    params.append('language', language);
+    if (days) params.append('days', days.toString());
+    return api.get<CEFRProgressionResponse>(`/analytics/cefr/progression?${params.toString()}`);
+  },
+
+  async getRequirements(
+    language: string,
+    targetLevel?: string
+  ): Promise<CEFRRequirementsResponse | null> {
+    const params = new URLSearchParams();
+    params.append('language', language);
+    if (targetLevel) params.append('targetLevel', targetLevel);
+    return api.get<CEFRRequirementsResponse | null>(
+      `/analytics/cefr/requirements?${params.toString()}`
+    );
+  },
+
+  async getOverview(): Promise<CEFROverviewResponse> {
+    return api.get<CEFROverviewResponse>('/analytics/cefr/overview');
+  },
+};
