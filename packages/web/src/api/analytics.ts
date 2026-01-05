@@ -411,3 +411,145 @@ export const weaknessAnalyticsApi = {
     return api.get<WeaknessHeatmapResponse>(`/analytics/weakness/heatmap${params}`);
   },
 };
+
+// Study Statistics Types
+export interface StreakInfo {
+  currentStreak: number;
+  longestStreak: number;
+  lastStudyDate: string | null;
+  streakStartDate: string | null;
+  isActiveToday: boolean;
+}
+
+export interface TimeStats {
+  totalMinutes: number;
+  averageSessionMinutes: number;
+  totalSessions: number;
+  dailyAverage: number;
+  weeklyTotal: number;
+  monthlyTotal: number;
+}
+
+export interface DailyStats {
+  date: string;
+  sessionsCompleted: number;
+  totalMinutes: number;
+  itemsReviewed: number;
+  accuracy: number;
+  languagesStudied: string[];
+}
+
+export interface AccuracyTrend {
+  date: string;
+  accuracy: number;
+  movingAverage7Day: number;
+  movingAverage30Day: number;
+  itemsReviewed: number;
+}
+
+export interface StudyPaceAnalysis {
+  pattern: 'consistent' | 'bursty' | 'irregular';
+  activeDaysPerWeek: number;
+  averageSessionsPerActiveDay: number;
+  longestGapDays: number;
+  studyTimeDistribution: {
+    morning: number;
+    afternoon: number;
+    evening: number;
+    night: number;
+  };
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  iconUrl: string | null;
+  category: 'streak' | 'volume' | 'accuracy' | 'milestone';
+  unlockedAt?: string;
+  progress?: number;
+  target?: number;
+}
+
+export interface ActivityHeatmapCell {
+  date: string;
+  itemsReviewed: number;
+  totalMinutes: number;
+  intensity: number;
+}
+
+export interface StudyOverviewResponse {
+  userId: string;
+  streak: StreakInfo;
+  timeStats: TimeStats;
+  recentActivity: DailyStats[];
+  accuracyTrends: AccuracyTrend[];
+  paceAnalysis: StudyPaceAnalysis;
+  badges: Badge[];
+  heatmap: ActivityHeatmapCell[];
+  analyzedAt: string;
+}
+
+export interface PeriodSummaryResponse {
+  period: 'week' | 'month';
+  startDate: string;
+  endDate: string;
+  totalMinutes: number;
+  totalSessions: number;
+  totalItemsReviewed: number;
+  averageAccuracy: number;
+  activeDays: number;
+  newBadges: Badge[];
+}
+
+export interface BadgeUnlocksResponse {
+  unlockedBadges: Badge[];
+}
+
+export const statisticsApi = {
+  async getOverview(days?: number): Promise<StudyOverviewResponse> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<StudyOverviewResponse>(`/analytics/statistics/overview${params}`);
+  },
+
+  async getStreak(): Promise<{ streak: StreakInfo }> {
+    return api.get<{ streak: StreakInfo }>('/analytics/statistics/streak');
+  },
+
+  async getTimeStats(days?: number): Promise<{ timeStats: TimeStats }> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<{ timeStats: TimeStats }>(`/analytics/statistics/time${params}`);
+  },
+
+  async getActivity(days?: number): Promise<{ activity: DailyStats[] }> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<{ activity: DailyStats[] }>(`/analytics/statistics/activity${params}`);
+  },
+
+  async getAccuracyTrends(days?: number): Promise<{ trends: AccuracyTrend[] }> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<{ trends: AccuracyTrend[] }>(`/analytics/statistics/accuracy${params}`);
+  },
+
+  async getPaceAnalysis(days?: number): Promise<{ paceAnalysis: StudyPaceAnalysis }> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<{ paceAnalysis: StudyPaceAnalysis }>(`/analytics/statistics/pace${params}`);
+  },
+
+  async getBadges(): Promise<{ badges: Badge[] }> {
+    return api.get<{ badges: Badge[] }>('/analytics/statistics/badges');
+  },
+
+  async getHeatmap(days?: number): Promise<{ heatmap: ActivityHeatmapCell[] }> {
+    const params = days ? `?days=${days}` : '';
+    return api.get<{ heatmap: ActivityHeatmapCell[] }>(`/analytics/statistics/heatmap${params}`);
+  },
+
+  async getSummary(period: 'week' | 'month'): Promise<PeriodSummaryResponse> {
+    return api.get<PeriodSummaryResponse>(`/analytics/statistics/summary?period=${period}`);
+  },
+
+  async checkBadgeUnlocks(): Promise<BadgeUnlocksResponse> {
+    return api.post<BadgeUnlocksResponse>('/analytics/statistics/badges/check', {});
+  },
+};
