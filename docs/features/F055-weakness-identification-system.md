@@ -3,7 +3,7 @@
 **Feature Code**: F055
 **Created**: 2025-12-17
 **Phase**: 15 - Progress Tracking & Analytics
-**Status**: Not Started
+**Status**: Implemented
 
 ---
 
@@ -13,13 +13,58 @@ Implement system that identifies user's weak areas based on exercise performance
 
 ## Success Criteria
 
-- [ ] Analyze exercise performance by concept (vocabulary, grammar, syntax)
-- [ ] Identify concepts with <70% accuracy over last 10 attempts
-- [ ] Rank weaknesses by severity (accuracy, recency, frequency)
-- [ ] Suggest targeted practice exercises for weak areas
-- [ ] Track improvement over time with before/after metrics
-- [ ] Filter weaknesses by language, CEFR level, or category
-- [ ] Provide visual weakness heatmap
+- [x] Analyze exercise performance by concept (vocabulary, grammar, syntax)
+- [x] Identify concepts with <70% accuracy over last 10 attempts
+- [x] Rank weaknesses by severity (accuracy, recency, frequency)
+- [x] Suggest targeted practice exercises for weak areas
+- [x] Track improvement over time with before/after metrics
+- [x] Filter weaknesses by language, CEFR level, or category
+- [x] Provide visual weakness heatmap
+
+---
+
+## Implementation Summary
+
+### Service Layer
+
+- **WeaknessIdentificationService** (`packages/api/src/services/analytics/weakness-identification.service.ts`)
+  - `analyzeWeaknesses(userId, language?, cefrLevel?)`: Identifies vocabulary and grammar weaknesses
+  - `getWeaknessRecommendations(userId, language?, limit?)`: Generates practice recommendations with priority
+  - `trackImprovements(userId, language?, daysSince?)`: Tracks before/after accuracy metrics
+  - `getWeaknessHeatmap(userId, language?)`: Groups weaknesses by CEFR level and category
+
+### Weakness Criteria
+
+- Vocabulary: `successful_reviews / total_reviews < 70%` OR `ease_factor < 2.0` OR `recent_failures >= 3`
+- Grammar: `mastery_level < 70` OR `correct_count / practice_count < 70%` OR `recent_failures >= 3`
+
+### Severity Ranking Algorithm
+
+```
+severityScore = (1 - accuracy) * 0.5 + recencyWeight * 0.3 + frequencyWeight * 0.2
+```
+
+### API Endpoints
+
+- `GET /analytics/weakness/analysis` - Analyze weaknesses with filters
+- `GET /analytics/weakness/recommendations` - Practice suggestions by priority
+- `GET /analytics/weakness/improvements` - Track improvement over time
+- `GET /analytics/weakness/heatmap` - CEFR x category visualization
+
+### Frontend Component
+
+- **WeaknessDashboard** (`packages/web/src/components/analytics/WeaknessDashboard.tsx`)
+  - Summary cards (total/vocabulary/grammar weaknesses)
+  - Pie chart (weaknesses by type)
+  - Bar chart (weaknesses by CEFR level)
+  - Top 20 weaknesses table with severity indicators
+  - Practice recommendations with priority badges
+  - Improvement tracking with status indicators
+
+### Test Coverage
+
+- 22 unit tests for WeaknessIdentificationService
+- 26 integration tests for API endpoints
 
 ---
 
@@ -108,7 +153,7 @@ interface ImprovementTracking {
 
 export class WeaknessIdentificationService {
   private pool: Pool;
-  private readonly WEAKNESS_ACCURACY_THRESHOLD = 0.70; // 70%
+  private readonly WEAKNESS_ACCURACY_THRESHOLD = 0.7; // 70%
   private readonly MIN_ATTEMPTS_FOR_ANALYSIS = 5;
   private readonly ANALYSIS_WINDOW_DAYS = 30;
 
@@ -144,19 +189,10 @@ export class WeaknessIdentificationService {
       );
 
       // Get syntax weaknesses
-      const syntaxWeaknesses = await this.getSyntaxWeaknesses(
-        client,
-        userId,
-        language,
-        cefrLevel
-      );
+      const syntaxWeaknesses = await this.getSyntaxWeaknesses(client, userId, language, cefrLevel);
 
       // Combine all weaknesses
-      const allWeaknesses = [
-        ...vocabWeaknesses,
-        ...grammarWeaknesses,
-        ...syntaxWeaknesses
-      ];
+      const allWeaknesses = [...vocabWeaknesses, ...grammarWeaknesses, ...syntaxWeaknesses];
 
       // Sort by severity score (highest first)
       allWeaknesses.sort((a, b) => b.severityScore - a.severityScore);
@@ -166,12 +202,12 @@ export class WeaknessIdentificationService {
         vocabulary: vocabWeaknesses.length,
         grammar: grammarWeaknesses.length,
         syntax: syntaxWeaknesses.length,
-        orthography: 0 // Calculated separately if needed
+        orthography: 0, // Calculated separately if needed
       };
 
       // Count by CEFR level
       const weaknessesByCEFR: Record<string, number> = {};
-      allWeaknesses.forEach(w => {
+      allWeaknesses.forEach((w) => {
         weaknessesByCEFR[w.cefrLevel] = (weaknessesByCEFR[w.cefrLevel] || 0) + 1;
       });
 
@@ -182,9 +218,8 @@ export class WeaknessIdentificationService {
         weaknessesByType,
         weaknessesByCEFR,
         topWeaknesses: allWeaknesses.slice(0, 50), // Top 50 weaknesses
-        analyzedAt: new Date()
+        analyzedAt: new Date(),
       };
-
     } finally {
       client.release();
     }
@@ -248,7 +283,7 @@ export class WeaknessIdentificationService {
 
     const result = await client.query(query, params);
 
-    return result.rows.map(row => {
+    return result.rows.map((row) => {
       const accuracy = parseFloat(row.accuracy);
       const recencyWeight = this.calculateRecencyWeight(new Date(row.last_reviewed));
       const frequencyWeight = Math.min(parseInt(row.total_attempts) / 50, 1.0);
@@ -267,7 +302,10 @@ export class WeaknessIdentificationService {
         failureCount: parseInt(row.recent_failures),
         lastAttemptDate: new Date(row.last_reviewed),
         severityScore: Math.round(severityScore * 1000) / 10,
-        improvementPotential: this.calculateImprovementPotential(accuracy, parseInt(row.total_attempts))
+        improvementPotential: this.calculateImprovementPotential(
+          accuracy,
+          parseInt(row.total_attempts)
+        ),
       };
     });
   }
@@ -329,7 +367,7 @@ export class WeaknessIdentificationService {
 
     const result = await client.query(query, params);
 
-    return result.rows.map(row => {
+    return result.rows.map((row) => {
       const accuracy = parseFloat(row.accuracy);
       const recencyWeight = this.calculateRecencyWeight(new Date(row.last_practiced));
       const frequencyWeight = Math.min(parseInt(row.total_attempts) / 30, 1.0);
@@ -349,7 +387,10 @@ export class WeaknessIdentificationService {
         failureCount: parseInt(row.recent_failures),
         lastAttemptDate: new Date(row.last_practiced),
         severityScore: Math.round(severityScore * 1000) / 10,
-        improvementPotential: this.calculateImprovementPotential(accuracy, parseInt(row.total_attempts))
+        improvementPotential: this.calculateImprovementPotential(
+          accuracy,
+          parseInt(row.total_attempts)
+        ),
       };
     });
   }
@@ -436,7 +477,7 @@ export class WeaknessIdentificationService {
         reason: this.generateRecommendationReason(weakness),
         practiceType,
         estimatedPracticeTime: estimatedTime,
-        priority
+        priority,
       });
     }
 
@@ -471,9 +512,7 @@ export class WeaknessIdentificationService {
     try {
       // Get current weaknesses
       const currentAnalysis = await this.analyzeWeaknesses(userId, language);
-      const currentWeaknesses = new Map(
-        currentAnalysis.topWeaknesses.map(w => [w.itemId, w])
-      );
+      const currentWeaknesses = new Map(currentAnalysis.topWeaknesses.map((w) => [w.itemId, w]));
 
       // Get historical performance from N days ago
       const historicalQuery = `
@@ -495,9 +534,9 @@ export class WeaknessIdentificationService {
 
       const historicalResult = await client.query(historicalQuery, [userId]);
       const historicalPerformance = new Map(
-        historicalResult.rows.map(row => [
+        historicalResult.rows.map((row) => [
           row.item_id,
-          { accuracy: parseFloat(row.accuracy), attempts: parseInt(row.attempts) }
+          { accuracy: parseFloat(row.accuracy), attempts: parseInt(row.attempts) },
         ])
       );
 
@@ -525,13 +564,12 @@ export class WeaknessIdentificationService {
             afterAccuracy: Math.round(afterAccuracy * 10) / 10,
             improvementPercentage: Math.round(improvementPct * 10) / 10,
             practiceSessionsCompleted: current.recentAttempts,
-            status
+            status,
           });
         }
       }
 
       return improvements.sort((a, b) => b.improvementPercentage - a.improvementPercentage);
-
     } finally {
       client.release();
     }
@@ -556,17 +594,17 @@ import { Pool } from 'pg';
 // Request schemas
 const weaknessQuerySchema = z.object({
   language: z.string().min(2).max(20).optional(),
-  cefrLevel: z.enum(['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional()
+  cefrLevel: z.enum(['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
 });
 
 const recommendationsQuerySchema = z.object({
   language: z.string().min(2).max(20).optional(),
-  limit: z.coerce.number().int().positive().max(50).optional().default(10)
+  limit: z.coerce.number().int().positive().max(50).optional().default(10),
 });
 
 const improvementQuerySchema = z.object({
   language: z.string().min(2).max(20).optional(),
-  daysSince: z.coerce.number().int().positive().max(90).optional().default(14)
+  daysSince: z.coerce.number().int().positive().max(90).optional().default(14),
 });
 
 export async function weaknessRoutes(fastify: FastifyInstance) {
@@ -603,47 +641,44 @@ export async function weaknessRoutes(fastify: FastifyInstance) {
               vocabulary: z.number(),
               grammar: z.number(),
               syntax: z.number(),
-              orthography: z.number()
+              orthography: z.number(),
             }),
             weaknessesByCEFR: z.record(z.number()),
-            topWeaknesses: z.array(z.object({
-              itemId: z.string(),
-              itemType: z.string(),
-              itemText: z.string(),
-              language: z.string(),
-              cefrLevel: z.string(),
-              category: z.string().optional(),
-              accuracy: z.number(),
-              totalAttempts: z.number(),
-              recentAttempts: z.number(),
-              failureCount: z.number(),
-              lastAttemptDate: z.date(),
-              severityScore: z.number(),
-              improvementPotential: z.number()
-            })),
-            analyzedAt: z.date()
-          })
-        }
-      }
+            topWeaknesses: z.array(
+              z.object({
+                itemId: z.string(),
+                itemType: z.string(),
+                itemText: z.string(),
+                language: z.string(),
+                cefrLevel: z.string(),
+                category: z.string().optional(),
+                accuracy: z.number(),
+                totalAttempts: z.number(),
+                recentAttempts: z.number(),
+                failureCount: z.number(),
+                lastAttemptDate: z.date(),
+                severityScore: z.number(),
+                improvementPotential: z.number(),
+              })
+            ),
+            analyzedAt: z.date(),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const { language, cefrLevel } = weaknessQuerySchema.parse(request.query);
         const userId = request.user.id;
 
-        const analysis = await weaknessService.analyzeWeaknesses(
-          userId,
-          language,
-          cefrLevel
-        );
+        const analysis = await weaknessService.analyzeWeaknesses(userId, language, cefrLevel);
 
         return reply.code(200).send(analysis);
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to analyze weaknesses',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -674,18 +709,20 @@ export async function weaknessRoutes(fastify: FastifyInstance) {
         querystring: recommendationsQuerySchema,
         response: {
           200: z.object({
-            recommendations: z.array(z.object({
-              itemId: z.string(),
-              itemType: z.string(),
-              itemText: z.string(),
-              reason: z.string(),
-              practiceType: z.enum(['recall', 'recognition', 'production', 'mixed']),
-              estimatedPracticeTime: z.number(),
-              priority: z.enum(['critical', 'high', 'medium', 'low'])
-            }))
-          })
-        }
-      }
+            recommendations: z.array(
+              z.object({
+                itemId: z.string(),
+                itemType: z.string(),
+                itemText: z.string(),
+                reason: z.string(),
+                practiceType: z.enum(['recall', 'recognition', 'production', 'mixed']),
+                estimatedPracticeTime: z.number(),
+                priority: z.enum(['critical', 'high', 'medium', 'low']),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -699,12 +736,11 @@ export async function weaknessRoutes(fastify: FastifyInstance) {
         );
 
         return reply.code(200).send({ recommendations });
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to get recommendations',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -736,38 +772,35 @@ export async function weaknessRoutes(fastify: FastifyInstance) {
         querystring: improvementQuerySchema,
         response: {
           200: z.object({
-            improvements: z.array(z.object({
-              itemId: z.string(),
-              itemType: z.string(),
-              itemText: z.string(),
-              beforeAccuracy: z.number(),
-              afterAccuracy: z.number(),
-              improvementPercentage: z.number(),
-              practiceSessionsCompleted: z.number(),
-              status: z.enum(['improving', 'stagnant', 'regressing'])
-            }))
-          })
-        }
-      }
+            improvements: z.array(
+              z.object({
+                itemId: z.string(),
+                itemType: z.string(),
+                itemText: z.string(),
+                beforeAccuracy: z.number(),
+                afterAccuracy: z.number(),
+                improvementPercentage: z.number(),
+                practiceSessionsCompleted: z.number(),
+                status: z.enum(['improving', 'stagnant', 'regressing']),
+              })
+            ),
+          }),
+        },
+      },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const { language, daysSince } = improvementQuerySchema.parse(request.query);
         const userId = request.user.id;
 
-        const improvements = await weaknessService.trackImprovements(
-          userId,
-          language,
-          daysSince
-        );
+        const improvements = await weaknessService.trackImprovements(userId, language, daysSince);
 
         return reply.code(200).send({ improvements });
-
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           error: 'Failed to track improvements',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -1240,6 +1273,7 @@ export const WeaknessDashboard: React.FC = () => {
 **Current Approach**: 70% accuracy threshold, requiring minimum 5 attempts for reliable data
 
 **Alternatives**:
+
 1. **Adaptive Thresholds**: Different thresholds per CEFR level (80% for A1, 70% for B2, 65% for C2)
 2. **Confidence Intervals**: Use statistical confidence intervals instead of fixed threshold
 3. **Percentile-Based**: Mark bottom 20% of user's performance as weaknesses (relative, not absolute)
@@ -1256,6 +1290,7 @@ export const WeaknessDashboard: React.FC = () => {
 **Current Approach**: Sort by severity score (weighted combination of accuracy, recency, frequency)
 
 **Alternatives**:
+
 1. **Spaced Repetition Integration**: Coordinate with SRS algorithm to avoid conflicting schedules
 2. **Skill Tree Dependencies**: Prioritize foundational weaknesses that block higher-level concepts
 3. **User Preference**: Let users choose between "hardest first" vs "quick wins first"
@@ -1272,6 +1307,7 @@ export const WeaknessDashboard: React.FC = () => {
 **Current Approach**: Compare accuracy from 14 days ago vs current, mark as improving/stagnant/regressing based on ±10% change
 
 **Alternatives**:
+
 1. **Continuous Tracking**: Show full improvement curve over time (line chart)
 2. **Milestone-Based**: Define clear milestones (50% → 60% → 70% → mastered) and celebrate transitions
 3. **Effort-Adjusted**: Factor in practice time - 5% improvement with 20 sessions is different from 5% with 2 sessions
