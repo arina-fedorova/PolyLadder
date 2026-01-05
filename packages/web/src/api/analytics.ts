@@ -301,3 +301,113 @@ export const cefrAnalyticsApi = {
     return api.get<CEFROverviewResponse>('/analytics/cefr/overview');
   },
 };
+
+// Weakness Identification Types
+export interface WeaknessItem {
+  itemId: string;
+  itemType: 'vocabulary' | 'grammar';
+  itemText: string;
+  language: string;
+  cefrLevel: string;
+  category?: string;
+  accuracy: number;
+  totalAttempts: number;
+  recentAttempts: number;
+  failureCount: number;
+  lastAttemptDate: string | null;
+  severityScore: number;
+  improvementPotential: number;
+}
+
+export interface WeaknessAnalysisResponse {
+  userId: string;
+  language?: string;
+  totalWeaknesses: number;
+  weaknessesByType: {
+    vocabulary: number;
+    grammar: number;
+  };
+  weaknessesByCEFR: Record<string, number>;
+  topWeaknesses: WeaknessItem[];
+  analyzedAt: string;
+}
+
+export interface WeaknessRecommendation {
+  itemId: string;
+  itemType: string;
+  itemText: string;
+  reason: string;
+  practiceType: 'recall' | 'recognition' | 'production' | 'mixed';
+  estimatedPracticeTime: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+}
+
+export interface WeaknessRecommendationsResponse {
+  recommendations: WeaknessRecommendation[];
+}
+
+export interface ImprovementTracking {
+  itemId: string;
+  itemType: string;
+  itemText: string;
+  beforeAccuracy: number;
+  afterAccuracy: number;
+  improvementPercentage: number;
+  practiceSessionsCompleted: number;
+  status: 'improving' | 'stagnant' | 'regressing';
+}
+
+export interface ImprovementsResponse {
+  improvements: ImprovementTracking[];
+}
+
+export interface WeaknessHeatmapCell {
+  cefrLevel: string;
+  category: string;
+  weaknessCount: number;
+  avgSeverity: number;
+}
+
+export interface WeaknessHeatmapResponse {
+  heatmap: WeaknessHeatmapCell[];
+}
+
+export const weaknessAnalyticsApi = {
+  async getAnalysis(language?: string, cefrLevel?: string): Promise<WeaknessAnalysisResponse> {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (cefrLevel) params.append('cefrLevel', cefrLevel);
+    const queryString = params.toString();
+    return api.get<WeaknessAnalysisResponse>(
+      `/analytics/weakness/analysis${queryString ? `?${queryString}` : ''}`
+    );
+  },
+
+  async getRecommendations(
+    language?: string,
+    limit?: number
+  ): Promise<WeaknessRecommendationsResponse> {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (limit) params.append('limit', limit.toString());
+    const queryString = params.toString();
+    return api.get<WeaknessRecommendationsResponse>(
+      `/analytics/weakness/recommendations${queryString ? `?${queryString}` : ''}`
+    );
+  },
+
+  async getImprovements(language?: string, daysSince?: number): Promise<ImprovementsResponse> {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (daysSince) params.append('daysSince', daysSince.toString());
+    const queryString = params.toString();
+    return api.get<ImprovementsResponse>(
+      `/analytics/weakness/improvements${queryString ? `?${queryString}` : ''}`
+    );
+  },
+
+  async getHeatmap(language?: string): Promise<WeaknessHeatmapResponse> {
+    const params = language ? `?language=${language}` : '';
+    return api.get<WeaknessHeatmapResponse>(`/analytics/weakness/heatmap${params}`);
+  },
+};

@@ -30,3 +30,12 @@ export type {
   LevelRequirements,
   CEFROverview,
 } from './cefr-assessment.interface';
+
+export { WeaknessIdentificationService } from './weakness-identification.service';
+export type {
+  WeaknessItem,
+  WeaknessAnalysis,
+  WeaknessRecommendation,
+  ImprovementTracking,
+  WeaknessHeatmapCell,
+} from './weakness-identification.interface';
