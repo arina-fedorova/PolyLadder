@@ -28,7 +28,7 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const query = request.query as MappingQueryParams;
       const page = parseInt(query.page || '1', 10);
-      const limit = parseInt(query.limit || '10', 10);
+      const limit = Math.min(parseInt(query.limit || '10', 10), 100);
       const offset = (page - 1) * limit;
 
       const result = await fastify.db.query(
@@ -52,9 +52,10 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
         `SELECT COUNT(*) FROM content_topic_mappings WHERE status = 'auto_mapped'`
       );
 
+      const totalCount = countResult.rows[0]?.count ?? '0';
       return reply.send({
         mappings: result.rows,
-        total: parseInt(countResult.rows[0].count, 10),
+        total: parseInt(totalCount, 10),
         page,
         limit,
       });
@@ -160,9 +161,10 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
         WHERE completed_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
       `);
 
+      const defaultCosts = { total_cost: null, total_tokens: null, total_jobs: '0' };
       return reply.send({
         mappingStats: result.rows,
-        transformationCosts: costResult.rows[0],
+        transformationCosts: costResult.rows[0] ?? defaultCosts,
       });
     }
   );
@@ -175,12 +177,12 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const query = request.query as MappingQueryParams;
       const page = parseInt(query.page || '1', 10);
-      const limit = parseInt(query.limit || '50', 10);
+      const limit = Math.min(parseInt(query.limit || '50', 10), 100);
       const offset = (page - 1) * limit;
 
       const result = await fastify.db.query(
         `
-        SELECT 
+        SELECT
           j.*,
           m.chunk_id,
           m.topic_id,
@@ -204,9 +206,10 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
         `SELECT COUNT(*) FROM transformation_jobs`
       );
 
+      const jobsCount = countResult.rows[0]?.count ?? '0';
       return reply.send({
         jobs: result.rows,
-        total: parseInt(countResult.rows[0].count, 10),
+        total: parseInt(jobsCount, 10),
         page,
         limit,
       });
@@ -228,10 +231,7 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
           id: string;
           mapping_id: string;
           status: string;
-        }>(
-          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
-          [id]
-        );
+        }>(`SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`, [id]);
 
         if (jobResult.rows.length === 0) {
           await fastify.db.query('ROLLBACK');
@@ -247,15 +247,9 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
 
         const job = jobResult.rows[0];
 
-        await fastify.db.query(
-          `DELETE FROM drafts WHERE transformation_job_id = $1`,
-          [id]
-        );
+        await fastify.db.query(`DELETE FROM drafts WHERE transformation_job_id = $1`, [id]);
 
-        await fastify.db.query(
-          `DELETE FROM transformation_jobs WHERE id = $1`,
-          [id]
-        );
+        await fastify.db.query(`DELETE FROM transformation_jobs WHERE id = $1`, [id]);
 
         await fastify.db.query('COMMIT');
 
@@ -286,10 +280,7 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
           id: string;
           mapping_id: string;
           status: string;
-        }>(
-          `SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`,
-          [id]
-        );
+        }>(`SELECT id, mapping_id, status FROM transformation_jobs WHERE id = $1`, [id]);
 
         if (jobResult.rows.length === 0) {
           await fastify.db.query('ROLLBACK');
@@ -303,15 +294,9 @@ export const mappingRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        await fastify.db.query(
-          `DELETE FROM drafts WHERE transformation_job_id = $1`,
-          [id]
-        );
+        await fastify.db.query(`DELETE FROM drafts WHERE transformation_job_id = $1`, [id]);
 
-        await fastify.db.query(
-          `DELETE FROM transformation_jobs WHERE id = $1`,
-          [id]
-        );
+        await fastify.db.query(`DELETE FROM transformation_jobs WHERE id = $1`, [id]);
 
         await fastify.db.query('COMMIT');
 
