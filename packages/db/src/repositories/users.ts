@@ -70,7 +70,7 @@ export async function emailExists(email: string): Promise<boolean> {
     [email]
   );
 
-  return result.rows[0].exists;
+  return result.rows[0]?.exists ?? false;
 }
 
 export async function updatePassword(userId: string, newPasswordHash: string): Promise<void> {

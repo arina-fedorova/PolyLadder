@@ -154,9 +154,9 @@ export function createApprovalEventRepository(pool: Pool | PoolClient): Approval
       }
 
       return {
-        total: parseInt(totalResult.rows[0].count, 10),
-        manual: parseInt(manualResult.rows[0].count, 10),
-        automatic: parseInt(autoResult.rows[0].count, 10),
+        total: parseInt(totalResult.rows[0]?.count ?? '0', 10),
+        manual: parseInt(manualResult.rows[0]?.count ?? '0', 10),
+        automatic: parseInt(autoResult.rows[0]?.count ?? '0', 10),
         byType,
       };
     },
