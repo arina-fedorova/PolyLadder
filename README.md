@@ -84,7 +84,3 @@ Full documentation is maintained in [PolyLadderCommon](../PolyLadderCommon/docs/
 | PolyLadderCommon           | Shared code and documentation | Private                                                                |
 | PolyLadderAdmin            | Operator dashboard            | Private                                                                |
 | MultilingualVoiceAssistant | Voice-based tutor             | [GitHub](https://github.com/arina-fedorova/MultilingualVoiceAssistant) |
-
-## License
-
-MIT
