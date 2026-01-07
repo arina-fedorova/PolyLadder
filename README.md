@@ -1,86 +1,37 @@
 # PolyLadder
 
-Cloud-hosted web application for parallel language learning.
+Web application for parallel language learning.
 
-## Overview
+## About
 
-PolyLadder is a language learning platform that enables users to study multiple languages simultaneously using a comparative approach. The system features a continuously growing linguistic knowledge base, structured curriculum with grammar lessons, vocabulary tracking, and cross-language translation exercises.
+PolyLadder lets you study multiple related languages simultaneously — Spanish, Italian, Portuguese — leveraging their similarities and explicitly working through differences. The system shows grammar comparatively, tracks confusion between languages, and generates exercises targeting problem areas.
 
-## Supported Languages
+Implemented: authentication, onboarding, orthography/vocabulary/grammar modules, 7 practice modes, spaced repetition, progress tracking. Status: 92% complete.
 
-| Language   | Code | Standard |
-| ---------- | ---- | -------- |
-| English    | EN   | US       |
-| Italian    | IT   | Standard |
-| Portuguese | PT   | Portugal |
-| Slovenian  | SL   | Standard |
-| Spanish    | ES   | Spain    |
+## Technology
 
-## Technology Stack
-
-| Component       | Technology                |
-| --------------- | ------------------------- |
-| Runtime         | Node.js 20.x              |
-| Language        | TypeScript 5.x            |
-| Database        | PostgreSQL 15.x           |
-| API             | Fastify                   |
-| Frontend        | React, Vite, Tailwind CSS |
-| Package Manager | pnpm                      |
-
-## Project Structure
-
-```
-polyladder/
-├── packages/
-│   ├── api/                  # REST API server
-│   └── web/                  # React frontend
-└── .github/                  # CI/CD workflows
-```
+Backend: Node.js 20, TypeScript, Fastify, PostgreSQL. Frontend: React 18, Vite, Tailwind CSS. Monorepo with pnpm workspace.
 
 ## Development
 
-### Prerequisites
-
-- Node.js >= 20.0.0
-- pnpm >= 8.0.0
-- Access to PolyLadderCommon repository
-
-### Setup
+Requires access to private PolyLadderCommon repository for shared code and documentation.
 
 ```bash
-# Clone repositories into same parent directory
+# Clone both repositories into same directory
 git clone https://github.com/arina-fedorova/PolyLadder.git
 git clone <private>/PolyLadderCommon.git
 
-# Install dependencies
 cd PolyLadder
 pnpm install
-
-# Start development servers
 pnpm dev
-```
-
-### Scripts
-
-```bash
-pnpm build      # Build all packages
-pnpm test       # Run all tests
-pnpm lint       # Lint all packages
-pnpm format     # Format code with Prettier
 ```
 
 ## Documentation
 
-Full documentation is maintained in [PolyLadderCommon](../PolyLadderCommon/docs/):
-
-- [Technical Specification](../PolyLadderCommon/docs/polyladder/TECHNICAL_SPECIFICATION.md)
-- [System Architecture](../PolyLadderCommon/docs/architecture/SEPARATION_PLAN.md)
-- [Documentation Index](../PolyLadderCommon/docs/README.md)
+All documentation in [PolyLadderCommon/docs](../PolyLadderCommon/docs/). Main document: [PROJECT_CONTEXT.md](../PolyLadderCommon/docs/polyladder/PROJECT_CONTEXT.md).
 
 ## Related Projects
 
-| Project                    | Description                   | Repository                                                             |
-| -------------------------- | ----------------------------- | ---------------------------------------------------------------------- |
-| PolyLadderCommon           | Shared code and documentation | Private                                                                |
-| PolyLadderAdmin            | Operator dashboard            | Private                                                                |
-| MultilingualVoiceAssistant | Voice-based tutor             | [GitHub](https://github.com/arina-fedorova/MultilingualVoiceAssistant) |
+- **PolyLadderCommon** — shared code and documentation (private)
+- **PolyLadderAdmin** — operator dashboard for content management (private)
+- **[MultilingualVoiceAssistant](https://github.com/arina-fedorova/MultilingualVoiceAssistant)** — voice assistant for pronunciation practice
