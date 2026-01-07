@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@polyladder/core/domain': path.resolve(__dirname, '../core/src/domain/index.ts'),
+      '@polyladder/core': path.resolve(__dirname, '../core/src/index.ts'),
     },
   },
   server: {
