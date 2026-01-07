@@ -169,3 +169,4 @@ export function down(pgm: MigrationBuilder): void {
   pgm.dropTable('content_topic_mappings');
   pgm.dropType('mapping_status_enum');
 }
+

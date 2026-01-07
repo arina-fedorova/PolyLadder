@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { authMiddleware } from '../../middleware/auth';
+import { getEnv } from '../../config/env';
 
 interface MappingParams {
   pipelineId: string;
@@ -15,13 +16,37 @@ interface RejectMappingBody {
 }
 
 const pipelineMappingsRoute: FastifyPluginAsync = async (fastify) => {
-  // DEBUG endpoint - get ALL mappings
+  // DEBUG endpoint - get ALL mappings (disabled in production)
   fastify.get(
     '/pipelines/:pipelineId/mappings/debug',
     {
       preHandler: [authMiddleware],
     },
     async (request, reply) => {
+      // Disable debug endpoint in production
+      if (getEnv().NODE_ENV === 'production') {
+        return reply.status(404).send({
+          error: {
+            statusCode: 404,
+            message: 'Not found',
+            requestId: request.id,
+            code: 'NOT_FOUND',
+          },
+        });
+      }
+
+      // Require operator role
+      if (request.user?.role !== 'operator') {
+        return reply.status(403).send({
+          error: {
+            statusCode: 403,
+            message: 'Operator role required',
+            requestId: request.id,
+            code: 'FORBIDDEN',
+          },
+        });
+      }
+
       const { pipelineId } = request.params as { pipelineId: string };
 
       // Get document_id from pipeline

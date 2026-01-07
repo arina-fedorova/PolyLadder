@@ -137,7 +137,7 @@ const vocabularyRoute: FastifyPluginAsync = async (fastify) => {
         `SELECT COUNT(*) as total FROM user_vocabulary WHERE ${whereClause}`,
         values
       );
-      const total = parseInt(countResult.rows[0].total, 10);
+      const total = parseInt(countResult.rows[0]?.total ?? '0', 10);
 
       const vocabResult = await fastify.db.query<VocabularyRow>(
         `SELECT id, word, language, state, first_seen, last_reviewed, review_count
