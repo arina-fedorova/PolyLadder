@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
-import type { StateTransition } from '@polyladder/core';
-import { LifecycleState } from '@polyladder/core';
+import { LifecycleState } from '@polyladder/types';
+import type { StateTransition } from '@polyladder/lifecycle';
 
 export interface TransitionParams {
   itemId: string;

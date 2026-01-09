@@ -5,12 +5,12 @@ import { WorkItem, ContentType } from './work-planner.service';
 import { AnthropicAdapter } from '../sources/adapters/anthropic-adapter';
 import { RuleBasedAdapter } from '../sources/adapters/rule-based-adapter';
 import { logger } from '../utils/logger';
+import { LifecycleState } from '@polyladder/types';
 import {
   executeTransitionSimple,
-  LifecycleState,
   type StateTransition,
   type TransitionRepository,
-} from '@polyladder/core';
+} from '@polyladder/lifecycle';
 import { recordTransition, moveItemToState } from '../db/transitions';
 
 export interface ContentProcessorRepository {

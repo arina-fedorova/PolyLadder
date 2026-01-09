@@ -21,7 +21,6 @@
     "@fastify/type-provider-typebox": "^5.1.0",
     "@polyladder/auth": "workspace:*",
     "@polyladder/config": "workspace:*",
-    "@polyladder/core": "workspace:*",
     "@polyladder/db": "workspace:*",
     "@polyladder/lifecycle": "workspace:*",
     "@polyladder/quality-gates": "workspace:*",

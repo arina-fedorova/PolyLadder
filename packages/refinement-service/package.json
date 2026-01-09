@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "@polyladder/core": "workspace:*",
     "@polyladder/db": "workspace:*",
+    "@polyladder/lifecycle": "workspace:*",
+    "@polyladder/quality-gates": "workspace:*",
+    "@polyladder/types": "workspace:*",
     "pdf-parse": "^1.1.1",
     "pg": "^8.13.3",
     "pino": "^9.6.0"

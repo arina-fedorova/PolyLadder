@@ -1,10 +1,10 @@
 import { Pool } from 'pg';
+import { LifecycleState } from '@polyladder/types';
 import {
   executeTransitionSimple,
-  LifecycleState,
   type StateTransition,
   type TransitionRepository,
-} from '@polyladder/core';
+} from '@polyladder/lifecycle';
 import { recordTransition, moveItemToState } from '../db/transitions';
 import { logger } from '../utils/logger';
 import { PipelineEventLogger } from './pipeline-event-logger.service';

@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { DuplicationRepository } from '@polyladder/core';
+import { DuplicationRepository } from '@polyladder/quality-gates';
 
 export function createDuplicationRepository(pool: Pool): DuplicationRepository {
   return {
