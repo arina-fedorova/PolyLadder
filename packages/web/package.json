@@ -19,7 +19,6 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@polyladder/api-client": "workspace:*",
-    "@polyladder/core": "workspace:*",
     "@polyladder/types": "workspace:*",
     "@polyladder/utils": "workspace:*",
     "@tanstack/react-query": "^5.90.12",
