@@ -11,7 +11,7 @@ import {
   type StateTransition,
   type TransitionRepository,
 } from '@polyladder/core';
-import { recordTransition, moveItemToState } from '@polyladder/db';
+import { recordTransition, moveItemToState } from '../db/transitions';
 
 export interface ContentProcessorRepository {
   insertDraftMeaning(content: GeneratedContent): Promise<string>;

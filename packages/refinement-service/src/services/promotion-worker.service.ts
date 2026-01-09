@@ -5,7 +5,7 @@ import {
   type StateTransition,
   type TransitionRepository,
 } from '@polyladder/core';
-import { recordTransition, moveItemToState } from '@polyladder/db';
+import { recordTransition, moveItemToState } from '../db/transitions';
 import { logger } from '../utils/logger';
 import { PipelineEventLogger } from './pipeline-event-logger.service';
 

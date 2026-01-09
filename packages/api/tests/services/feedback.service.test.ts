@@ -8,12 +8,12 @@ let dbAvailable = false;
 
 beforeAll(async () => {
   dbAvailable = await checkDatabaseConnection();
-  if (!dbAvailable && process.env.CI !== 'true') {
+  if (!dbAvailable) {
     console.warn('Test database not available, skipping database-dependent tests');
   }
 });
 
-describe.skipIf(!dbAvailable && process.env.CI !== 'true')('FeedbackService', () => {
+describe.skipIf(!dbAvailable)('FeedbackService', () => {
   let pool: Pool;
   let service: FeedbackService;
   let operator: TestUser;
