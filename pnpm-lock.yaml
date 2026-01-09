@@ -51,6 +51,115 @@ importers:
         specifier: ^8.50.0
         version: 8.50.0(eslint@9.39.2)(typescript@5.9.3)
 
+  ../PolyLadderCommon/packages/api-client:
+    dependencies:
+      axios:
+        specifier: ^1.7.0
+        version: 1.13.2
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.27
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/auth:
+    dependencies:
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../types
+      bcrypt:
+        specifier: ^5.1.0
+        version: 5.1.1
+      jsonwebtoken:
+        specifier: ^9.0.0
+        version: 9.0.3
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+    devDependencies:
+      '@types/bcrypt':
+        specifier: ^5.0.0
+        version: 5.0.2
+      '@types/jsonwebtoken':
+        specifier: ^9.0.0
+        version: 9.0.10
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/config:
+    dependencies:
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.27
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/db:
+    dependencies:
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../types
+      pg:
+        specifier: ^8.11.0
+        version: 8.16.3
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.10.0
+        version: 8.16.0
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/lifecycle:
+    dependencies:
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/quality-gates:
+    dependencies:
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.27
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/types:
+    dependencies:
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+    devDependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
+  ../PolyLadderCommon/packages/utils:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.27
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
+
   packages/api:
     dependencies:
       '@fastify/cors':
@@ -65,12 +174,30 @@ importers:
       '@fastify/type-provider-typebox':
         specifier: ^5.1.0
         version: 5.2.0(@sinclair/typebox@0.34.41)
+      '@polyladder/auth':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/auth
+      '@polyladder/config':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/config
       '@polyladder/core':
         specifier: workspace:*
         version: link:../core
       '@polyladder/db':
         specifier: workspace:*
         version: link:../db
+      '@polyladder/lifecycle':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/lifecycle
+      '@polyladder/quality-gates':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/quality-gates
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/types
+      '@polyladder/utils':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/utils
       '@sinclair/typebox':
         specifier: ^0.34.31
         version: 0.34.41
@@ -225,9 +352,18 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.69.0)
+      '@polyladder/api-client':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/api-client
       '@polyladder/core':
         specifier: workspace:*
         version: link:../core
+      '@polyladder/types':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/types
+      '@polyladder/utils':
+        specifier: workspace:*
+        version: link:../../../PolyLadderCommon/packages/utils
       '@tanstack/react-query':
         specifier: ^5.90.12
         version: 5.90.12(react@18.3.1)
@@ -1744,6 +1880,12 @@ packages:
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
     dev: true
 
+  /@types/node@20.19.27:
+    resolution: {integrity: sha512-N2clP5pJhB2YnZJ3PIHFk5RkygRX5WO/5f0WC08tp0wd+sv0rsJk3MqWn3CbNmT2J505a5336jaQj4ph1AdMug==}
+    dependencies:
+      undici-types: 6.21.0
+    dev: true
+
   /@types/node@25.0.3:
     resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
     dependencies:
@@ -2281,6 +2423,16 @@ packages:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
     dev: false
 
+  /bundle-require@5.1.0(esbuild@0.27.2):
+    resolution: {integrity: sha512-3WrrOuZiyaaZPWiEt4G3+IffISVC9HYlWueJEBWED4ZH4aIAC2PnkdnuRrR94M+w6yGWn4AglWtJtBI8YqvgoA==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    peerDependencies:
+      esbuild: '>=0.18'
+    dependencies:
+      esbuild: 0.27.2
+      load-tsconfig: 0.2.5
+    dev: true
+
   /cac@6.7.14:
     resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
     engines: {node: '>=8'}
@@ -2344,6 +2496,13 @@ packages:
       readdirp: 3.6.0
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
+
+  /chokidar@4.0.3:
+    resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+    engines: {node: '>= 14.16.0'}
+    dependencies:
+      readdirp: 4.1.2
     dev: true
 
   /chownr@2.0.0:
@@ -2420,6 +2579,15 @@ packages:
 
   /concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  /confbox@0.1.8:
+    resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
+    dev: true
+
+  /consola@3.4.2:
+    resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
+    engines: {node: ^14.18.0 || >=16.10.0}
+    dev: true
 
   /console-control-strings@1.1.0:
     resolution: {integrity: sha512-ty/fTekppD2fIwRvnZAVdeOiGd1c7YXEixbgJTNzqcxJWKQnjJ/V1bNEEE6hygpM3WjwHFUVK6HTjWSzV4a8sQ==}
@@ -3024,6 +3192,14 @@ packages:
       path-exists: 4.0.0
     dev: true
 
+  /fix-dts-default-cjs-exports@1.0.1:
+    resolution: {integrity: sha512-pVIECanWFC61Hzl2+oOCtoJ3F17kglZC/6N94eRWycFgBH35hHx0Li604ZIzhseh97mf2p0cv7vVrOZGoqhlEg==}
+    dependencies:
+      magic-string: 0.30.21
+      mlly: 1.8.0
+      rollup: 4.53.5
+    dev: true
+
   /flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
     engines: {node: '>=16'}
@@ -3606,6 +3782,11 @@ packages:
       wrap-ansi: 9.0.2
     dev: true
 
+  /load-tsconfig@0.2.5:
+    resolution: {integrity: sha512-IXO6OCs9yg8tMKzfPZ1YmheJbZCiEsnBdcB03l0OcfK9prKnJb96siuHCr5Fl37/yo9DnKU+TLpxzTUspw9shg==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    dev: true
+
   /locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
@@ -3786,6 +3967,15 @@ packages:
     resolution: {integrity: sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==}
     engines: {node: '>=10'}
     hasBin: true
+
+  /mlly@1.8.0:
+    resolution: {integrity: sha512-l8D9ODSRWLe2KHJSifWGwBqpTZXIXTeo8mlKjY+E2HAakaTeNpqAyBZ8GSqLzHgw4XmHmC8whvpjJNMbFZN7/g==}
+    dependencies:
+      acorn: 8.15.0
+      pathe: 2.0.3
+      pkg-types: 1.3.1
+      ufo: 1.6.2
+    dev: true
 
   /mnemonist@0.40.0:
     resolution: {integrity: sha512-kdd8AFNig2AD5Rkih7EPCXhu/iMvwevQFX/uEiGhZyPZi7fHqOoF4V4kHLpCfysxXMgQ4B52kdPMCwARshKvEg==}
@@ -4185,6 +4375,14 @@ packages:
     engines: {node: '>= 6'}
     dev: true
 
+  /pkg-types@1.3.1:
+    resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
+    dependencies:
+      confbox: 0.1.8
+      mlly: 1.8.0
+      pathe: 2.0.3
+    dev: true
+
   /playwright-core@1.57.0:
     resolution: {integrity: sha512-agTcKlMw/mjBWOnD6kFZttAAGHgi/Nw0CZ2o6JqWSbMlI219lAFLZZCyqByTsvVAJq5XA5H8cA6PrvBRpBWEuQ==}
     engines: {node: '>=18'}
@@ -4449,6 +4647,11 @@ packages:
       picomatch: 2.3.1
     dev: true
 
+  /readdirp@4.1.2:
+    resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
+    engines: {node: '>= 14.18.0'}
+    dev: true
+
   /real-require@0.2.0:
     resolution: {integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==}
     engines: {node: '>= 12.13.0'}
@@ -4509,6 +4712,11 @@ packages:
   /resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
     engines: {node: '>=4'}
+    dev: true
+
+  /resolve-from@5.0.0:
+    resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
+    engines: {node: '>=8'}
     dev: true
 
   /resolve-pkg-maps@1.0.0:
@@ -4691,6 +4899,11 @@ packages:
   /source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
+    dev: true
+
+  /source-map@0.7.6:
+    resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
+    engines: {node: '>= 12'}
     dev: true
 
   /split2@4.2.0:
@@ -4963,6 +5176,11 @@ packages:
       punycode: 2.3.1
     dev: true
 
+  /tree-kill@1.2.2:
+    resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
+    hasBin: true
+    dev: true
+
   /ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
     dev: false
@@ -5015,6 +5233,50 @@ packages:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
     dev: true
 
+  /tsup@8.5.1(tsx@4.21.0)(typescript@5.9.3):
+    resolution: {integrity: sha512-xtgkqwdhpKWr3tKPmCkvYmS9xnQK3m3XgxZHwSUjvfTjp7YfXe5tT3GgWi0F2N+ZSMsOeWeZFh7ZZFg5iPhing==}
+    engines: {node: '>=18'}
+    hasBin: true
+    peerDependencies:
+      '@microsoft/api-extractor': ^7.36.0
+      '@swc/core': ^1
+      postcss: ^8.4.12
+      typescript: '>=4.5.0'
+    peerDependenciesMeta:
+      '@microsoft/api-extractor':
+        optional: true
+      '@swc/core':
+        optional: true
+      postcss:
+        optional: true
+      typescript:
+        optional: true
+    dependencies:
+      bundle-require: 5.1.0(esbuild@0.27.2)
+      cac: 6.7.14
+      chokidar: 4.0.3
+      consola: 3.4.2
+      debug: 4.4.3(supports-color@5.5.0)
+      esbuild: 0.27.2
+      fix-dts-default-cjs-exports: 1.0.1
+      joycon: 3.1.1
+      picocolors: 1.1.1
+      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.6)(tsx@4.21.0)
+      resolve-from: 5.0.0
+      rollup: 4.53.5
+      source-map: 0.7.6
+      sucrase: 3.35.1
+      tinyexec: 0.3.2
+      tinyglobby: 0.2.15
+      tree-kill: 1.2.2
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - jiti
+      - supports-color
+      - tsx
+      - yaml
+    dev: true
+
   /tsx@4.21.0:
     resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
     engines: {node: '>=18.0.0'}
@@ -5056,8 +5318,16 @@ packages:
     hasBin: true
     dev: true
 
+  /ufo@1.6.2:
+    resolution: {integrity: sha512-heMioaxBcG9+Znsda5Q8sQbWnLJSl98AFDXTO80wELWEzX3hordXsTdxrIfMQoO9IY1MEnoGoPjpoKpMj+Yx0Q==}
+    dev: true
+
   /undefsafe@2.0.5:
     resolution: {integrity: sha512-WxONCrssBM8TSPRqN5EmsjVrsv4A8X12J4ArBiiayv3DyyG3ZlIg6yysuuSYdZsVz3TKcTg2fd//Ujd4CHV1iA==}
+    dev: true
+
+  /undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
     dev: true
 
   /undici-types@7.16.0:
