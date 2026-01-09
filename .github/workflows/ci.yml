@@ -44,6 +44,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout PolyLadderCommon
+        uses: actions/checkout@v4
+        with:
+          repository: PolyLadder/PolyLadderCommon
+          path: ../PolyLadderCommon
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
@@ -60,6 +66,12 @@ jobs:
 
       - name: Build dependencies
         run: |
+          pnpm --filter @polyladder/types build
+          pnpm --filter @polyladder/utils build
+          pnpm --filter @polyladder/config build
+          pnpm --filter @polyladder/auth build
+          pnpm --filter @polyladder/lifecycle build
+          pnpm --filter @polyladder/quality-gates build
           pnpm --filter @polyladder/core build
           pnpm --filter @polyladder/db build
 
