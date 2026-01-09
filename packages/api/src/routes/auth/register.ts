@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import { hashPassword } from '@polyladder/core';
+import { hashPassword } from '@polyladder/auth';
 import { emailExists, createUser, type Language } from '@polyladder/db';
 import { ErrorResponseSchema } from '../../schemas/common';
 

@@ -1,12 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import {
-  verifyPassword,
-  needsRehash,
-  hashPassword,
-  generateToken,
-  UserRole,
-} from '@polyladder/core';
+import { verifyPassword, needsRehash, hashPassword, generateToken } from '@polyladder/auth';
+import { UserRole } from '@polyladder/types';
 import { getEnv } from '../../config/env';
 import { ErrorResponseSchema } from '../../schemas/common';
 
