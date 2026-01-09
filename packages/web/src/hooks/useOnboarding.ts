@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Language } from '@polyladder/core/domain';
+import { Language } from '@polyladder/types';
 import api from '@/api/client';
 
 export function useOnboarding() {
