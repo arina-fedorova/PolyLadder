@@ -51,6 +51,7 @@ jobs:
         with:
           repository: PolyLadder/PolyLadderCommon
           path: PolyLadderCommon
+          token: ${{ secrets.POLYLADDER_COMMON_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
