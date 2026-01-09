@@ -104,6 +104,9 @@ importers:
 
   ../PolyLadderCommon/packages/db:
     dependencies:
+      '@polyladder/lifecycle':
+        specifier: workspace:*
+        version: link:../lifecycle
       '@polyladder/types':
         specifier: workspace:*
         version: link:../types
