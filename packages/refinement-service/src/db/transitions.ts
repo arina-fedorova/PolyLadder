@@ -51,7 +51,6 @@ export async function moveItemToState(
   toState: LifecycleState,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  // If pool is already a client (in transaction), use it directly
   const isPoolClient = (p: Pool | PoolClient): p is PoolClient =>
     'release' in p && typeof p.release === 'function';
 
@@ -63,7 +62,6 @@ export async function moveItemToState(
       await client.query('BEGIN');
     }
 
-    // DRAFT -> CANDIDATE: create candidate from draft
     if (fromState === LifecycleState.DRAFT && toState === LifecycleState.CANDIDATE) {
       const draft = await client.query<{ data_type: string; raw_data: unknown }>(
         'SELECT id, data_type, raw_data FROM drafts WHERE id = $1',
@@ -76,7 +74,6 @@ export async function moveItemToState(
 
       const { data_type, raw_data } = draft.rows[0];
 
-      // Validate itemType matches
       if (data_type !== itemType) {
         throw new Error(`Item type mismatch: expected ${itemType}, got ${data_type}`);
       }
@@ -86,9 +83,7 @@ export async function moveItemToState(
          VALUES ($1, $2, $3)`,
         [data_type, raw_data, itemId]
       );
-    }
-    // CANDIDATE -> VALIDATED: create validated from candidate
-    else if (fromState === LifecycleState.CANDIDATE && toState === LifecycleState.VALIDATED) {
+    } else if (fromState === LifecycleState.CANDIDATE && toState === LifecycleState.VALIDATED) {
       const candidate = await client.query<{ data_type: string; normalized_data: unknown }>(
         'SELECT id, data_type, normalized_data FROM candidates WHERE id = $1',
         [itemId]
@@ -100,7 +95,6 @@ export async function moveItemToState(
 
       const { data_type, normalized_data } = candidate.rows[0];
 
-      // Validate itemType matches
       if (data_type !== itemType) {
         throw new Error(`Item type mismatch: expected ${itemType}, got ${data_type}`);
       }
@@ -114,9 +108,7 @@ export async function moveItemToState(
          VALUES ($1, $2, $3, $4)`,
         [data_type, normalized_data, itemId, JSON.stringify(validationResults)]
       );
-    }
-    // VALIDATED -> APPROVED: move to approved tables
-    else if (fromState === LifecycleState.VALIDATED && toState === LifecycleState.APPROVED) {
+    } else if (fromState === LifecycleState.VALIDATED && toState === LifecycleState.APPROVED) {
       const validated = await client.query<{ data_type: string; validated_data: unknown }>(
         'SELECT id, data_type, validated_data FROM validated WHERE id = $1',
         [itemId]
@@ -128,12 +120,10 @@ export async function moveItemToState(
 
       const { data_type, validated_data } = validated.rows[0];
 
-      // Validate itemType matches
       if (data_type !== itemType) {
         throw new Error(`Item type mismatch: expected ${itemType}, got ${data_type}`);
       }
 
-      // Insert into appropriate approved table based on data_type
       if (data_type === 'rule') {
         const data = validated_data as Record<string, unknown>;
         await client.query(
@@ -188,7 +178,6 @@ export async function moveItemToState(
         throw new Error(`Unknown data_type: ${data_type}`);
       }
 
-      // Delete from validated after moving to approved
       await client.query('DELETE FROM validated WHERE id = $1', [itemId]);
     }
 

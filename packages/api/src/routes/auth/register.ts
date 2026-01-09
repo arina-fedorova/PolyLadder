@@ -1,7 +1,8 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 import { hashPassword } from '@polyladder/auth';
-import { emailExists, createUser, type Language } from '@polyladder/db';
+import { emailExists, createUser } from '@polyladder/db';
+import { Language, UserRole } from '@polyladder/types';
 import { ErrorResponseSchema } from '../../schemas/common';
 
 const RegisterRequestSchema = Type.Object({
@@ -68,7 +69,7 @@ const registerRoute: FastifyPluginAsync = async function (fastify) {
       const user = await createUser({
         email: normalizedEmail,
         passwordHash,
-        role: role,
+        role: role as UserRole,
         baseLanguage: baseLanguage as Language,
       });
 

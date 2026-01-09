@@ -1,3 +1,6 @@
 packages:
-  - 'packages/*'
+  - 'packages/api'
+  - 'packages/core'
+  - 'packages/refinement-service'
+  - 'packages/web'
   - '../PolyLadderCommon/packages/*'
