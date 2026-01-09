@@ -3,7 +3,8 @@ import { Type, Static } from '@sinclair/typebox';
 import { authMiddleware } from '../../middleware/auth';
 import { ErrorResponseSchema, SuccessResponseSchema } from '../../schemas/common';
 import { withTransaction } from '../../utils/db.utils';
-import { recordApproval, ApprovalType } from '@polyladder/core';
+import { recordApproval } from '@polyladder/lifecycle';
+import { ApprovalType } from '@polyladder/types';
 import { createApprovalEventRepository } from '@polyladder/db';
 
 const ApproveParamsSchema = Type.Object({
